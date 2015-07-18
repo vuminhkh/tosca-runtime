@@ -1,0 +1,62 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+template_name: mysql-type
+template_version: 2.0.0-SNAPSHOT
+template_author: FastConnect
+
+node_types:
+  alien.nodes.Mysql:
+    derived_from: tosca.nodes.Database
+    description: >
+      A node to install MySQL v5.5 database with data
+      on a specific attached volume.
+    tags:
+      icon: /images/mysql.png
+    properties:
+      db_port:
+        type: integer
+        default: 3306
+        description: The port on which the underlying database service will listen to data.
+      db_name:
+        type: string
+        required: true
+        default: wordpress
+        description: The logical name of the database.
+      db_user:
+        type: string
+        default: pass
+        description: The special user account used for database administration.
+      db_password:
+        type: string
+        default: pass
+        description: The password associated with the user account provided in the 'db_user' property.
+      bind_address:
+        type: boolean
+        required: false
+        default: true
+        description: If true,the server accepts TCP/IP connections on all server host IPv4 interfaces.
+      storage_path:
+        type: string
+        default: /mountedStorage
+        constraints:
+          - valid_values: [ "/mountedStorage", "/var/mysql" ]
+    capabilities:
+      mysql:
+        type: alien.capabilities.MysqlDatabase
+    artifacts:
+      - configs: configs
+    interfaces:
+      Standard:
+        create: scripts/install_mysql.sh
+        start:
+          inputs:
+            VOLUME_HOME: { get_property: [SELF, storage_path] }
+            PORT: { get_property: [SELF, db_port] }
+            DB_NAME: { get_property: [SELF, db_name] }
+            DB_USER: { get_property: [SELF, db_user] }
+            DB_PASSWORD: { get_property: [SELF, db_password] }
+            BIND_ADRESS: { get_property: [SELF, bind_address] }
+          implementation: scripts/start_mysql.sh
+
+capability_types:
+  alien.capabilities.MysqlDatabase:
+    derived_from: tosca.capabilities.Container

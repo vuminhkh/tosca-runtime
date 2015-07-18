@@ -1,0 +1,75 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+template_name: wordpress-type
+template_version: 2.0.0-SNAPSHOT
+template_author: FastConnect
+
+node_types:
+  alien.nodes.Wordpress:
+    derived_from: tosca.nodes.WebApplication
+    description: The TOSCA Wordpress Node Type represents a Wordpress CMS.
+    tags:
+      icon: /images/wordpress.png
+    properties:
+      zip_url:
+        type: string
+        default: "https://wordpress.org/latest.zip"
+      context_path:
+        type: string
+        default: "/"
+    requirements:
+      host:
+        type: alien.capabilities.ApacheContainer
+        relationship_type: alien.relationships.WordpressHostedOnApache
+      database:
+        type: alien.capabilities.MysqlDatabase
+        relationship_type: alien.relationships.WordpressConnectToMysql
+        lower_bound: 1
+        upper_bound: 1
+      php:
+        type: alien.capabilities.PHPModule
+        relationship_type: alien.relationships.WordpressConnectToPHP
+        lower_bound: 1
+        upper_bound: 1
+    interfaces:
+      Standard:
+        create:
+          inputs:
+            WEBFILE_URL: { get_property: [SELF, zip_url] }
+          implementation: scripts/install_wordpress.sh
+
+relationship_types:
+  alien.relationships.WordpressHostedOnApache:
+    derived_from: tosca.relationships.HostedOn
+    description: Relationship use to describe that the website is deployed on the target Apache server.
+    valid_sources: [ tosca.nodes.WebApplication ]
+    valid_targets: [ alien.capabilities.ApacheContainer ]
+    interfaces:
+      Configure:
+        pre_configure_source:
+          inputs:
+            CONTEXT_PATH: { get_property: [SOURCE, context_path] }
+            DOC_ROOT: { get_property: [TARGET, document_root] }
+          implementation: scripts/config_wordpress.sh
+  alien.relationships.WordpressConnectToMysql:
+    derived_from: tosca.relationships.ConnectsTo
+    description: Relationship use to connect the Wordpress with a Mysql databse
+    valid_sources: [ tosca.nodes.WebApplication ]
+    valid_targets: [ alien.capabilities.MysqlDatabase ]
+    interfaces:
+      Configure:
+          pre_configure_source:
+            inputs:
+              DB_IP: { get_attribute: [TARGET, ip_address] }
+              DB_PORT: { get_property: [TARGET, db_port] }
+              DB_NAME: { get_property: [TARGET, db_name] }
+              DB_USER: { get_property: [TARGET, db_user] }
+              DB_PASSWORD: { get_property: [TARGET, db_password] }
+            implementation: scripts/config_wordpress_for_mysql.sh
+  alien.relationships.WordpressConnectToPHP:
+    derived_from: tosca.relationships.ConnectsTo
+    description: Relationship use to install the Mysql module for PHP
+    valid_sources: [ tosca.nodes.WebApplication ]
+    valid_targets: [ alien.capabilities.PHPModule ]
+    interfaces:
+      Configure:
+          pre_configure_source: scripts/install_php_module.sh
