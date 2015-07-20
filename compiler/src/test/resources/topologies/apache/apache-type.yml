@@ -8,7 +8,7 @@ topology_template:
   description: A simple topology template created directly from a CSAR archive
   node_templates:
     compute:
-      type: tosca.nodes.Compute
+      type: Compute
       properties:
         os_type: linux
         os_distribution: ubuntu

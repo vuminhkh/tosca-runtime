@@ -7,7 +7,7 @@ template_author: TOSCA TC
 description: Contains the normative types definition.
 
 node_types:
-  tosca.nodes.Root:
+  Root:
     abstract: true
     tags:
       icon: /images/root.png
@@ -46,8 +46,8 @@ node_types:
           description: Standard lifecycle delete operation.
 
   # Infrastructure components
-  tosca.nodes.Compute:
-    derived_from: tosca.nodes.Root
+  Compute:
+    derived_from: Root
     description: >
       Represents a real or virtual machine or 'server'. Informations specified on the Compute
       node will be used to find the machine that fits the given requirements in the cloud
@@ -109,8 +109,8 @@ node_types:
       host: tosca.capabilities.Container
       attach: tosca.capabilities.Attachment
 
-  tosca.nodes.BlockStorage:
-    derived_from: tosca.nodes.Root
+  BlockStorage:
+    derived_from: Root
     description: >
       The TOSCA BlockStorage node currently represents a server-local block storage device (i.e., not shared)
       offering evenly sized blocks of data from which raw storage volumes can be created.
@@ -141,7 +141,7 @@ node_types:
         relationship_type: tosca.relationships.AttachTo
 
   tosca.nodes.ObjectStorage:
-    derived_from: tosca.nodes.Root
+    derived_from: Root
     abstract: true
     description: >
       The TOSCA ObjectStorage node represents storage that provides the ability to store data as objects (or BLOBs of data)
@@ -166,7 +166,7 @@ node_types:
         description: The requested maximum storage size in Gigabytes.
 
   tosca.nodes.SoftwareComponent:
-    derived_from: tosca.nodes.Root
+    derived_from: Root
     abstract: true
     description: >
       The TOSCA SoftwareComponent Node Type represents a generic software component
@@ -189,7 +189,7 @@ node_types:
       host: tosca.capabilities.Container
 
   tosca.nodes.WebApplication:
-    derived_from: tosca.nodes.Root
+    derived_from: Root
     description: >
       The TOSCA WebApplication node represents a software application that can be managed and run by a TOSCA WebServer node.  Specific types of web applications such as Java, etc. could be derived from this type.
     tags:
@@ -220,7 +220,7 @@ node_types:
       endpoint: tosca.capabilities.DatabaseEndpoint
 
   tosca.nodes.Database:
-    derived_from: tosca.nodes.Root
+    derived_from: Root
     description: >
       Base type for the schema and content associated with a DBMS.
       The TOSCA Database node represents a logical database that can be managed and hosted by a TOSCA DBMS node.
@@ -251,7 +251,7 @@ node_types:
       database_endpoint: tosca.capabilities.DatabaseEndpoint
 
   tosca.nodes.Network:
-    derived_from: tosca.nodes.Root
+    derived_from: Root
     description: >
       The TOSCA Network node represents a simple, logical network service.
     tags:
@@ -330,7 +330,7 @@ capability_types:
     derived_from: tosca.capabilities.Root
 
 relationship_types:
-  tosca.relationships.Root:
+  Root:
     abstract: true
     description: This is the default (root) TOSCA Relationship Type definition that all other TOSCA Relationship Types derive from.
     valid_targets: [ tosca.capabilities.Root ]
@@ -359,7 +359,7 @@ relationship_types:
         source_changed:
           description: Operation to notify target some property or attribute of the source.
   tosca.relationships.DependsOn:
-    derived_from: tosca.relationships.Root
+    derived_from: Root
     description: >
       A generic depends on relationship.
   tosca.relationships.HostedOn:
@@ -370,10 +370,10 @@ relationship_types:
     derived_from: tosca.relationships.DependsOn
     valid_targets: [ tosca.capabilities.Endpoint ]
   tosca.relationships.AttachTo:
-    derived_from: tosca.relationships.Root
+    derived_from: Root
     valid_targets: [ tosca.capabilities.Attachment ]
   tosca.relationships.Network:
-    derived_from: tosca.relationships.Root
+    derived_from: Root
     valid_targets: [ tosca.capabilities.Connectivity ]
 
 artifact_types:

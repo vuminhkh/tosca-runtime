@@ -16,17 +16,17 @@ case class StaticValue(name: String, input: String) extends OperationInput
 
 case class AttributeValue(name: String, node: String, attribute: String) extends OperationInput
 
-case class WorkFlow(name: String, step: Step)
+case class WorkFlow(name: String, task: Task)
 
-trait Step {
+trait Task {
 }
 
-trait CompositeStep extends Step {
-  val steps: Seq[Step]
+trait CompositeTask extends Task {
+  val tasks: Seq[Task]
 }
 
-case class Execution(nodeName: String, operationName: String) extends Step
+case class Execution(nodeName: String, operationName: String) extends Task
 
-case class Sequence(steps: Seq[Step]) extends CompositeStep
+case class Sequence(tasks: Seq[Task]) extends CompositeTask
 
-case class Concurrence(steps: Seq[Step]) extends CompositeStep
+case class Concurrence(tasks: Seq[Task]) extends CompositeTask
