@@ -14,7 +14,7 @@ lazy val docker = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
   libraryDependencies += "com.github.docker-java" % "docker-java" % "1.4.0"
-).dependsOn(sdk, common)
+).dependsOn(sdk)
 
 lazy val sdk = project.settings(
   version := "1.0",
@@ -22,7 +22,7 @@ lazy val sdk = project.settings(
   libraryDependencies += "org.springframework" % "spring-core" % "4.1.7.RELEASE",
   libraryDependencies += "org.springframework" % "spring-context" % "4.1.7.RELEASE",
   libraryDependencies += "org.springframework" % "spring-beans" % "4.1.7.RELEASE"
-)
+).dependsOn(common)
 
 lazy val common = project.settings(
   version := "1.0",

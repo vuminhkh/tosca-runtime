@@ -2,9 +2,11 @@ package com.mkv.tosca.compiler.runtime_model
 
 import java.nio.file.Path
 
-case class Deployment(nodes: Seq[Node], workFlows: Seq[WorkFlow])
+case class Deployment(nodes: Seq[Node], relationships: Seq[Relationship], workFlows: Seq[WorkFlow])
 
-case class Node(name: String, operations: Seq[Operation], instances: Int)
+case class Node(name: String, parent: Node, children: Seq[Node], operations: Seq[Operation], instances: Int)
+
+case class Relationship(source: Node, target: Node, operations: Seq[Operation])
 
 case class Operation(name: String, inputs: Seq[OperationInput], implementation: Path)
 

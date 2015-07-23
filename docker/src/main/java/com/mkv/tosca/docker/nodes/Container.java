@@ -47,21 +47,21 @@ public class Container extends Compute {
 
     @Override
     public void create() {
-        log.info("Node [" + name + "] : Creating container with image " + imageId);
+        log.info("Node [" + getName() + "] : Creating container with image " + imageId);
         Volume recipeVolume = new Volume(RECIPE_LOCATION);
         containerId = dockerClient.createContainerCmd(imageId).withName(getName()).withBinds(new Bind(recipeLocalPath, recipeVolume)).exec().getId();
-        log.info("Node [" + name + "] : Created container with id " + containerId);
+        log.info("Node [" + getName() + "] : Created container with id " + containerId);
     }
 
     @Override
     public void start() {
         if (containerId == null) {
-            throw new RuntimeException("Node [" + name + "] : Container has not been created yet");
+            throw new RuntimeException("Node [" + getName() + "] : Container has not been created yet");
         }
-        log.info("Node [" + name + "] : Starting container with id " + containerId);
+        log.info("Node [" + getName() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
         ipAddress = dockerClient.inspectContainerCmd(containerId).exec().getNetworkSettings().getIpAddress();
-        log.info("Node [" + name + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
     }
 
     @Override
@@ -69,10 +69,10 @@ public class Container extends Compute {
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
-        log.info("Node [" + name + "] : Stopping container with id " + containerId);
+        log.info("Node [" + getName() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
         ipAddress = null;
-        log.info("Node [" + name + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
     }
 
     @Override
@@ -80,10 +80,10 @@ public class Container extends Compute {
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
-        log.info("Node [" + name + "] : Deleting container with id " + containerId);
+        log.info("Node [" + getName() + "] : Deleting container with id " + containerId);
         dockerClient.removeContainerCmd(containerId).exec();
         containerId = null;
-        log.info("Node [" + name + "] : Deleted container with id " + containerId);
+        log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
     }
 
     private void runCommand(List<String> commands) throws IOException {
@@ -107,12 +107,12 @@ public class Container extends Compute {
     /**
      * Use docker exec to run scripts inside docker container
      * 
-     * @param scriptPath the relative path to the script in the recipe
+     * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public void exec(String scriptPath, Map<String, String> environmentVariables) {
-        String containerGeneratedScriptPath = RECIPE_GENERATED_SCRIPT_LOCATION + "/" + scriptPath;
-        String containerScriptPath = RECIPE_LOCATION + "/" + scriptPath;
-        String localGeneratedScriptPath = recipeLocalPath + GENERATED_SCRIPT_PATH + "/" + scriptPath;
+    public void execute(String operationArtifactPath, Map<String, String> environmentVariables) {
+        String containerGeneratedScriptPath = RECIPE_GENERATED_SCRIPT_LOCATION + "/" + operationArtifactPath;
+        String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
+        String localGeneratedScriptPath = recipeLocalPath + GENERATED_SCRIPT_PATH + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
         try {
             Files.createDirectories(Paths.get(localGeneratedScriptPath).getParent());

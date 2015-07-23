@@ -1,9 +1,10 @@
 import java.util.Map;
 
-import com.google.common.collect.Maps;
-import com.mkv.tosca.docker.nodes.NonNative;
+import tosca.nodes.Root;
 
-public class Java extends NonNative {
+import com.google.common.collect.Maps;
+
+public class Java extends Root {
 
     @Override
     public void create() {
