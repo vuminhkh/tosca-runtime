@@ -1,0 +1,24 @@
+@import com.mkv.tosca.compiler.generator.NodeType
+@import com.mkv.tosca.compiler.tosca.Csar
+@import com.mkv.tosca.compiler.generator.Util
+@(nodeType: NodeType, csarPath: List[Csar])
+package @nodeType.packageName
+
+public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nodeType.superClass @Html("{")
+@nodeType.methods.map { method =>
+  public void @method.name@Html("(){")
+    @if(Util.methodHasInput(method)) {
+      @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
+    }
+    @method.scalarInputs.map { scalarInput =>
+      inputs.put("@scalarInput._1", "@scalarInput._2");
+    }
+    @method.functionInputs.map{ functionInput =>
+      inputs.put("@functionInput._1", getInput("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
+    }
+    @method.implementation.map { implementation =>
+      getHost().execute("@implementation", inputs);
+    }
+  @Html("}")
+}
+@Html("}")

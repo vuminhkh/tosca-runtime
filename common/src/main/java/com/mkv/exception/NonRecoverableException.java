@@ -5,7 +5,7 @@ package com.mkv.exception;
  * 
  * @author Minh Khang VU
  */
-public class NonRecoverableException extends RuntimeException {
+public class NonRecoverableException extends DeploymentException {
 
     public NonRecoverableException(String message) {
         super(message);

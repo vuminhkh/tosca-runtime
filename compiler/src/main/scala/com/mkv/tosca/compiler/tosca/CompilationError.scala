@@ -1,4 +1,4 @@
-package com.mkv.tosca.compiler.model
+package com.mkv.tosca.compiler.tosca
 
 import scala.util.parsing.input.Position
 

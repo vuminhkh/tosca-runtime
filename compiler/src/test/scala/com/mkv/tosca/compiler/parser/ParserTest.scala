@@ -4,10 +4,12 @@ import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
 import com.mkv.tosca.compiler.{SyntaxAnalyzer, SemanticAnalyzer}
-import com.mkv.tosca.compiler.model.Csar
+import com.mkv.tosca.compiler.tosca.Csar
 
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
+
+import com.mkv.tosca.compiler.CodeGenerator
 
 object ParserTest {
 
@@ -19,24 +21,35 @@ object ParserTest {
     val wordpressPath = Paths.get("src/test/resources/components/wordpress")
     val wordpressTopology = Paths.get("src/test/resources/topologies/wordpress")
     val normativeCsar = compile(normativePath, List.empty)
+    val output = Paths.get("./target/tosca")
     if (normativeCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generateTypesForCsar(normativeCsar.get, List.empty, output)
     }
     val apacheCsar = compile(apachePath, List(normativePath))
     if (apacheCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generateTypesForCsar(apacheCsar.get, List(normativeCsar.get), output)
     }
     val mysqlCsar = compile(mysqlPath, List(normativePath))
     if (mysqlCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generateTypesForCsar(mysqlCsar.get, List(normativeCsar.get), output)
     }
     val phpCsar = compile(phpPath, List(normativePath))
     if (phpCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generateTypesForCsar(phpCsar.get, List(normativeCsar.get), output)
     }
     val wordpressCsar = compile(wordpressPath, List(normativePath, apachePath, mysqlPath, phpPath))
     if (wordpressCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generateTypesForCsar(wordpressCsar.get, List(normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get), output)
     }
     val wordpressTopologyCsar = compile(wordpressTopology, List(wordpressPath, normativePath, apachePath, mysqlPath, phpPath))
     if (wordpressTopologyCsar.isEmpty) {

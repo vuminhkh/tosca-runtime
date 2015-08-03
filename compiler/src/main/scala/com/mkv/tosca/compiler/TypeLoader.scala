@@ -1,6 +1,6 @@
 package com.mkv.tosca.compiler
 
-import com.mkv.tosca.compiler.model.{ParsedValue, Csar}
+import com.mkv.tosca.compiler.tosca.{ParsedValue, Csar}
 
 object TypeLoader {
 

@@ -1,4 +1,4 @@
-package com.mkv.tosca.compiler.model
+package com.mkv.tosca.compiler.tosca
 
 import java.nio.file.Path
 import java.text.DateFormat

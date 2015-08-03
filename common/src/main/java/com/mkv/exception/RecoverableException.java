@@ -5,7 +5,7 @@ package com.mkv.exception;
  * 
  * @author Minh Khang VU
  */
-public class RecoverableException extends RuntimeException {
+public class RecoverableException extends DeploymentException {
 
     public RecoverableException(String message) {
         super(message);

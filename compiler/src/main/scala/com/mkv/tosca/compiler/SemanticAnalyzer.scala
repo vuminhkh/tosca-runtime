@@ -2,7 +2,7 @@ package com.mkv.tosca.compiler
 
 import java.nio.file.{Files, Path}
 
-import com.mkv.tosca.compiler.model._
+import com.mkv.tosca.compiler.tosca._
 
 import scala.collection.mutable.ListBuffer
 

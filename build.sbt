@@ -1,14 +1,15 @@
 name := "tosca-runtime"
 
 lazy val root = project.in(file(".")).settings(
-  version := "1.0"
+  version := "1.0",
+  scalaVersion := "2.11.6"
 ).aggregate(compiler, docker, sdk, common)
 
 lazy val compiler = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
-).dependsOn(docker)
+).dependsOn(docker).enablePlugins(SbtTwirl)
 
 lazy val docker = project.settings(
   version := "1.0",
@@ -34,5 +35,6 @@ lazy val common = project.settings(
   libraryDependencies += "log4j" % "log4j" % "1.2.17",
   libraryDependencies += "commons-lang" % "commons-lang" % "2.6",
   libraryDependencies += "junit" % "junit" % "4.12" % "test",
-  libraryDependencies += "com.google.guava" % "guava" % "18.0"
+  libraryDependencies += "com.google.guava" % "guava" % "18.0",
+  libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
 )

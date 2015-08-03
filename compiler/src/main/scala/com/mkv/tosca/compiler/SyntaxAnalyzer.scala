@@ -1,6 +1,6 @@
 package com.mkv.tosca.compiler
 
-import com.mkv.tosca.compiler.model._
+import com.mkv.tosca.compiler.tosca._
 import com.mkv.tosca.compiler.parser.YamlParser
 
 object SyntaxAnalyzer extends YamlParser {

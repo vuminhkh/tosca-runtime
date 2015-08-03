@@ -1,6 +1,6 @@
 package com.mkv.tosca.compiler.parser
 
-import com.mkv.tosca.compiler.model.ParsedValue
+import com.mkv.tosca.compiler.tosca.ParsedValue
 
 import scala.util.parsing.combinator.JavaTokenParsers
 

@@ -1,4 +1,4 @@
-package com.mkv.tosca.compiler.runtime_model
+package com.mkv.tosca.compiler.runtime
 
 import java.nio.file.Path
 

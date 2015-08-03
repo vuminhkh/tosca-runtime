@@ -24,7 +24,7 @@ public class SampleJavaProgram {
     @Bean
     public Java java() {
         Java java = new Java();
-        java.setHostContainer(compute());
+        java.setHost(compute());
         java.setName("java");
         return java;
     }
