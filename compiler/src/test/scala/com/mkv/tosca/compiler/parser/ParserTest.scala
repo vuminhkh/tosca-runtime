@@ -25,31 +25,31 @@ object ParserTest {
     if (normativeCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generateTypesForCsar(normativeCsar.get, List.empty, output)
+      CodeGenerator.generateTypesForCsar(normativeCsar.get, output)
     }
     val apacheCsar = compile(apachePath, List(normativePath))
     if (apacheCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generateTypesForCsar(apacheCsar.get, List(normativeCsar.get), output)
+      CodeGenerator.generateTypesForCsar(apacheCsar.get, output)
     }
     val mysqlCsar = compile(mysqlPath, List(normativePath))
     if (mysqlCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generateTypesForCsar(mysqlCsar.get, List(normativeCsar.get), output)
+      CodeGenerator.generateTypesForCsar(mysqlCsar.get, output)
     }
     val phpCsar = compile(phpPath, List(normativePath))
     if (phpCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generateTypesForCsar(phpCsar.get, List(normativeCsar.get), output)
+      CodeGenerator.generateTypesForCsar(phpCsar.get, output)
     }
     val wordpressCsar = compile(wordpressPath, List(normativePath, apachePath, mysqlPath, phpPath))
     if (wordpressCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generateTypesForCsar(wordpressCsar.get, List(normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get), output)
+      CodeGenerator.generateTypesForCsar(wordpressCsar.get, output)
     }
     val wordpressTopologyCsar = compile(wordpressTopology, List(wordpressPath, normativePath, apachePath, mysqlPath, phpPath))
     if (wordpressTopologyCsar.isEmpty) {

@@ -39,8 +39,6 @@ public class Container extends Compute {
 
     private String ipAddress;
 
-    private String recipeLocalPath;
-
     private static final String RECIPE_LOCATION = "/var/recipe";
 
     private static final String RECIPE_GENERATED_SCRIPT_LOCATION = RECIPE_LOCATION + GENERATED_SCRIPT_PATH;
@@ -145,14 +143,6 @@ public class Container extends Compute {
 
     public String getIpAddress() {
         return ipAddress;
-    }
-
-    public String getRecipeLocalPath() {
-        return recipeLocalPath;
-    }
-
-    public void setRecipeLocalPath(String recipeLocalPath) {
-        this.recipeLocalPath = recipeLocalPath;
     }
 
     public DockerClient getDockerClient() {

@@ -1,12 +1,10 @@
-@import com.mkv.tosca.compiler.generator.NodeType
-@import com.mkv.tosca.compiler.tosca.Csar
-@import com.mkv.tosca.compiler.generator.Util
-@(nodeType: NodeType, csarPath: List[Csar])
+@import com.mkv.tosca.compiler.runtime.{Util, NodeType}
+@(nodeType: NodeType)
 package @nodeType.packageName
 
-public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nodeType.superClass @Html("{")
+public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nodeType.superClass.getOrElse("tosca.nodes.Root") @Html("{")
 @nodeType.methods.map { method =>
-  public void @method.name@Html("(){")
+  public void @Util.toCamelCase(method.name)@Html("(){")
     @if(Util.methodHasInput(method)) {
       @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
     }

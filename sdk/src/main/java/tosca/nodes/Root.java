@@ -1,12 +1,15 @@
 package tosca.nodes;
 
 import java.util.Map;
+import java.util.Set;
 
-import com.google.common.collect.Maps;
 import com.mkv.exception.IllegalFunctionException;
 import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.sdk.AbstractRuntimeType;
 
-public abstract class Root {
+public abstract class Root extends AbstractRuntimeType {
+
+    private String id;
 
     private String name;
 
@@ -14,9 +17,7 @@ public abstract class Root {
 
     private Root parent;
 
-    public Map<String, String> properties = Maps.newHashMap();
-
-    public Map<String, String> attributes = Maps.newHashMap();
+    private Set<Root> dependsOnNodes;
 
     public void setName(String name) {
         this.name = name;
@@ -25,6 +26,14 @@ public abstract class Root {
     public String getName() {
 
         return name;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 
     public Compute getHost() {
@@ -41,6 +50,14 @@ public abstract class Root {
 
     public void setParent(Root parent) {
         this.parent = parent;
+    }
+
+    public Set<Root> getDependsOnNodes() {
+        return dependsOnNodes;
+    }
+
+    public void setDependsOnNodes(Set<Root> dependsOnNodes) {
+        this.dependsOnNodes = dependsOnNodes;
     }
 
     protected void executeOperation(String operationArtifactPath, Map<String, String> inputs) {
@@ -63,22 +80,6 @@ public abstract class Root {
     }
 
     public void delete() {
-    }
-
-    public Map<String, String> getProperties() {
-        return properties;
-    }
-
-    public void setProperties(Map<String, String> properties) {
-        this.properties = properties;
-    }
-
-    public Map<String, String> getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(Map<String, String> attributes) {
-        this.attributes = attributes;
     }
 
     public String getInput(String functionName, String entity, String path) {
@@ -115,11 +116,18 @@ public abstract class Root {
         }
     }
 
-    protected String getProperty(String propertyName) {
-        return this.properties.get(propertyName);
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+        Root root = (Root) o;
+        return id.equals(root.id);
     }
 
-    protected String getAttribute(String attributeName) {
-        return this.attributes.get(attributeName);
+    @Override
+    public int hashCode() {
+        return id.hashCode();
     }
 }

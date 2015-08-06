@@ -39,17 +39,6 @@ public class SampleJavaProgram {
         AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
         applicationContext.register(SampleJavaProgram.class);
         applicationContext.refresh();
-        // DockerClient dockerClient = (DockerClient) applicationContext.getBean("dockerClient");
-        // ExecCreateCmdResponse response = dockerClient.execCreateCmd("f8beae1675e8ddb8fc7f5c954b50e423ce64f1233bf4343c545c171affde62b9").withTty()
-        // .withAttachStdin().withAttachStdout()
-        // .withCmd("/bin/sh", "-c",
-        // "\"export JAVA_HOME=/opt/java && export JAVA_URL=http://download.oracle.com/otn-pub/java/jdk/7u75-b13/jdk-7u75-linux-x64.tar.gz && chmod +x /var/recip\n"
-        // +
-        // "e/java_install.sh && /var/recipe/java_install.sh\"").exec();
-        // InputStream startResponse =
-        // dockerClient.execStartCmd("f8beae1675e8ddb8fc7f5c954b50e423ce64f1233bf4343c545c171affde62b9").withExecId(response.getId())
-        // .withTty().exec();
-        // System.out.println(IOUtils.toString(startResponse, "UTF-8"));
         Container compute = (Container) applicationContext.getBean("compute");
         compute.create();
         compute.start();

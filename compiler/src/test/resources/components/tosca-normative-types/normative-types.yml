@@ -330,7 +330,7 @@ capability_types:
     derived_from: tosca.capabilities.Root
 
 relationship_types:
-  Root:
+  tosca.relationships.Root:
     abstract: true
     description: This is the default (root) TOSCA Relationship Type definition that all other TOSCA Relationship Types derive from.
     valid_targets: [ tosca.capabilities.Root ]
@@ -359,7 +359,7 @@ relationship_types:
         source_changed:
           description: Operation to notify target some property or attribute of the source.
   tosca.relationships.DependsOn:
-    derived_from: Root
+    derived_from: tosca.relationships.Root
     description: >
       A generic depends on relationship.
   tosca.relationships.HostedOn:
@@ -370,10 +370,10 @@ relationship_types:
     derived_from: tosca.relationships.DependsOn
     valid_targets: [ tosca.capabilities.Endpoint ]
   tosca.relationships.AttachTo:
-    derived_from: Root
+    derived_from: tosca.relationships.Root
     valid_targets: [ tosca.capabilities.Attachment ]
   tosca.relationships.Network:
-    derived_from: Root
+    derived_from: tosca.relationships.Root
     valid_targets: [ tosca.capabilities.Connectivity ]
 
 artifact_types:

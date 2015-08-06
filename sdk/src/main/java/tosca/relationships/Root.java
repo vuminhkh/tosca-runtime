@@ -2,36 +2,81 @@ package tosca.relationships;
 
 import java.util.Map;
 
-import tosca.nodes.Compute;
-
+import com.mkv.exception.IllegalFunctionException;
 import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.sdk.AbstractRuntimeType;
 
-public abstract class Root {
+public abstract class Root extends AbstractRuntimeType {
 
-    private Compute sourceHost;
+    private tosca.nodes.Root source;
 
-    private Compute targetHost;
+    private tosca.nodes.Root target;
+
+    public tosca.nodes.Root getSource() {
+        return source;
+    }
+
+    public tosca.nodes.Root getTarget() {
+        return target;
+    }
+
+    protected void executeOperation(String operationName, String operationArtifactPath, Map<String, String> inputs) {
+        switch (operationName) {
+        case "pre_configure_source":
+        case "post_configure_source":
+        case "add_target":
+        case "target_changed":
+        case "remove_target":
+            executeSourceOperation(operationArtifactPath, inputs);
+            break;
+        case "pre_configure_target":
+        case "post_configure_target":
+        case "add_source":
+            executeTargetOperation(operationArtifactPath, inputs);
+            break;
+        default:
+            if (operationName.endsWith("_source")) {
+                executeSourceOperation(operationArtifactPath, inputs);
+            } else if (operationName.endsWith("_target")) {
+                executeTargetOperation(operationArtifactPath, inputs);
+            } else {
+                throw new NonRecoverableException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
+            }
+        }
+    }
 
     protected void executeSourceOperation(String operationArtifactPath, Map<String, String> inputs) {
-        if (sourceHost == null) {
-            throw new NonRecoverableException("The relationship's source is not hosted on a compute, operation cannot be executed");
+        if (source == null || source.getHost() == null) {
+            throw new NonRecoverableException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
-        sourceHost.execute(operationArtifactPath, inputs);
+        source.getHost().execute(operationArtifactPath, inputs);
     }
 
     protected void executeTargetOperation(String operationArtifactPath, Map<String, String> inputs) {
-        if (targetHost == null) {
+        if (target == null) {
             throw new NonRecoverableException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
-        targetHost.execute(operationArtifactPath, inputs);
+        target.getHost().execute(operationArtifactPath, inputs);
     }
 
-    public void setSourceHost(Compute sourceHost) {
-        this.sourceHost = sourceHost;
+    public String getInput(String functionName, String entity, String path) {
+        String value = null;
+        switch (entity) {
+        case "SOURCE":
+            return source.getInput(functionName, "SELF", path);
+        case "TARGET":
+            return target.getInput(functionName, "SELF", path);
+        default:
+            throw new IllegalFunctionException("Entity " + entity + " is not supported");
+        }
     }
 
-    public void setTargetHost(Compute targetHost) {
-        this.targetHost = targetHost;
+    public void setSource(tosca.nodes.Root source) {
+        this.source = source;
+    }
+
+    public void setTarget(tosca.nodes.Root target) {
+        this.target = target;
     }
 
     public void preConfigureSource() {

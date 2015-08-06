@@ -2,6 +2,39 @@ package com.mkv.tosca.compiler.runtime
 
 import java.nio.file.Path
 
+trait RuntimeType {
+  def className: String
+
+  def packageName: String
+
+  def isAbstract: Boolean
+
+  def superClass: Option[String]
+
+  def methods: Seq[Method]
+}
+
+case class NodeType(className: String,
+                    packageName: String,
+                    isAbstract: Boolean,
+                    superClass: Option[String],
+                    methods: Seq[Method]) extends RuntimeType
+
+case class RelationshipType(className: String,
+                            packageName: String,
+                            isAbstract: Boolean,
+                            superClass: Option[String],
+                            methods: Seq[Method]) extends RuntimeType
+
+case class Function(name: String,
+                    entity: String,
+                    path: String)
+
+case class Method(name: String,
+                  scalarInputs: Map[String, String],
+                  functionInputs: Map[String, Function],
+                  implementation: Option[String])
+
 case class Deployment(nodes: Seq[Node], relationships: Seq[Relationship], workFlows: Seq[WorkFlow])
 
 case class Node(name: String, parent: Node, children: Seq[Node], operations: Seq[Operation], instances: Int)
