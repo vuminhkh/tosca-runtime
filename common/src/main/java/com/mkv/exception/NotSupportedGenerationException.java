@@ -1,6 +1,6 @@
 package com.mkv.exception;
 
-public class NotSupportedGenerationException extends GeneratorException {
+public class NotSupportedGenerationException extends GenerationException {
 
     public NotSupportedGenerationException(String message) {
         super(message);

@@ -1,0 +1,26 @@
+@import com.mkv.tosca.compiler.runtime.Deployment
+@(deployment: Deployment)
+
+public class Deployment extends com.mkv.tosca.sdk.Topology @Html("{")
+
+  public Deployment @Html("(java.util.Map<String, String> inputs) {")
+@deployment.nodes.map { node =>
+    @node.typeName @node.name = new @node.typeName @Html("()");
+    nodeInstances.add(@node.name);
+}
+@deployment.nodes.map { node =>
+  @node.scalarProperties.map { scalaProperty =>
+    @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
+  }
+  @node.inputProperties.map { inputProperty =>
+    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
+  }
+  @node.parent.map { parent =>
+    @node.name@Html(".setParent(")@parent.name@Html(");")
+  }
+  @if(node.dependencies.nonEmpty) {
+    @node.name@Html(".setDependencies(") @node.dependencies.zipWithIndex.map{case(dependency, index) => @dependency.name @if(index < node.dependencies.size - 1){,}} @Html(");")
+  }
+}
+  @Html("}")
+@Html("}")

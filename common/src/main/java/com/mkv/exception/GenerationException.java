@@ -5,13 +5,13 @@ package com.mkv.exception;
  * 
  * @author Minh Khang VU
  */
-public abstract class GeneratorException extends RuntimeException {
+public abstract class GenerationException extends RuntimeException {
 
-    public GeneratorException(String message) {
+    public GenerationException(String message) {
         super(message);
     }
 
-    public GeneratorException(String message, Throwable cause) {
+    public GenerationException(String message, Throwable cause) {
         super(message, cause);
     }
 }

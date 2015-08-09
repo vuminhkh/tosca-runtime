@@ -297,9 +297,7 @@ object SyntaxAnalyzer extends YamlParser {
   })
 
   def requirementsEntry(indentLevel: Int) =
-    (keyValue into (requirementName => (keyComplexSeparatorPattern ~> requirement(requirementName)(indentLevel + 1)) | (keyValueSeparatorPattern ~> simpleRequirement(requirementName)(indentLevel) <~ newLinePattern))) ^^ {
-      case requirement => (requirement.name, requirement)
-    }
+    keyValue into (requirementName => (keyComplexSeparatorPattern ~> requirement(requirementName)(indentLevel + 1)) | (keyValueSeparatorPattern ~> simpleRequirement(requirementName)(indentLevel) <~ newLinePattern))
 
   def requirements(indentLevel: Int) = list(requirementsEntry)(indentLevel)
 

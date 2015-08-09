@@ -1,7 +1,5 @@
 package com.mkv.tosca.compiler.runtime
 
-import java.nio.file.Path
-
 trait RuntimeType {
   def className: String
 
@@ -35,33 +33,17 @@ case class Method(name: String,
                   functionInputs: Map[String, Function],
                   implementation: Option[String])
 
-case class Deployment(nodes: Seq[Node], relationships: Seq[Relationship], workFlows: Seq[WorkFlow])
+case class Deployment(nodes: Seq[Node], relationships: Seq[Relationship])
 
-case class Node(name: String, parent: Node, children: Seq[Node], operations: Seq[Operation], instances: Int)
+case class Input(name: String)
 
-case class Relationship(source: Node, target: Node, operations: Seq[Operation])
+class Node(var name: String,
+           var typeName: String,
+           var scalarProperties: Map[String, String],
+           var inputProperties: Map[String, Input],
+           var parent: Option[Node] = None,
+           var dependencies: Seq[Node] = Seq.empty)
 
-case class Operation(name: String, inputs: Seq[OperationInput], implementation: Path)
-
-trait OperationInput {
-  val name: String
-}
-
-case class StaticValue(name: String, input: String) extends OperationInput
-
-case class AttributeValue(name: String, node: String, attribute: String) extends OperationInput
-
-case class WorkFlow(name: String, task: Task)
-
-trait Task {
-}
-
-trait CompositeTask extends Task {
-  val tasks: Seq[Task]
-}
-
-case class Execution(nodeName: String, operationName: String) extends Task
-
-case class Sequence(tasks: Seq[Task]) extends CompositeTask
-
-case class Concurrence(tasks: Seq[Task]) extends CompositeTask
+class Relationship(var source: Node,
+                   var target: Node,
+                   var typeName: String)

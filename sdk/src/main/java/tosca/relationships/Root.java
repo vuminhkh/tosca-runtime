@@ -59,13 +59,13 @@ public abstract class Root extends AbstractRuntimeType {
         target.getHost().execute(operationArtifactPath, inputs);
     }
 
-    public String getInput(String functionName, String entity, String path) {
+    public String evaluateFunction(String functionName, String entity, String path) {
         String value = null;
         switch (entity) {
         case "SOURCE":
-            return source.getInput(functionName, "SELF", path);
+            return source.evaluateFunction(functionName, "SELF", path);
         case "TARGET":
-            return target.getInput(functionName, "SELF", path);
+            return target.evaluateFunction(functionName, "SELF", path);
         default:
             throw new IllegalFunctionException("Entity " + entity + " is not supported");
         }

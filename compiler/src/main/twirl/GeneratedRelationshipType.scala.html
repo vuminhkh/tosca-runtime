@@ -4,7 +4,7 @@ package @relationshipType.packageName
 
 public @if(relationshipType.isAbstract){abstract }class @relationshipType.className extends @relationshipType.superClass.getOrElse("tosca.relationships.Root") @Html("{")
 @relationshipType.methods.map { method =>
-  public void @Util.toCamelCase(method.name)@Html("(){")
+  public void @Util.toCamelCase(method.name)@Html("() {")
   @if(Util.methodHasInput(method)) {
     @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
   }
@@ -12,7 +12,7 @@ public @if(relationshipType.isAbstract){abstract }class @relationshipType.classN
     inputs.put("@scalarInput._1", "@scalarInput._2");
   }
   @method.functionInputs.map{ functionInput =>
-    inputs.put("@functionInput._1", getInput("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
+    inputs.put("@functionInput._1", evaluateFunction("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
   }
   @method.implementation.map { implementation =>
     executeOperation("@method.name", "@implementation", inputs);

@@ -54,6 +54,8 @@ object ParserTest {
     val wordpressTopologyCsar = compile(wordpressTopology, List(wordpressPath, normativePath, apachePath, mysqlPath, phpPath))
     if (wordpressTopologyCsar.isEmpty) {
       return
+    } else {
+      CodeGenerator.generate(wordpressTopologyCsar.get, List(wordpressCsar.get, normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get), output)
     }
   }
 

@@ -1,9 +1,11 @@
 package com.mkv.tosca.sdk;
 
+import java.util.Map;
 import java.util.Set;
 
 import tosca.nodes.Root;
 
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.sdk.workflow.Parallel;
@@ -19,6 +21,11 @@ import com.mkv.tosca.sdk.workflow.TaskExecutorFactory;
 public class Topology {
 
     /**
+     * Inputs for a topology
+     */
+    protected Map<String, String> inputs;
+
+    /**
      * A node instance is a physical component of the topology at runtime.
      */
     protected Set<tosca.nodes.Root> nodeInstances = Sets.newHashSet();
@@ -27,6 +34,14 @@ public class Topology {
      * A relationship instance is a link between 2 physical components of the topology
      */
     protected Set<tosca.relationships.Root> relationshipInstances = Sets.newHashSet();
+
+    public Topology() {
+        this.inputs = Maps.newHashMap();
+    }
+
+    public Topology(Map<String, String> inputs) {
+        this.inputs = inputs;
+    }
 
     public Set<tosca.nodes.Root> getNodeInstancesByNodeName(String nodeName) {
         Set<tosca.nodes.Root> result = Sets.newHashSet();

@@ -1,6 +1,8 @@
 package com.mkv.tosca.compiler.runtime
 
-import com.google.common.base.CaseFormat
+import java.nio.file.{Files, Path}
+
+import com.google.common.base.{CaseFormat, Charsets}
 import com.mkv.exception.NotSupportedGenerationException
 
 object Util {
@@ -32,7 +34,20 @@ object Util {
     typeName.replaceAll("\\.", "/") + ".java"
   }
 
+  def getGeneratedMethodName(interfaceName: String, operationName: String) = {
+    interfaceName match {
+      case "Standard" | "tosca.interfaces.node.lifecycle.Standard" => operationName
+      case "Configure" | "tosca.interfaces.relationship.Configure" => operationName
+      case _ => interfaceName.replaceAll("\\.", "_") + "_" + operationName
+    }
+  }
+
   def toCamelCase(text: String) = {
     CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
+  }
+
+  def writeCode(text: String, outputFile: Path) = {
+    Files.createDirectories(outputFile.getParent)
+    Files.write(outputFile, text.getBytes(Charsets.UTF_8))
   }
 }

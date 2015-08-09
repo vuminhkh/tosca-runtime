@@ -3,6 +3,7 @@ package tosca.nodes;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.Sets;
 import com.mkv.exception.IllegalFunctionException;
 import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.sdk.AbstractRuntimeType;
@@ -12,8 +13,6 @@ public abstract class Root extends AbstractRuntimeType {
     private String id;
 
     private String name;
-
-    private Compute host;
 
     private Root parent;
 
@@ -37,11 +36,18 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public Compute getHost() {
-        return host;
-    }
-
-    public void setHost(Compute host) {
-        this.host = host;
+        if (parent == null) {
+            return null;
+        }
+        Root host = parent;
+        while (host.getParent() != null) {
+            host = host.getParent();
+        }
+        if (host instanceof Compute) {
+            return (Compute) host;
+        } else {
+            return null;
+        }
     }
 
     public Root getParent() {
@@ -56,11 +62,12 @@ public abstract class Root extends AbstractRuntimeType {
         return dependsOnNodes;
     }
 
-    public void setDependsOnNodes(Set<Root> dependsOnNodes) {
-        this.dependsOnNodes = dependsOnNodes;
+    public void setDependsOnNodes(Root... dependsOnNodes) {
+        this.dependsOnNodes = Sets.newHashSet(dependsOnNodes);
     }
 
     protected void executeOperation(String operationArtifactPath, Map<String, String> inputs) {
+        Compute host = getHost();
         if (host == null) {
             throw new NonRecoverableException("Non hosted node cannot have operation");
         }
@@ -82,14 +89,14 @@ public abstract class Root extends AbstractRuntimeType {
     public void delete() {
     }
 
-    public String getInput(String functionName, String entity, String path) {
-        String value = null;
+    public String evaluateFunction(String functionName, String entity, String path) {
+        String value;
         switch (entity) {
         case "HOST":
             if (getParent() == null) {
                 throw new IllegalFunctionException("Cannot access to HOST's <" + path + "> property/attribute as this node do not have a parent");
             }
-            return getParent().getInput(functionName, "SELF", path);
+            return getParent().evaluateFunction(functionName, "SELF", path);
         case "SELF":
             switch (functionName) {
             case "get_property":
@@ -107,7 +114,7 @@ public abstract class Root extends AbstractRuntimeType {
         }
         if (value == null) {
             if (getParent() != null) {
-                return getParent().getInput(functionName, entity, path);
+                return getParent().evaluateFunction(functionName, entity, path);
             } else {
                 return "";
             }
