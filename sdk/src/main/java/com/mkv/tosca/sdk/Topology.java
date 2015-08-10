@@ -31,7 +31,7 @@ public class Topology {
     protected Map<String, tosca.nodes.Root> nodeInstances = Maps.newHashMap();
 
     /**
-     * id => relationship instance : A relationship instance is a link between 2 physical components of the topology
+     * A relationship instance is a link between 2 physical components of the topology
      */
     protected Set<tosca.relationships.Root> relationshipInstances = Sets.newHashSet();
 
@@ -74,35 +74,6 @@ public class Topology {
         for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
             if (nodeInstance.getName().equals(nodeName)) {
                 result.add(nodeInstance);
-            }
-        }
-        return result;
-    }
-
-    public tosca.nodes.Root getNodeInstanceById(String nodeInstanceId) {
-        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
-            if (nodeInstance.getId().equals(nodeInstanceId)) {
-                return nodeInstance;
-            }
-        }
-        return null;
-    }
-
-    public Set<tosca.relationships.Root> getRelationshipInstancesBySourceName(String sourceName) {
-        Set<tosca.relationships.Root> result = Sets.newHashSet();
-        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
-            if (relationshipInstance.getSource().getName().equals(sourceName)) {
-                result.add(relationshipInstance);
-            }
-        }
-        return result;
-    }
-
-    public Set<tosca.relationships.Root> getRelationshipInstancesByTargetName(String targetName) {
-        Set<tosca.relationships.Root> result = Sets.newHashSet();
-        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
-            if (relationshipInstance.getTarget().getName().equals(targetName)) {
-                result.add(relationshipInstance);
             }
         }
         return result;
