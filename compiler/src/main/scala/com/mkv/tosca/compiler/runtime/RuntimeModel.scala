@@ -33,7 +33,9 @@ case class Method(name: String,
                   functionInputs: Map[String, Function],
                   implementation: Option[String])
 
-case class Deployment(nodes: Seq[Node], relationships: Seq[Relationship])
+case class Deployment(nodes: Seq[Node],
+                      relationships: Seq[Relationship],
+                      roots: Seq[Node])
 
 case class Input(name: String)
 
@@ -42,8 +44,14 @@ class Node(var name: String,
            var scalarProperties: Map[String, String],
            var inputProperties: Map[String, Input],
            var parent: Option[Node] = None,
-           var dependencies: Seq[Node] = Seq.empty)
+           var children: Seq[Node] = Seq.empty,
+           var dependencies: Seq[Node] = Seq.empty,
+           var instanceCount: Int = 1)
 
 class Relationship(var source: Node,
                    var target: Node,
-                   var typeName: String)
+                   var typeName: String) {
+  def name = {
+    source.name + "_" + target.name
+  }
+}

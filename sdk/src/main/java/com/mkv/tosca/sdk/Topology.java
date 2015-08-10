@@ -26,12 +26,12 @@ public class Topology {
     protected Map<String, String> inputs;
 
     /**
-     * A node instance is a physical component of the topology at runtime.
+     * id => node instance : A node instance is a physical component of the topology at runtime.
      */
-    protected Set<tosca.nodes.Root> nodeInstances = Sets.newHashSet();
+    protected Map<String, tosca.nodes.Root> nodeInstances = Maps.newHashMap();
 
     /**
-     * A relationship instance is a link between 2 physical components of the topology
+     * id => relationship instance : A relationship instance is a link between 2 physical components of the topology
      */
     protected Set<tosca.relationships.Root> relationshipInstances = Sets.newHashSet();
 
@@ -43,9 +43,35 @@ public class Topology {
         this.inputs = inputs;
     }
 
+    protected void setDependencies(String nodeName, String... dependencies) {
+        Set<Root> instances = getNodeInstancesByNodeName(nodeName);
+        for (Root instance : instances) {
+            Set<Root> allDependencyInstances = Sets.newHashSet();
+            for (String dependency : dependencies) {
+                allDependencyInstances.addAll(getNodeInstancesByNodeName(dependency));
+            }
+            instance.setDependsOnNodes(allDependencyInstances);
+        }
+    }
+
+    protected void generateRelationships(String sourceName, String targetName, Class<? extends tosca.relationships.Root> relationshipType) {
+        for (Root sourceInstance : getNodeInstancesByNodeName(sourceName)) {
+            for (Root targetInstance : getNodeInstancesByNodeName(targetName)) {
+                try {
+                    tosca.relationships.Root relationshipInstance = relationshipType.newInstance();
+                    relationshipInstance.setSource(sourceInstance);
+                    relationshipInstance.setTarget(targetInstance);
+                    relationshipInstances.add(relationshipInstance);
+                } catch (InstantiationException | IllegalAccessException e) {
+                    throw new NonRecoverableException("Could not create relationship instance of type " + relationshipType.getName(), e);
+                }
+            }
+        }
+    }
+
     public Set<tosca.nodes.Root> getNodeInstancesByNodeName(String nodeName) {
         Set<tosca.nodes.Root> result = Sets.newHashSet();
-        for (tosca.nodes.Root nodeInstance : nodeInstances) {
+        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
             if (nodeInstance.getName().equals(nodeName)) {
                 result.add(nodeInstance);
             }
@@ -54,7 +80,7 @@ public class Topology {
     }
 
     public tosca.nodes.Root getNodeInstanceById(String nodeInstanceId) {
-        for (tosca.nodes.Root nodeInstance : nodeInstances) {
+        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
             if (nodeInstance.getId().equals(nodeInstanceId)) {
                 return nodeInstance;
             }
@@ -104,8 +130,8 @@ public class Topology {
 
     public void install() {
         Sequence installSequence = new Sequence();
-        Set<tosca.nodes.Root> waitForCreatedQueue = Sets.newHashSet(nodeInstances);
-        Set<tosca.nodes.Root> waitForStartedQueue = Sets.newHashSet(nodeInstances);
+        Set<tosca.nodes.Root> waitForCreatedQueue = Sets.newHashSet(nodeInstances.values());
+        Set<tosca.nodes.Root> waitForStartedQueue = Sets.newHashSet(nodeInstances.values());
         int waitForCreatedQueueSize = nodeInstances.size();
         int waitForStartedQueueSize = nodeInstances.size();
         while (waitForCreatedQueueSize > 0 || waitForStartedQueueSize > 0) {
@@ -124,6 +150,7 @@ public class Topology {
             final Set<tosca.nodes.Root> waitForStartedQueue) {
         Sequence step = new Sequence();
         Parallel createParallel = new Parallel();
+        Set<Root> processedCreated = Sets.newHashSet();
         for (final tosca.nodes.Root nodeInstance : waitForCreatedQueue) {
             // Only run create + configure unless if the node has no parent or its parent has been started
             if (nodeInstance.getParent() == null || !waitForStartedQueue.contains(nodeInstance.getParent())) {
@@ -148,18 +175,22 @@ public class Topology {
                         }
                     }
                 });
-                waitForCreatedQueue.remove(nodeInstance);
+                processedCreated.add(nodeInstance);
             }
         }
+        waitForCreatedQueue.removeAll(processedCreated);
         step.getActionList().add(createParallel);
         Parallel startParallel = new Parallel();
+        Set<Root> processedStarted = Sets.newHashSet();
         for (final tosca.nodes.Root nodeInstance : waitForStartedQueue) {
             if (!waitForCreatedQueue.contains(nodeInstance)) {
                 boolean dependenciesSatisfied = true;
-                for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
-                    if (waitForStartedQueue.contains(dependsOnNode)) {
-                        dependenciesSatisfied = false;
-                        break;
+                if (nodeInstance.getDependsOnNodes() != null) {
+                    for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
+                        if (waitForStartedQueue.contains(dependsOnNode)) {
+                            dependenciesSatisfied = false;
+                            break;
+                        }
                     }
                 }
                 if (dependenciesSatisfied) {
@@ -177,10 +208,11 @@ public class Topology {
                             }
                         }
                     });
-                    waitForStartedQueue.remove(nodeInstance);
+                    processedStarted.add(nodeInstance);
                 }
             }
         }
+        waitForStartedQueue.removeAll(processedStarted);
         return step;
     }
 }

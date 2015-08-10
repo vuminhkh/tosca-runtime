@@ -3,13 +3,11 @@ package com.mkv.tosca.compiler.parser
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
-import com.mkv.tosca.compiler.{SyntaxAnalyzer, SemanticAnalyzer}
+import com.mkv.tosca.compiler.{Deployer, SyntaxAnalyzer, SemanticAnalyzer, CodeGenerator}
 import com.mkv.tosca.compiler.tosca.Csar
 
 import scala.collection.mutable.ListBuffer
 import scala.io.Source
-
-import com.mkv.tosca.compiler.CodeGenerator
 
 object ParserTest {
 
@@ -20,13 +18,16 @@ object ParserTest {
     val phpPath = Paths.get("src/test/resources/components/php")
     val wordpressPath = Paths.get("src/test/resources/components/wordpress")
     val wordpressTopology = Paths.get("src/test/resources/topologies/wordpress")
-    val normativeCsar = compile(normativePath, List.empty)
+    val dockerPath = Paths.get("/Users/mkv/tosca-runtime/docker/src/main/resources/tosca")
     val output = Paths.get("./target/tosca")
+
+    val normativeCsar = compile(normativePath, List.empty)
     if (normativeCsar.isEmpty) {
       return
     } else {
       CodeGenerator.generateTypesForCsar(normativeCsar.get, output)
     }
+    val dockerCsar = compile(dockerPath, List(normativePath))
     val apacheCsar = compile(apachePath, List(normativePath))
     if (apacheCsar.isEmpty) {
       return
@@ -51,12 +52,13 @@ object ParserTest {
     } else {
       CodeGenerator.generateTypesForCsar(wordpressCsar.get, output)
     }
-    val wordpressTopologyCsar = compile(wordpressTopology, List(wordpressPath, normativePath, apachePath, mysqlPath, phpPath))
+    val wordpressTopologyCsar = compile(wordpressTopology, List(wordpressPath, normativePath, apachePath, mysqlPath, phpPath, dockerPath))
     if (wordpressTopologyCsar.isEmpty) {
       return
     } else {
-      CodeGenerator.generate(wordpressTopologyCsar.get, List(wordpressCsar.get, normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get), output)
+      CodeGenerator.generate(wordpressTopologyCsar.get, List(wordpressCsar.get, normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get, dockerCsar.get), output)
     }
+    Deployer.deploy(output)
   }
 
   def compile(csar: Path, csarPath: List[Path]) = {

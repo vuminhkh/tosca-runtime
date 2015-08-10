@@ -8,7 +8,8 @@ lazy val root = project.in(file(".")).settings(
 lazy val compiler = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
-  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
+  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
+  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3"
 ).dependsOn(docker).enablePlugins(SbtTwirl)
 
 lazy val docker = project.settings(
@@ -19,10 +20,7 @@ lazy val docker = project.settings(
 
 lazy val sdk = project.settings(
   version := "1.0",
-  scalaVersion := "2.11.6",
-  libraryDependencies += "org.springframework" % "spring-core" % "4.1.7.RELEASE",
-  libraryDependencies += "org.springframework" % "spring-context" % "4.1.7.RELEASE",
-  libraryDependencies += "org.springframework" % "spring-beans" % "4.1.7.RELEASE"
+  scalaVersion := "2.11.6"
 ).dependsOn(common)
 
 lazy val common = project.settings(

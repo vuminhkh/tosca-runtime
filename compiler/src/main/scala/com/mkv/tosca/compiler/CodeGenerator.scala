@@ -2,7 +2,6 @@ package com.mkv.tosca.compiler
 
 import java.nio.file.{Files, Path, Paths}
 
-import _root_.tosca.relationships.HostedOn
 import com.google.common.base.Charsets
 import com.mkv.exception.{NonRecoverableException, InvalidTopologyException, NotSupportedGenerationException}
 import com.mkv.tosca.compiler.runtime.{Method, Util}
@@ -134,6 +133,7 @@ object CodeGenerator extends LazyLogging {
             } else {
               if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.HostedOn", csarPath)) {
                 sourceNode.parent = Some(targetNode)
+                targetNode.children = targetNode.children :+ sourceNode
               } else if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.DependsOn", csarPath)) {
                 sourceNode.dependencies = sourceNode.dependencies :+ targetNode
               }
@@ -142,7 +142,8 @@ object CodeGenerator extends LazyLogging {
         }
       }.getOrElse(Seq.empty)
     }
-    runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq)
+    val topologyRoots = topologyNodes.values.filter(node => node.parent.isEmpty)
+    runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq, topologyRoots.toSeq)
   }
 
   def generate(csar: Csar, csarPath: List[Csar], outputDir: Path) = {

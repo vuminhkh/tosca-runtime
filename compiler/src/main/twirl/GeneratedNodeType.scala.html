@@ -1,13 +1,11 @@
 @import com.mkv.tosca.compiler.runtime.{Util, NodeType}
 @(nodeType: NodeType)
-package @nodeType.packageName
+package @nodeType.packageName;
 
 public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nodeType.superClass.getOrElse("tosca.nodes.Root") @Html("{")
 @nodeType.methods.map { method =>
   public void @Util.toCamelCase(method.name)@Html("() {")
-    @if(Util.methodHasInput(method)) {
       @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
-    }
     @method.scalarInputs.map { scalarInput =>
       inputs.put("@scalarInput._1", "@scalarInput._2");
     }

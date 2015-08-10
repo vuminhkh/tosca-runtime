@@ -1,26 +1,51 @@
 @import com.mkv.tosca.compiler.runtime.Deployment
+@import com.mkv.tosca.compiler.runtime.Node
 @(deployment: Deployment)
 
-public class Deployment extends com.mkv.tosca.sdk.Topology @Html("{")
-
-  public Deployment @Html("(java.util.Map<String, String> inputs) {")
-@deployment.nodes.map { node =>
-    @node.typeName @node.name = new @node.typeName @Html("()");
-    nodeInstances.add(@node.name);
-}
-@deployment.nodes.map { node =>
+@instantiateInstance(node: Node) = {
+    @node.typeName @node.name = new @node.typeName @Html("();")
+    @node.name@Html(".setId(java.util.UUID.randomUUID().toString());")
+    @node.name@Html(".setName(\"")@node.name@Html("\");")
   @node.scalarProperties.map { scalaProperty =>
     @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
   }
   @node.inputProperties.map { inputProperty =>
     @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
   }
+    nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
   @node.parent.map { parent =>
     @node.name@Html(".setParent(")@parent.name@Html(");")
   }
-  @if(node.dependencies.nonEmpty) {
-    @node.name@Html(".setDependencies(") @node.dependencies.zipWithIndex.map{case(dependency, index) => @dependency.name @if(index < node.dependencies.size - 1){,}} @Html(");")
+  @node.children.map { child =>
+    @instantiateNode(child)
   }
+}
+
+@instantiateNode(node: Node) = {
+  @if(node.instanceCount > 1) {
+    @Html("for (int ")@node.name@Html("Index = 0; ")@node.name@Html("Index < ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
+      @instantiateInstance(node)
+    @Html("}")
+  } else {
+    @instantiateInstance(node)
+  }
+}
+
+public class Deployment extends com.mkv.tosca.sdk.Topology @Html("{")
+
+  @Html("public Deployment () { this(new java.util.HashMap<String,String> ()); }")
+
+  public Deployment @Html("(java.util.Map<String, String> inputs) {")
+@deployment.roots.map { node =>
+    @instantiateNode(node)
+}
+@deployment.nodes.map { node =>
+  @if(node.dependencies.nonEmpty) {
+    @Html("setDependencies(")"@node.name", @node.dependencies.zipWithIndex.map{case(dependency, index) => "@dependency.name" @if(index < node.dependencies.size - 1){,}} @Html(");")
+  }
+}
+@deployment.relationships.map { relationship =>
+    @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @relationship.typeName@Html(".class);")
 }
   @Html("}")
 @Html("}")

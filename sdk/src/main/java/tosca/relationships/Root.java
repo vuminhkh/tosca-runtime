@@ -102,4 +102,26 @@ public abstract class Root extends AbstractRuntimeType {
 
     public void removeTarget() {
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
+
+        Root root = (Root) o;
+
+        if (source != null ? !source.equals(root.source) : root.source != null)
+            return false;
+        return !(target != null ? !target.equals(root.target) : root.target != null);
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = source != null ? source.hashCode() : 0;
+        result = 31 * result + (target != null ? target.hashCode() : 0);
+        return result;
+    }
 }

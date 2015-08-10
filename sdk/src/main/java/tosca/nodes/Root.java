@@ -3,7 +3,6 @@ package tosca.nodes;
 import java.util.Map;
 import java.util.Set;
 
-import com.google.common.collect.Sets;
 import com.mkv.exception.IllegalFunctionException;
 import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.sdk.AbstractRuntimeType;
@@ -62,8 +61,8 @@ public abstract class Root extends AbstractRuntimeType {
         return dependsOnNodes;
     }
 
-    public void setDependsOnNodes(Root... dependsOnNodes) {
-        this.dependsOnNodes = Sets.newHashSet(dependsOnNodes);
+    public void setDependsOnNodes(Set<Root> dependsOnNodes) {
+        this.dependsOnNodes = dependsOnNodes;
     }
 
     protected void executeOperation(String operationArtifactPath, Map<String, String> inputs) {

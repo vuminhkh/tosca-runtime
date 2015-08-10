@@ -41,7 +41,7 @@ topology_template:
       requirements:
         - host: computeWww
     computeDb:
-      type: tosca.nodes.Compute
+      type: com.mkv.tosca.docker.nodes.Container
       properties:
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
@@ -51,7 +51,7 @@ topology_template:
         mem_size: 1024 MB
         disk_size: 1 GB
     computeWww:
-      type: tosca.nodes.Compute
+      type: com.mkv.tosca.docker.nodes.Container
       properties:
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
