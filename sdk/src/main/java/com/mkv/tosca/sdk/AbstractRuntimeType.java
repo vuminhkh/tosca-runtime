@@ -12,6 +12,8 @@ public abstract class AbstractRuntimeType {
 
     protected String recipeLocalPath;
 
+    protected String csarName;
+
     public Map<String, String> getProperties() {
         return properties;
     }
@@ -42,5 +44,13 @@ public abstract class AbstractRuntimeType {
 
     public void setRecipeLocalPath(String recipeLocalPath) {
         this.recipeLocalPath = recipeLocalPath;
+    }
+
+    public String getCsarName() {
+        return csarName;
+    }
+
+    public void setCsarName(String csarName) {
+        this.csarName = csarName;
     }
 }

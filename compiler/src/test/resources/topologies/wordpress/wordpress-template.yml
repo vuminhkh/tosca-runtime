@@ -43,6 +43,7 @@ topology_template:
     computeDb:
       type: com.mkv.tosca.docker.nodes.Container
       properties:
+        image_id: tosca
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
         os_version: { get_input: os_version }
@@ -53,6 +54,7 @@ topology_template:
     computeWww:
       type: com.mkv.tosca.docker.nodes.Container
       properties:
+        image_id: tosca
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
         os_version: { get_input: os_version }

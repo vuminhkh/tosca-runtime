@@ -9,7 +9,8 @@ lazy val compiler = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
-  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3"
+  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
+  libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
 ).dependsOn(docker).enablePlugins(SbtTwirl)
 
 lazy val docker = project.settings(
@@ -34,5 +35,6 @@ lazy val common = project.settings(
   libraryDependencies += "commons-lang" % "commons-lang" % "2.6",
   libraryDependencies += "junit" % "junit" % "4.12" % "test",
   libraryDependencies += "com.google.guava" % "guava" % "18.0",
-  libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
+  libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+  libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
 )

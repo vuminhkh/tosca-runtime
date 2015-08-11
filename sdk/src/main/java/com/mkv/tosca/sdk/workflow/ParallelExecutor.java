@@ -5,6 +5,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.collect.Lists;
 import com.mkv.exception.NonRecoverableException;
@@ -15,7 +17,17 @@ public class ParallelExecutor implements Executor<Parallel> {
 
     public ParallelExecutor() {
         super();
-        executorService = Executors.newCachedThreadPool();
+        executorService = Executors.newCachedThreadPool(new ThreadFactory() {
+            private AtomicInteger count = new AtomicInteger();
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("WorkflowThread" + count.incrementAndGet());
+                return t;
+            }
+        });
     }
 
     @Override

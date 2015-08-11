@@ -33,8 +33,6 @@ public class Container extends Compute {
 
     private DockerClient dockerClient;
 
-    private String imageId;
-
     private String containerId;
 
     private String ipAddress;
@@ -43,8 +41,13 @@ public class Container extends Compute {
 
     private static final String RECIPE_GENERATED_SCRIPT_LOCATION = RECIPE_LOCATION + GENERATED_SCRIPT_PATH;
 
+    public String getImageId() {
+        return getProperty("image_id");
+    }
+
     @Override
     public void create() {
+        String imageId = getImageId();
         log.info("Node [" + getName() + "] : Creating container with image " + imageId);
         Volume recipeVolume = new Volume(RECIPE_LOCATION);
         containerId = dockerClient.createContainerCmd(imageId).withName(getName()).withBinds(new Bind(recipeLocalPath, recipeVolume)).exec().getId();
@@ -89,10 +92,14 @@ public class Container extends Compute {
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
         InputStream startResponse = dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec();
-        BufferedReader scriptOutputReader = new BufferedReader(new InputStreamReader(new BufferedInputStream(startResponse), "UTF-8"));
-        String line;
-        while ((line = scriptOutputReader.readLine()) != null) {
-            log.info(line);
+        try {
+            BufferedReader scriptOutputReader = new BufferedReader(new InputStreamReader(new BufferedInputStream(startResponse), "UTF-8"));
+            String line;
+            while ((line = scriptOutputReader.readLine()) != null) {
+                log.info(line);
+            }
+        } finally {
+            IOUtils.closeQuietly(startResponse);
         }
         int exitStatus = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec().getExitCode();
         if (exitStatus != 0) {
@@ -131,10 +138,6 @@ public class Container extends Compute {
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }
-    }
-
-    public void setImageId(String imageId) {
-        this.imageId = imageId;
     }
 
     public void setDockerClient(DockerClient dockerClient) {

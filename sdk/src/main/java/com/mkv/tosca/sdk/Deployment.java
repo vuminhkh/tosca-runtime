@@ -1,7 +1,11 @@
 package com.mkv.tosca.sdk;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import tosca.nodes.Root;
 
@@ -18,7 +22,9 @@ import com.mkv.tosca.sdk.workflow.TaskExecutorFactory;
  * 
  * @author Minh Khang VU
  */
-public class Topology {
+public abstract class Deployment {
+
+    private static final Logger log = LoggerFactory.getLogger(Deployment.class);
 
     /**
      * Inputs for a topology
@@ -35,12 +41,15 @@ public class Topology {
      */
     protected Set<tosca.relationships.Root> relationshipInstances = Sets.newHashSet();
 
-    public Topology() {
-        this.inputs = Maps.newHashMap();
+    protected Path generatedRecipe;
+
+    public void initializeDeployment(Path generatedRecipe, Map<String, String> inputs) {
+        this.inputs = inputs;
+        this.generatedRecipe = generatedRecipe;
     }
 
-    public Topology(Map<String, String> inputs) {
-        this.inputs = inputs;
+    protected void initializeInstance(tosca.nodes.Root instance) {
+        instance.setRecipeLocalPath(this.generatedRecipe.toAbsolutePath().toString());
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
@@ -128,21 +137,49 @@ public class Topology {
                 createParallel.getActionList().add(new Task() {
                     @Override
                     public void run() {
+                        log.info("Prepare to create " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                         nodeInstance.create();
+                        log.info("Finished to create " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                         Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                            log.info("Prepare to pre configure source for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             relationship.preConfigureSource();
+                            log.info("Finished to pre configure source for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                         }
                         Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                            log.info("Prepare to pre configure target for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             relationship.preConfigureTarget();
+                            log.info("Finished to prepare to pre configure target for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                         }
+                        log.info("Prepare to configure " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                         nodeInstance.configure();
+                        log.info("Finished to configure " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                            log.info("Prepare to post configure source for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             relationship.postConfigureSource();
+                            log.info("Finished to post configure source for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                         }
                         for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                            log.info("Prepare to post configure target for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             relationship.postConfigureTarget();
+                            log.info("Finished to prepare to post configure target for relationship " + relationship.getSource().getName() + "_"
+                                    + relationship.getTarget().getName() + " with source id "
+                                    + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                         }
                     }
                 });
@@ -168,14 +205,28 @@ public class Topology {
                     startParallel.getActionList().add(new Task() {
                         @Override
                         public void run() {
+                            log.info("Prepare to start " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                             nodeInstance.start();
+                            log.info("Finished to start " + nodeInstance.getName() + " with id " + nodeInstance.getId());
                             Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                                log.info("Prepare to add target for relationship " + relationship.getSource().getName() + "_"
+                                        + relationship.getTarget().getName() + " with source id "
+                                        + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                                 relationship.addTarget();
+                                log.info("Finished to add target for relationship " + relationship.getSource().getName() + "_"
+                                        + relationship.getTarget().getName() + " with source id "
+                                        + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                                log.info("Prepare to add source for relationship " + relationship.getSource().getName() + "_"
+                                        + relationship.getTarget().getName() + " with source id "
+                                        + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                                 relationship.addSource();
+                                log.info("Finished to add source for relationship " + relationship.getSource().getName() + "_"
+                                        + relationship.getTarget().getName() + " with source id "
+                                        + relationship.getSource().getId() + " and target id " + relationship.getTarget().getId());
                             }
                         }
                     });
@@ -184,6 +235,7 @@ public class Topology {
             }
         }
         waitForStartedQueue.removeAll(processedStarted);
+        step.getActionList().add(startParallel);
         return step;
     }
 }

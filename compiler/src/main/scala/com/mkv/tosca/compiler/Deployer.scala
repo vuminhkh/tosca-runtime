@@ -2,8 +2,8 @@ package com.mkv.tosca.compiler
 
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, SimpleFileVisitor, Files, Path}
-
-import com.mkv.tosca.sdk.Topology
+import collection.JavaConversions._
+import com.mkv.tosca.sdk.Deployment
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
 
 /**
@@ -28,9 +28,10 @@ object Deployer {
     return javaSourceCompiler.compile(Thread.currentThread().getContextClassLoader, compilationUnit)
   }
 
-  def deploy(generatedRecipe: Path) = {
+  def deploy(generatedRecipe: Path, inputs: Map[String, String]) = {
     val classLoader = compile(generatedRecipe)
-    val topology = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Topology]
-    topology.install()
+    val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
+    deployment.initializeDeployment(generatedRecipe, mapAsJavaMap(inputs))
+    deployment.install()
   }
 }

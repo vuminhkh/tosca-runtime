@@ -13,7 +13,7 @@ public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nod
       inputs.put("@functionInput._1", evaluateFunction("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
     }
     @method.implementation.map { implementation =>
-      getHost().execute("@implementation", inputs);
+      getHost().execute("@nodeType.csarName/@implementation", inputs);
     }
   @Html("}")
 }

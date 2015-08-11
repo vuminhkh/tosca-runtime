@@ -1,6 +1,6 @@
 @import com.mkv.tosca.compiler.runtime.Deployment
 @import com.mkv.tosca.compiler.runtime.Node
-@(deployment: Deployment)
+@(deployment: Deployment, deploymentImplementation: String)
 
 @instantiateInstance(node: Node) = {
     @node.typeName @node.name = new @node.typeName @Html("();")
@@ -19,6 +19,7 @@
   @node.children.map { child =>
     @instantiateNode(child)
   }
+    initializeInstance(@node.name);
 }
 
 @instantiateNode(node: Node) = {
@@ -31,11 +32,10 @@
   }
 }
 
-public class Deployment extends com.mkv.tosca.sdk.Topology @Html("{")
+public class Deployment extends @deploymentImplementation @Html("{")
 
-  @Html("public Deployment () { this(new java.util.HashMap<String,String> ()); }")
-
-  public Deployment @Html("(java.util.Map<String, String> inputs) {")
+  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Map<String, String> inputs) {")
+    @Html("super.initializeDeployment(generatedRecipe, inputs);")
 @deployment.roots.map { node =>
     @instantiateNode(node)
 }

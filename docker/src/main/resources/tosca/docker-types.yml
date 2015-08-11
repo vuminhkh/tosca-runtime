@@ -6,3 +6,6 @@ template_author: FastConnect
 node_types:
   com.mkv.tosca.docker.nodes.Container:
     derived_from: tosca.nodes.Compute
+    properties:
+      image_id:
+        type: string

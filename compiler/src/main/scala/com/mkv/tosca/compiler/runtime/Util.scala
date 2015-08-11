@@ -3,7 +3,8 @@ package com.mkv.tosca.compiler.runtime
 import java.nio.file.{Files, Path}
 
 import com.google.common.base.{CaseFormat, Charsets}
-import com.mkv.exception.NotSupportedGenerationException
+import com.mkv.exception.{RecoverableException, NotSupportedGenerationException}
+import org.clapper.classutil.ClassFinder
 
 object Util {
 
@@ -49,5 +50,16 @@ object Util {
   def writeCode(text: String, outputFile: Path) = {
     Files.createDirectories(outputFile.getParent)
     Files.write(outputFile, text.getBytes(Charsets.UTF_8))
+  }
+
+  def scanDeploymentImplementation(): String = {
+    val deploymentImplementations = ClassFinder().getClasses().filter(_.superClassName == classOf[com.mkv.tosca.sdk.Deployment].getName).toSeq
+    if (deploymentImplementations.size > 1) {
+      throw new RecoverableException("More than one deployment provider is found on the class path " + deploymentImplementations)
+    } else if (deploymentImplementations.isEmpty) {
+      throw new RecoverableException("No deployment provider is found on the class path")
+    } else {
+      return deploymentImplementations.head.name
+    }
   }
 }

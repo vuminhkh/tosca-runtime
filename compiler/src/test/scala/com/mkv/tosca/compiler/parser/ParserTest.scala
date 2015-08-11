@@ -58,7 +58,7 @@ object ParserTest {
     } else {
       CodeGenerator.generate(wordpressTopologyCsar.get, List(wordpressCsar.get, normativeCsar.get, apacheCsar.get, mysqlCsar.get, phpCsar.get, dockerCsar.get), output)
     }
-    Deployer.deploy(output)
+    Deployer.deploy(output, Map("daemon_url" -> "https://192.168.59.103:2376"))
   }
 
   def compile(csar: Path, csarPath: List[Path]) = {

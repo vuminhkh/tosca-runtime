@@ -13,7 +13,7 @@ public @if(relationshipType.isAbstract){abstract }class @relationshipType.classN
     inputs.put("@functionInput._1", evaluateFunction("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
   }
   @method.implementation.map { implementation =>
-    executeOperation("@method.name", "@implementation", inputs);
+    executeOperation("@method.name", "@relationshipType.csarName/@implementation", inputs);
   }
   @Html("}")
 }

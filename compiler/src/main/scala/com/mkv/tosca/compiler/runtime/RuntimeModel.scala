@@ -1,28 +1,32 @@
 package com.mkv.tosca.compiler.runtime
 
 trait RuntimeType {
-  def className: String
+  val className: String
 
-  def packageName: String
+  val packageName: String
 
-  def isAbstract: Boolean
+  val isAbstract: Boolean
 
-  def superClass: Option[String]
+  val superClass: Option[String]
 
-  def methods: Seq[Method]
+  val methods: Seq[Method]
+
+  val csarName: String
 }
 
 case class NodeType(className: String,
                     packageName: String,
                     isAbstract: Boolean,
                     superClass: Option[String],
-                    methods: Seq[Method]) extends RuntimeType
+                    methods: Seq[Method],
+                    csarName: String) extends RuntimeType
 
 case class RelationshipType(className: String,
                             packageName: String,
                             isAbstract: Boolean,
                             superClass: Option[String],
-                            methods: Seq[Method]) extends RuntimeType
+                            methods: Seq[Method],
+                            csarName: String) extends RuntimeType
 
 case class Function(name: String,
                     entity: String,
