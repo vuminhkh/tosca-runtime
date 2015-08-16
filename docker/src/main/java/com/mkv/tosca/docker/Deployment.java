@@ -7,6 +7,7 @@ import tosca.nodes.Root;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
 import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.docker.nodes.Container;
 
@@ -26,7 +27,9 @@ public abstract class Deployment extends com.mkv.tosca.sdk.Deployment {
         if (daemonUrl == null) {
             throw new NonRecoverableException("Daemon URL is mandatory to start docker deployment");
         }
-        this.dockerClient = DockerClientBuilder.getInstance(daemonUrl).build();
+        DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder().withUri(daemonUrl).withMaxTotalConnections(Integer.MAX_VALUE)
+                .withMaxPerRouteConnections(Integer.MAX_VALUE).build();
+        this.dockerClient = DockerClientBuilder.getInstance(config).build();
     }
 
     @Override

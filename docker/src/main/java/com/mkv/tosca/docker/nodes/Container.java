@@ -12,18 +12,24 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import tosca.nodes.Compute;
+import tosca.nodes.Root;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.InternetProtocol;
+import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Volume;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 public class Container extends Compute {
 
@@ -50,7 +56,21 @@ public class Container extends Compute {
         String imageId = getImageId();
         log.info("Node [" + getName() + "] : Creating container with image " + imageId);
         Volume recipeVolume = new Volume(RECIPE_LOCATION);
-        containerId = dockerClient.createContainerCmd(imageId).withName(getName()).withBinds(new Bind(recipeLocalPath, recipeVolume)).exec().getId();
+        Set<String> linkedWithContainers = Sets.newHashSet();
+        for (Root child : getChildren()) {
+            for (Root childDependency : child.getDependsOnNodes()) {
+                Compute childDependencyHost = childDependency.getHost();
+                if (childDependencyHost != null && childDependencyHost instanceof Container) {
+                    linkedWithContainers.add(childDependencyHost.getId());
+                }
+            }
+        }
+        List<Link> links = Lists.newArrayList();
+        for (String linkedContainer : linkedWithContainers) {
+            links.add(new Link(linkedContainer, linkedContainer));
+        }
+        containerId = dockerClient.createContainerCmd(imageId).withName(getId()).withLinks(links.toArray(new Link[links.size()]))
+                .withBinds(new Bind(recipeLocalPath, recipeVolume)).withExposedPorts(new ExposedPort(80, InternetProtocol.TCP)).exec().getId();
         log.info("Node [" + getName() + "] : Created container with id " + containerId);
     }
 
@@ -62,6 +82,7 @@ public class Container extends Compute {
         log.info("Node [" + getName() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
         ipAddress = dockerClient.inspectContainerCmd(containerId).exec().getNetworkSettings().getIpAddress();
+        getAttributes().put("ip_address", ipAddress);
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
     }
 
@@ -72,8 +93,9 @@ public class Container extends Compute {
         }
         log.info("Node [" + getName() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
-        ipAddress = null;
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        getAttributes().remove("ip_address");
+        ipAddress = null;
     }
 
     @Override

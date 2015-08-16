@@ -100,6 +100,13 @@ object CodeGenerator extends LazyLogging {
     val topologyNodes = topology.nodeTemplates.get.values.map {
       nodeTemplate =>
         val nodeName = nodeTemplate.name.value
+        val nodeTypeName = nodeTemplate.typeName.get.value
+        val nodeType = TypeLoader.loadPolymorphismResolvedNodeType(nodeTypeName, csarPath).get
+        val defaultProperties = nodeType.properties.map {
+          _.filter(_._2.default.isDefined).map {
+            case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, propertyDefinition.default.get.value)
+          }
+        }.getOrElse(Map.empty)
         val scalarProperties = nodeTemplate.properties.map {
           _.filter(_._2.isInstanceOf[ParsedValue[String]]).map {
             case (propertyName: ParsedValue[String], propertyValue: ParsedValue[String]) => (propertyName.value, propertyValue.value)
@@ -110,7 +117,7 @@ object CodeGenerator extends LazyLogging {
             case (propertyName: ParsedValue[String], propertyValue: Input) => (propertyName.value, runtime.Input(propertyValue.name.value))
           }
         }.getOrElse(Map.empty)
-        (nodeName, new runtime.Node(name = nodeName, typeName = nodeTemplate.typeName.get.value, scalarProperties = scalarProperties, inputProperties = inputProperties))
+        (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, scalarProperties = defaultProperties ++ scalarProperties, inputProperties = inputProperties))
     }.toMap
 
     val topologyRelationships = topology.nodeTemplates.get.values.flatMap {

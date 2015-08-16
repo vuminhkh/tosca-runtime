@@ -30,7 +30,7 @@ fi
 
 nameZip=${WEBFILE_URL##*/}
 echo "Dowload last build of Wordpress from $WEBFILE_URL to /tmp/$nameZip"
-wget $WEBFILE_URL -O /tmp/$nameZip
+sudo curl -Lo /tmp/$nameZip -O $WEBFILE_URL
 
 echo "Unzip wordpress from /tmp/$nameZip to /opt/wordpress"
 sudo unzip -o /tmp/$nameZip -d /opt/wordpress

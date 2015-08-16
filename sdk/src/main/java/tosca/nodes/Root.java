@@ -3,11 +3,17 @@ package tosca.nodes;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Sets;
 import com.mkv.exception.IllegalFunctionException;
 import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.sdk.AbstractRuntimeType;
 
 public abstract class Root extends AbstractRuntimeType {
+
+    private static final Logger log = LoggerFactory.getLogger(Root.class);
 
     private String id;
 
@@ -15,7 +21,17 @@ public abstract class Root extends AbstractRuntimeType {
 
     private Root parent;
 
-    private Set<Root> dependsOnNodes;
+    private Set<Root> dependsOnNodes = Sets.newHashSet();
+
+    private Set<Root> children = Sets.newHashSet();
+
+    public Set<Root> getChildren() {
+        return children;
+    }
+
+    public void setChildren(Set<Root> children) {
+        this.children = children;
+    }
 
     public void setName(String name) {
         this.name = name;
@@ -55,6 +71,7 @@ public abstract class Root extends AbstractRuntimeType {
 
     public void setParent(Root parent) {
         this.parent = parent;
+        this.parent.getChildren().add(this);
     }
 
     public Set<Root> getDependsOnNodes() {
@@ -115,6 +132,8 @@ public abstract class Root extends AbstractRuntimeType {
             if (getParent() != null) {
                 return getParent().evaluateFunction(functionName, entity, path);
             } else {
+                log.warn("Instance " + getId() + " of node " + getName() + ": Evaluate " + functionName + " on " + entity + " and path " + path
+                        + " is returning null");
                 return "";
             }
         } else {

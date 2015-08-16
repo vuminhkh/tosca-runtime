@@ -4,7 +4,7 @@
 
 @instantiateInstance(node: Node) = {
     @node.typeName @node.name = new @node.typeName @Html("();")
-    @node.name@Html(".setId(java.util.UUID.randomUUID().toString());")
+    @node.name@Html(".setId(")"@node.name" + @node.name@Html("Index);")
     @node.name@Html(".setName(\"")@node.name@Html("\");")
   @node.scalarProperties.map { scalaProperty =>
     @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
@@ -23,13 +23,9 @@
 }
 
 @instantiateNode(node: Node) = {
-  @if(node.instanceCount > 1) {
-    @Html("for (int ")@node.name@Html("Index = 0; ")@node.name@Html("Index < ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
+    @Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
       @instantiateInstance(node)
     @Html("}")
-  } else {
-    @instantiateInstance(node)
-  }
 }
 
 public class Deployment extends @deploymentImplementation @Html("{")
