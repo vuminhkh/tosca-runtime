@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,8 +26,8 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.InternetProtocol;
 import com.github.dockerjava.api.model.Link;
+import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.api.model.Volume;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -51,6 +52,35 @@ public class Container extends Compute {
         return getProperty("image_id");
     }
 
+    public String[] getExposedPorts() {
+        String exposedPortsRaw = getProperty("exposed_ports");
+        if (exposedPortsRaw != null) {
+            List<String> exposedPortsList = Lists.newArrayList();
+            for (String exposedPortRaw : exposedPortsRaw.split(",")) {
+                exposedPortsList.add(exposedPortRaw.trim());
+            }
+            return exposedPortsList.toArray(new String[exposedPortsList.size()]);
+        } else {
+            return new String[0];
+        }
+    }
+
+    public Map<String, String> getPortsMapping() {
+        Map<String, String> mapping = new HashMap<>();
+        String portMappingsRaw = getProperty("port_mappings");
+        if (portMappingsRaw == null) {
+            return mapping;
+        }
+        String[] portMappingsEntriesRaw = portMappingsRaw.split(",");
+        for (String portMappingEntryRaw : portMappingsEntriesRaw) {
+            String[] entry = portMappingEntryRaw.split("-");
+            if (entry.length == 2) {
+                mapping.put(entry[0].trim(), entry[1].trim());
+            }
+        }
+        return mapping;
+    }
+
     @Override
     public void create() {
         String imageId = getImageId();
@@ -69,8 +99,32 @@ public class Container extends Compute {
         for (String linkedContainer : linkedWithContainers) {
             links.add(new Link(linkedContainer, linkedContainer));
         }
+        String[] exposedPortsRaw = getExposedPorts();
+        Map<String, String> portMappingsRaw = getPortsMapping();
+        List<ExposedPort> exposedPorts = Lists.newArrayList();
+        Ports portBindings = new Ports();
+        if (exposedPortsRaw.length > 0) {
+            for (String exposedPort : exposedPortsRaw) {
+                try {
+                    int port = Integer.parseInt(exposedPort);
+                    ExposedPort portTcp = ExposedPort.tcp(port);
+                    ExposedPort portUdp = ExposedPort.udp(port);
+                    exposedPorts.add(portTcp);
+                    exposedPorts.add(portUdp);
+                    String mappedPortRaw = portMappingsRaw.get(exposedPort);
+                    if (mappedPortRaw != null) {
+                        int mappedPort = Integer.parseInt(mappedPortRaw);
+                        portBindings.bind(portTcp, Ports.Binding(mappedPort));
+                        portBindings.bind(portUdp, Ports.Binding(mappedPort));
+                    }
+                } catch (Exception e) {
+                    log.error("Port exposed not in good format " + exposedPort, e);
+                }
+            }
+        }
         containerId = dockerClient.createContainerCmd(imageId).withName(getId()).withLinks(links.toArray(new Link[links.size()]))
-                .withBinds(new Bind(recipeLocalPath, recipeVolume)).withExposedPorts(new ExposedPort(80, InternetProtocol.TCP)).exec().getId();
+                .withBinds(new Bind(recipeLocalPath, recipeVolume)).withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
+                .withPortBindings(portBindings).exec().getId();
         log.info("Node [" + getName() + "] : Created container with id " + containerId);
     }
 
@@ -109,7 +163,7 @@ public class Container extends Compute {
         log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
     }
 
-    private void runCommand(List<String> commands) throws IOException {
+    public void runCommand(List<String> commands) throws IOException {
         ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout().withAttachStderr()
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();

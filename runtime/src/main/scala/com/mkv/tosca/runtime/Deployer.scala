@@ -1,17 +1,19 @@
-package com.mkv.tosca.compiler
+package com.mkv.tosca.runtime
 
 import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.{FileVisitResult, SimpleFileVisitor, Files, Path}
-import collection.JavaConversions._
+import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
+
 import com.mkv.tosca.sdk.Deployment
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
+
+import scala.collection.JavaConversions._
 
 /**
  * Deploy generated code
  */
 object Deployer {
 
-  def compile(generatedRecipe: Path): ClassLoader = {
+  def compileJavaRecipe(generatedRecipe: Path): ClassLoader = {
     val javaSourceCompiler = new JavaSourceCompilerImpl
     val compilationUnit = javaSourceCompiler.createCompilationUnit
     Files.walkFileTree(generatedRecipe, new SimpleFileVisitor[Path] {
@@ -29,7 +31,7 @@ object Deployer {
   }
 
   def deploy(generatedRecipe: Path, inputs: Map[String, String]) = {
-    val classLoader = compile(generatedRecipe)
+    val classLoader = compileJavaRecipe(generatedRecipe)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
     deployment.initializeDeployment(generatedRecipe, mapAsJavaMap(inputs))
     deployment.install()

@@ -13,6 +13,13 @@ lazy val compiler = project.settings(
   libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
 ).dependsOn(docker).enablePlugins(SbtTwirl)
 
+lazy val runtime = project.settings(
+  version := "1.0",
+  scalaVersion := "2.11.6",
+  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
+  libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
+).dependsOn(compiler)
+
 lazy val docker = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",

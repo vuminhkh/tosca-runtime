@@ -55,6 +55,8 @@ topology_template:
       type: com.mkv.tosca.docker.nodes.Container
       properties:
         image_id: tosca
+        exposed_ports: 80
+        port_mappings: 80 - 51000
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
         os_version: { get_input: os_version }

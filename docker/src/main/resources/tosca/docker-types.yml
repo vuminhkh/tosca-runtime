@@ -9,3 +9,7 @@ node_types:
     properties:
       image_id:
         type: string
+      exposed_ports:
+        type: string
+      port_mappings:
+        type: string
