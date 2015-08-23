@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.CopyOption;
 import java.nio.file.FileSystem;
@@ -17,6 +18,9 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -27,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 
@@ -80,6 +85,10 @@ public final class FileUtil {
      * @throws IOException when IO error happened
      */
     public static void zip(Path inputPath, Path outputPath) throws IOException {
+        zip(inputPath, "", outputPath);
+    }
+
+    public static void zip(Path inputPath, String outputPrefix, Path outputPath) throws IOException {
         if (!Files.exists(inputPath)) {
             throw new FileNotFoundException("File not found " + inputPath);
         }
@@ -87,9 +96,9 @@ public final class FileUtil {
         ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputPath)));
         try {
             if (!Files.isDirectory(inputPath)) {
-                putZipEntry(zipOutputStream, new ZipEntry(inputPath.getFileName().toString()), inputPath);
+                putZipEntry(zipOutputStream, new ZipEntry(outputPrefix + "/" + inputPath.getFileName().toString()), inputPath);
             } else {
-                Files.walkFileTree(inputPath, new ZipDirWalker(inputPath, zipOutputStream));
+                Files.walkFileTree(inputPath, new ZipDirWalker(inputPath, zipOutputStream, outputPrefix));
             }
             zipOutputStream.flush();
         } finally {
@@ -275,5 +284,47 @@ public final class FileUtil {
             return true;
         }
         return false;
+    }
+
+    /**
+     * List all files with extension
+     * 
+     * @param path the folder path
+     * @param extensions the extension without '.'
+     * @return list of all files in the folder that have the extension
+     * @throws IOException
+     */
+    public static List<Path> listFiles(final Path path, final String... extensions) throws IOException {
+        final List<Path> allFiles = Lists.newArrayList();
+        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                for (String extension : extensions) {
+                    if (file.getFileName().toString().endsWith(extension)) {
+                        allFiles.add(file);
+                        break;
+                    }
+                }
+                return super.visitFile(file, attrs);
+            }
+        });
+        return allFiles;
+    }
+
+    /**
+     * Create a zip file system and returns back the root
+     * 
+     * @param path the path to the file
+     * @return the root of the new file system
+     * @throws IOException
+     */
+    public static Path createZipFileSystem(Path path) throws IOException {
+        Map<String, String> env = new HashMap<>();
+        if (!Files.exists(path)) {
+            env.put("create", "true");
+        }
+        URI uri = URI.create("jar:file:" + path.toUri().getPath());
+        FileSystem fileSystem = FileSystems.newFileSystem(uri, env, null);
+        return fileSystem.getPath("/");
     }
 }

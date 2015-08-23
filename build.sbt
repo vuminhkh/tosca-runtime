@@ -1,29 +1,30 @@
 name := "tosca-runtime"
 
+scalacOptions += "-Ylog-classpath"
+
 lazy val root = project.in(file(".")).settings(
   version := "1.0",
   scalaVersion := "2.11.6"
-).aggregate(compiler, docker, sdk, common)
+).aggregate(runtime, compiler, docker, sdk, common)
 
 lazy val compiler = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
-  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
   libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
-).dependsOn(docker).enablePlugins(SbtTwirl)
+).dependsOn(sdk).enablePlugins(SbtTwirl)
 
 lazy val runtime = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
-  libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
-).dependsOn(compiler)
+  libraryDependencies += "com.typesafe" % "config" % "1.2.1"
+).dependsOn(compiler, docker)
 
 lazy val docker = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
-  libraryDependencies += "com.github.docker-java" % "docker-java" % "1.4.0"
+  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1"
 ).dependsOn(sdk)
 
 lazy val sdk = project.settings(

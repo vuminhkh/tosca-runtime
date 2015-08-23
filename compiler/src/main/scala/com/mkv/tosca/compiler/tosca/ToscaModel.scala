@@ -1,12 +1,15 @@
 package com.mkv.tosca.compiler.tosca
 
-import java.nio.file.Path
 import java.text.DateFormat
 import java.util.Locale
 
 import scala.util.parsing.input.Positional
 
-case class Csar(definitions: Map[Path, Definition], path: Path)
+case class Csar(definitions: Map[String, Definition]) {
+  def csarName = {
+    definitions.head._2.name.get.value
+  }
+}
 
 case class ParsedValue[T](value: T) extends Positional
 

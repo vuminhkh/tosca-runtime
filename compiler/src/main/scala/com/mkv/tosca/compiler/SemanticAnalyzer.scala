@@ -240,10 +240,10 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
-  def analyze(csar: Csar, csarPath: List[Csar]) = {
+  def analyze(csar: Csar, archivePath: Path, csarPath: List[Csar]) = {
     val csarPathWithSelf = csar :: csarPath
     csar.definitions.map {
-      case (path, definition) => (path, analyzeDefinition(definition, csar.path, csarPathWithSelf))
+      case (path, definition) => (path, analyzeDefinition(definition, archivePath, csarPathWithSelf))
     }.filter(_._2.nonEmpty)
   }
 }

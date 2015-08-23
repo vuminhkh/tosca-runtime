@@ -54,8 +54,4 @@ class Node(var name: String,
 
 class Relationship(var source: Node,
                    var target: Node,
-                   var typeName: String) {
-  def name = {
-    source.name + "_" + target.name
-  }
-}
+                   var typeName: String)

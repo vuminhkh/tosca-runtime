@@ -10,7 +10,7 @@
     @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
   }
   @node.inputProperties.map { inputProperty =>
-    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
+    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.getProperty@Html("(\"" + inputProperty._2.name + "\"));")
   }
     nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
   @node.parent.map { parent =>
@@ -30,7 +30,7 @@
 
 public class Deployment extends @deploymentImplementation @Html("{")
 
-  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Map<String, String> inputs) {")
+  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Properties inputs) {")
     @Html("super.initializeDeployment(generatedRecipe, inputs);")
 @deployment.roots.map { node =>
     @instantiateNode(node)

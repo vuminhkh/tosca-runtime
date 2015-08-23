@@ -1,10 +1,10 @@
 package com.mkv.tosca.compiler
 
-import java.nio.file.{StandardCopyOption, Files, Path, Paths}
+import java.nio.file.{Files, Path, StandardCopyOption}
 
-import com.google.common.base.Charsets
-import com.mkv.exception.{NonRecoverableException, InvalidTopologyException, NotSupportedGenerationException}
-import com.mkv.tosca.compiler.runtime.{Method, Util}
+import com.google.common.io.Closeables
+import com.mkv.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
+import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.tosca.compiler.tosca._
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
@@ -53,10 +53,10 @@ object CodeGenerator extends LazyLogging {
     } else {
       logger.info(s"Generating node type class ${nodeType.name.value}")
       val parsedType = parseRuntimeType(nodeType)
-      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.path.getFileName.toString)).body
-      val outputFile = outputDir.resolve(Paths.get(Util.getGeneratedClassRelativePath(nodeType.name.value)))
-      Files.createDirectories(outputFile.getParent)
-      Files.write(outputFile, generatedText.getBytes(Charsets.UTF_8))
+      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.csarName)).body
+      val outputFile = Util.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
+      val generatedPath = Util.writeCode(generatedText, outputFile)
+      logger.info(s"Generated node type class ${nodeType.name.value} to $generatedPath")
     }
   }
 
@@ -66,10 +66,10 @@ object CodeGenerator extends LazyLogging {
     } else {
       logger.info(s"Generating relationship type class ${relationshipType.name.value}")
       val parsedType = parseRuntimeType(relationshipType)
-      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.path.getFileName.toString)).body
-      val outputFile = outputDir.resolve(Paths.get(Util.getGeneratedClassRelativePath(relationshipType.name.value)))
-      Files.createDirectories(outputFile.getParent)
-      Files.write(outputFile, generatedText.getBytes(Charsets.UTF_8))
+      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.csarName)).body
+      val outputFile = Util.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
+      val generatedPath = Util.writeCode(generatedText, outputFile)
+      logger.info(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
     }
   }
 
@@ -90,7 +90,6 @@ object CodeGenerator extends LazyLogging {
     csar.definitions.foreach {
       case (path, definition) => generateTypesForDefinition(csar, definition, outputDir)
     }
-    FileUtil.copy(csar.path, outputDir.resolve(csar.path.getFileName), StandardCopyOption.REPLACE_EXISTING)
   }
 
   def parseTopology(topology: TopologyTemplate, csarPath: Seq[Csar], outputDir: Path) = {
@@ -155,15 +154,27 @@ object CodeGenerator extends LazyLogging {
     runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq, topologyRoots.toSeq)
   }
 
-  def generate(csar: Csar, csarPath: List[Csar], outputDir: Path) = {
-    generateTypesForCsar(csar, outputDir)
+  def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {
+    var recipeOutputPath = outputPath
+    val createZip = !Files.isDirectory(outputPath)
+    if (createZip) {
+      recipeOutputPath = FileUtil.createZipFileSystem(outputPath)
+    }
+    // Copy original archive to the compiled output
+    FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(Constant.ARCHIVE_FOLDER).resolve(csar.csarName), StandardCopyOption.REPLACE_EXISTING)
+    // Generate Java classes for types
+    generateTypesForCsar(csar, recipeOutputPath.resolve(Constant.TYPES_FOLDER))
     val definitionsWithTopology = csar.definitions.filter(_._2.topologyTemplate.isDefined)
     if (definitionsWithTopology.size > 1) {
       throw new NotSupportedGenerationException("More than one topology is found in the CSAR at " + definitionsWithTopology.keys + ", this is currently not supported")
     } else if (definitionsWithTopology.nonEmpty) {
-      val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csarPath :+ csar, outputDir)
+      val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csarPath :+ csar, recipeOutputPath)
       val generatedTopologyText = html.GeneratedTopology.render(deployment, Util.scanDeploymentImplementation()).body
-      Util.writeCode(generatedTopologyText, outputDir.resolve("Deployment.java"))
+      // Generate Deployment for the topology
+      Util.writeCode(generatedTopologyText, recipeOutputPath.resolve(Constant.DEPLOYMENT_FILE))
+    }
+    if (createZip) {
+      Closeables.close(recipeOutputPath.getFileSystem, true)
     }
   }
 }

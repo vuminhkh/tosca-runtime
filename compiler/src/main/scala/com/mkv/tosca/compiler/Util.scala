@@ -1,9 +1,10 @@
-package com.mkv.tosca.compiler.runtime
+package com.mkv.tosca.compiler
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.google.common.base.{CaseFormat, Charsets}
-import com.mkv.exception.{RecoverableException, NotSupportedGenerationException}
+import com.mkv.exception.{NotSupportedGenerationException, RecoverableException}
+import com.mkv.tosca.compiler.runtime.Method
 import org.clapper.classutil.ClassFinder
 
 object Util {
@@ -31,8 +32,11 @@ object Util {
     (packageName, className)
   }
 
-  def getGeneratedClassRelativePath(typeName: String) = {
-    typeName.replaceAll("\\.", "/") + ".java"
+  def getGeneratedClassRelativePath(outputPath: Path, typeName: String) = {
+    val pathElements = (typeName.replaceAll("\\.", "/") + ".java").split("/")
+    var outputFile = outputPath
+    pathElements.foreach(childPath => outputFile = outputFile.resolve(childPath))
+    outputFile
   }
 
   def getGeneratedMethodName(interfaceName: String, operationName: String) = {
@@ -49,7 +53,7 @@ object Util {
 
   def writeCode(text: String, outputFile: Path) = {
     Files.createDirectories(outputFile.getParent)
-    Files.write(outputFile, text.getBytes(Charsets.UTF_8))
+    Files.write(outputFile, text.getBytes(Charsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING)
   }
 
   def scanDeploymentImplementation(): String = {

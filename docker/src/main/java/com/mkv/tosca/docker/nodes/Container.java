@@ -191,9 +191,9 @@ public class Container extends Compute {
      * @param operationArtifactPath the relative path to the script in the recipe
      */
     public void execute(String operationArtifactPath, Map<String, String> environmentVariables) {
-        String containerGeneratedScriptPath = RECIPE_GENERATED_SCRIPT_LOCATION + "/" + operationArtifactPath;
+        String containerGeneratedScriptPath = RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath;
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
-        String localGeneratedScriptPath = recipeLocalPath + GENERATED_SCRIPT_PATH + "/" + operationArtifactPath;
+        String localGeneratedScriptPath = recipeLocalPath + GENERATED_SCRIPT_PATH + "/" + getId() + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
         try {
             Files.createDirectories(Paths.get(localGeneratedScriptPath).getParent());

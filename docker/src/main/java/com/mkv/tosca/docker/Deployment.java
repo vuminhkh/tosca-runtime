@@ -1,14 +1,13 @@
 package com.mkv.tosca.docker;
 
 import java.nio.file.Path;
-import java.util.Map;
+import java.util.Properties;
 
 import tosca.nodes.Root;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
-import com.mkv.exception.NonRecoverableException;
 import com.mkv.tosca.docker.nodes.Container;
 
 /**
@@ -21,14 +20,10 @@ public abstract class Deployment extends com.mkv.tosca.sdk.Deployment {
     private DockerClient dockerClient;
 
     @Override
-    public void initializeDeployment(Path generatedRecipe, Map<String, String> inputs) {
+    public void initializeDeployment(Path generatedRecipe, Properties inputs) {
         super.initializeDeployment(generatedRecipe, inputs);
-        String daemonUrl = inputs.get("daemon_url");
-        if (daemonUrl == null) {
-            throw new NonRecoverableException("Daemon URL is mandatory to start docker deployment");
-        }
-        DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder().withUri(daemonUrl).withMaxTotalConnections(Integer.MAX_VALUE)
-                .withMaxPerRouteConnections(Integer.MAX_VALUE).build();
+        System.setProperty("http.maxConnections", String.valueOf(Integer.MAX_VALUE));
+        DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(inputs).build();
         this.dockerClient = DockerClientBuilder.getInstance(config).build();
     }
 

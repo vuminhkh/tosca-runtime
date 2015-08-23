@@ -2,6 +2,7 @@ package com.mkv.tosca.sdk;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -29,7 +30,7 @@ public abstract class Deployment {
     /**
      * Inputs for a topology
      */
-    protected Map<String, String> inputs;
+    protected Properties inputs;
 
     /**
      * id => node instance : A node instance is a physical component of the topology at runtime.
@@ -43,7 +44,7 @@ public abstract class Deployment {
 
     protected Path generatedRecipe;
 
-    public void initializeDeployment(Path generatedRecipe, Map<String, String> inputs) {
+    public void initializeDeployment(Path generatedRecipe, Properties inputs) {
         this.inputs = inputs;
         this.generatedRecipe = generatedRecipe;
     }
