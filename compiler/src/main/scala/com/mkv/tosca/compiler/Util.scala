@@ -5,6 +5,7 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 import com.google.common.base.{CaseFormat, Charsets}
 import com.mkv.exception.{NotSupportedGenerationException, RecoverableException}
 import com.mkv.tosca.compiler.runtime.Method
+import com.mkv.util.FileUtil
 import org.clapper.classutil.ClassFinder
 
 object Util {
@@ -51,11 +52,6 @@ object Util {
     CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
   }
 
-  def writeCode(text: String, outputFile: Path) = {
-    Files.createDirectories(outputFile.getParent)
-    Files.write(outputFile, text.getBytes(Charsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING)
-  }
-
   def scanDeploymentImplementation(): String = {
     val deploymentImplementations = ClassFinder().getClasses().filter(_.superClassName == classOf[com.mkv.tosca.sdk.Deployment].getName).toSeq
     if (deploymentImplementations.size > 1) {
@@ -64,6 +60,22 @@ object Util {
       throw new RecoverableException("No deployment provider is found on the class path")
     } else {
       return deploymentImplementations.head.name
+    }
+  }
+
+  /**
+   * Try to create file system if the path is a zip file
+   * @param paths the path list to create file systems
+   * @return map of path --> file system
+   */
+  def createZipFileSystems(paths: List[Path]) = {
+    paths.map { path =>
+      if (!Files.isDirectory(path)) {
+        val zipPath = FileUtil.createZipFileSystem(path)
+        (zipPath, Some(zipPath.getFileSystem))
+      } else {
+        (path, None)
+      }
     }
   }
 }

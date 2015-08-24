@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
@@ -250,6 +251,20 @@ public final class FileUtil {
      */
     public static String readTextFile(Path path) throws IOException {
         return readTextFile(path, Charsets.UTF_8);
+    }
+
+    /**
+     * Write given text to a file
+     * 
+     * @param text the text to write
+     * @param outputFile the output
+     * @return the path
+     * @throws IOException
+     */
+    public static Path writeTextFile(String text, Path outputFile) throws IOException {
+        Files.createDirectories(outputFile.getParent());
+        return Files
+                .write(outputFile, text.getBytes(Charsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
     }
 
     /**

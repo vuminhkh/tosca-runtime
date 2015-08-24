@@ -6,7 +6,7 @@ import java.util.Properties
 import com.mkv.tosca.compiler.{Compiler, Packager}
 
 
-object ParserTest {
+object CompileTest {
 
   def main(args: Array[String]): Unit = {
     val normativePath = Paths.get("src/test/resources/components/tosca-normative-types")
@@ -32,11 +32,6 @@ object ParserTest {
     Compiler.compile(dockerPath, List(outputNormativePath), outputDockerPath)
     Compiler.compile(wordpressTopology, List(outputNormativePath, outputApachePath, outputMysqlPath, outputPhpPath, outputWordpressPath, outputDockerPath), outputWordpressTopologyPath)
     Packager.produceDeployablePackage(outputWordpressTopologyPath, List(outputNormativePath, outputApachePath, outputMysqlPath, outputPhpPath, outputWordpressPath, outputDockerPath), outputDeployment)
-    //    docker.io.version=1.16
-    //    docker.io.username=dockeruser
-    //    docker.io.password=ilovedocker
-    //    docker.io.email=dockeruser@github.com
-    //    docker.io.serverAddress=https://index.docker.io/v1/
     val properties = new Properties()
     properties.setProperty("docker.io.url", "https://192.168.99.100:2376")
     properties.setProperty("docker.io.dockerCertPath", "/Users/mkv/.docker/machine/machines/default")
