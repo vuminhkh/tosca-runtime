@@ -1,12 +1,11 @@
 package com.mkv.tosca.compiler
 
-import java.nio.file.{Files, Path, StandardOpenOption}
+import java.nio.file.{Files, Path}
 
-import com.google.common.base.{CaseFormat, Charsets}
-import com.mkv.exception.{NotSupportedGenerationException, RecoverableException}
+import com.google.common.base.CaseFormat
+import com.mkv.exception.NotSupportedGenerationException
 import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.util.FileUtil
-import org.clapper.classutil.ClassFinder
 
 object Util {
 
@@ -14,9 +13,13 @@ object Util {
     method.functionInputs.nonEmpty || method.scalarInputs.nonEmpty
   }
 
-  def isTypeDefined(typeName: String) = {
+  def isTypeDefined(typeName: String): Boolean = {
+    isTypeDefined(typeName, Thread.currentThread().getContextClassLoader)
+  }
+
+  def isTypeDefined(typeName: String, classLoader: ClassLoader): Boolean = {
     try {
-      Class.forName(typeName, false, getClass.getClassLoader)
+      Class.forName(typeName, false, classLoader)
       true
     } catch {
       case e: ClassNotFoundException => false
@@ -52,15 +55,8 @@ object Util {
     CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
   }
 
-  def scanDeploymentImplementation(): String = {
-    val deploymentImplementations = ClassFinder().getClasses().filter(_.superClassName == classOf[com.mkv.tosca.sdk.Deployment].getName).toSeq
-    if (deploymentImplementations.size > 1) {
-      throw new RecoverableException("More than one deployment provider is found on the class path " + deploymentImplementations)
-    } else if (deploymentImplementations.isEmpty) {
-      throw new RecoverableException("No deployment provider is found on the class path")
-    } else {
-      return deploymentImplementations.head.name
-    }
+  def findImplementations(typesToScan: List[String], classLoader: ClassLoader, implementedType: Class[_]) = {
+    typesToScan.filter(className => implementedType.isAssignableFrom(classLoader.loadClass(className))).map(classLoader.loadClass)
   }
 
   /**

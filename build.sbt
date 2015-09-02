@@ -5,13 +5,12 @@ scalacOptions += "-Ylog-classpath"
 lazy val root = project.in(file(".")).settings(
   version := "1.0",
   scalaVersion := "2.11.6"
-).aggregate(runtime, compiler, docker, sdk, common)
+).aggregate(test, runtime, compiler, docker, sdk, common)
 
 lazy val compiler = project.settings(
   version := "1.0",
   scalaVersion := "2.11.6",
-  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
-  libraryDependencies += "org.clapper" %% "classutil" % "1.0.5"
+  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
 ).dependsOn(sdk).enablePlugins(SbtTwirl)
 
 lazy val runtime = project.settings(
@@ -19,7 +18,12 @@ lazy val runtime = project.settings(
   scalaVersion := "2.11.6",
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
   libraryDependencies += "com.typesafe" % "config" % "1.2.1"
-).dependsOn(compiler, docker)
+).dependsOn(compiler)
+
+lazy val test = project.settings(
+  version := "1.0",
+  scalaVersion := "2.11.6"
+).dependsOn(runtime, docker)
 
 lazy val docker = project.settings(
   version := "1.0",

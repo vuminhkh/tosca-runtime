@@ -6,7 +6,7 @@ import com.google.common.collect.Maps;
 
 public abstract class AbstractRuntimeType {
 
-    protected Map<String, String> properties = Maps.newHashMap();
+    protected Map<String, Object> properties = Maps.newHashMap();
 
     protected Map<String, String> attributes = Maps.newHashMap();
 
@@ -14,11 +14,11 @@ public abstract class AbstractRuntimeType {
 
     protected String csarName;
 
-    public Map<String, String> getProperties() {
+    public Map<String, Object> getProperties() {
         return properties;
     }
 
-    public void setProperties(Map<String, String> properties) {
+    public void setProperties(Map<String, Object> properties) {
         this.properties = properties;
     }
 
@@ -31,7 +31,8 @@ public abstract class AbstractRuntimeType {
     }
 
     protected String getProperty(String propertyName) {
-        return this.properties.get(propertyName);
+        Object value = this.properties.get(propertyName);
+        return value != null ? String.valueOf(this.properties.get(propertyName)) : null;
     }
 
     protected String getAttribute(String attributeName) {

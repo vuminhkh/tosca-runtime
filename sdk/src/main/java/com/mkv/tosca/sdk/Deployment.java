@@ -2,7 +2,6 @@ package com.mkv.tosca.sdk;
 
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -30,7 +29,7 @@ public abstract class Deployment {
     /**
      * Inputs for a topology
      */
-    protected Properties inputs;
+    protected Map<String, Object> inputs;
 
     /**
      * id => node instance : A node instance is a physical component of the topology at runtime.
@@ -44,7 +43,7 @@ public abstract class Deployment {
 
     protected Path generatedRecipe;
 
-    public void initializeDeployment(Path generatedRecipe, Properties inputs) {
+    public void initializeDeployment(Path generatedRecipe, Map<String, Object> inputs) {
         this.inputs = inputs;
         this.generatedRecipe = generatedRecipe;
     }
@@ -84,6 +83,16 @@ public abstract class Deployment {
         for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
             if (nodeInstance.getName().equals(nodeName)) {
                 result.add(nodeInstance);
+            }
+        }
+        return result;
+    }
+
+    public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByNodeType(Class<T> type) {
+        Set<T> result = Sets.newHashSet();
+        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
+            if (type.isAssignableFrom(nodeInstance.getClass())) {
+                result.add((T) nodeInstance);
             }
         }
         return result;

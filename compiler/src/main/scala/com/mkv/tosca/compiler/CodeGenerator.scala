@@ -6,6 +6,7 @@ import com.google.common.io.Closeables
 import com.mkv.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
 import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.tosca.compiler.tosca._
+import com.mkv.tosca.sdk.Deployment
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
@@ -170,7 +171,7 @@ object CodeGenerator extends LazyLogging {
         throw new NotSupportedGenerationException("More than one topology is found in the CSAR at " + definitionsWithTopology.keys + ", this is currently not supported")
       } else if (definitionsWithTopology.nonEmpty) {
         val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csarPath :+ csar, recipeOutputPath)
-        val generatedTopologyText = html.GeneratedTopology.render(deployment, Util.scanDeploymentImplementation()).body
+        val generatedTopologyText = html.GeneratedTopology.render(deployment).body
         // Generate Deployment for the topology
         FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(Constant.DEPLOYMENT_FILE))
       }

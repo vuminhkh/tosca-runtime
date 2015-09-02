@@ -1,6 +1,6 @@
 @import com.mkv.tosca.compiler.runtime.Deployment
 @import com.mkv.tosca.compiler.runtime.Node
-@(deployment: Deployment, deploymentImplementation: String)
+@(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
     @node.typeName @node.name = new @node.typeName @Html("();")
@@ -10,7 +10,7 @@
     @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
   }
   @node.inputProperties.map { inputProperty =>
-    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.getProperty@Html("(\"" + inputProperty._2.name + "\"));")
+    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
   }
     nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
   @node.parent.map { parent =>
@@ -28,9 +28,9 @@
     @Html("}")
 }
 
-public class Deployment extends @deploymentImplementation @Html("{")
+public class Deployment extends com.mkv.tosca.sdk.Deployment @Html("{")
 
-  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Properties inputs) {")
+  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Map<String, Object> inputs) {")
     @Html("super.initializeDeployment(generatedRecipe, inputs);")
 @deployment.roots.map { node =>
     @instantiateNode(node)

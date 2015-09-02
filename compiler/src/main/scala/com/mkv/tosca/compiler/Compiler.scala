@@ -2,7 +2,9 @@ package com.mkv.tosca.compiler
 
 import java.nio.file._
 
+import _root_.tosca.nodes.Root
 import com.google.common.io.Closeables
+import com.mkv.exception.InitializationException
 import com.mkv.tosca.compiler.tosca.Csar
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
@@ -16,52 +18,91 @@ import scala.collection.JavaConversions._
  */
 object Compiler extends LazyLogging {
 
+  val normativeTypes: Csar = {
+    val normativeTypesUrl = classOf[Root].getClassLoader.getResource("tosca-normative-types/")
+    val normativeTypesPath = Paths.get(normativeTypesUrl.toURI)
+    val parsedCsar = analyzeSyntax(normativeTypesPath)
+    if (parsedCsar.isDefined) {
+      val semanticErrors = analyzeSemantic(parsedCsar.get, normativeTypesPath, List.empty)
+      if (semanticErrors.isEmpty) {
+        parsedCsar.get
+      } else {
+        throw new InitializationException("Errors exist in normative types, cannot load compiler")
+      }
+    } else {
+      throw new InitializationException("Errors exist in normative types, cannot load compiler")
+    }
+  }
+
   /**
    * Batch compile a topology with all its dependencies and produce a deployable package
    * @param topology the topology to produce deployment for
    * @param dependencies the topology's dependencies
+   * @param provider the provider's binary package
    * @param output output for the deployable package
    */
-  def batchCompile(topology: Path, dependencies: List[Path], output: Path): Unit = {
+  def compile(topology: Path, dependencies: List[Path], provider: Path, output: Path): Boolean = {
     var topologyFileSystem = topology
     val topologyIsZipped = Files.isRegularFile(topology)
     if (topologyIsZipped) {
       topologyFileSystem = FileUtil.createZipFileSystem(topology)
     }
+    var providerFileSystem = provider
+    val providerIsZipped = Files.isRegularFile(provider)
+    if (providerIsZipped) {
+      providerFileSystem = FileUtil.createZipFileSystem(provider)
+    }
     var outputFileSystem = output
     val outputIsZipped = !Files.isDirectory(output)
     if (outputIsZipped) {
+      Files.createDirectories(output.getParent)
       outputFileSystem = FileUtil.createZipFileSystem(output)
     }
     // Load dependencies
     val dependenciesFileSystems = Util.createZipFileSystems(dependencies)
     try {
-      val parsedDependenciesWithPaths = dependenciesFileSystems.flatMap { case (dependencyPath: Path, _) =>
-        analyzeSyntax(dependencyPath).map((_, dependencyPath))
+      val parsedDependenciesWithPaths = dependenciesFileSystems.flatMap {
+        case (dependencyPath: Path, _) => analyzeSyntax(dependencyPath).map((_, dependencyPath))
       }
       if (parsedDependenciesWithPaths.size < dependencies.size) {
         logger.error("Syntax error detected in dependencies, check output log for details")
-        return
+        return false
+      }
+      val providerCsar = analyzeSyntax(providerFileSystem.resolve(Constant.ARCHIVE_FOLDER))
+      if (providerCsar.isEmpty) {
+        logger.error("Syntax error detected in provider definitions, check output log for details")
+        return false
+      } else {
+        val semanticErrors = analyzeSemantic(providerCsar.get, providerFileSystem, List(normativeTypes))
+        if (semanticErrors.nonEmpty) {
+          logger.error("Semantic error detected in provider definitions, check output log for details")
+          return false
+        } else {
+          FileUtil.copy(providerFileSystem, outputFileSystem, StandardCopyOption.REPLACE_EXISTING)
+        }
       }
       val parsedDependencies = parsedDependenciesWithPaths.map(_._1)
       for ((parsedDependencyWithPath, index) <- parsedDependenciesWithPaths.zipWithIndex) {
-        val currentDependencies = parsedDependencies.slice(0, index)
+        val currentDependencies = normativeTypes :: providerCsar.get :: parsedDependencies.slice(0, index)
         val semanticErrors = analyzeSemantic(parsedDependencyWithPath._1, parsedDependencyWithPath._2, currentDependencies)
         if (semanticErrors.nonEmpty) {
           logger.error("Semantic error with " + parsedDependencyWithPath._1)
-          return
+          return false
         } else {
           CodeGenerator.generate(parsedDependencyWithPath._1, currentDependencies, parsedDependencyWithPath._2, outputFileSystem)
         }
       }
       val parsedTopology = analyzeSyntax(topologyFileSystem)
       if (parsedTopology.isDefined) {
-        val semanticErrors = analyzeSemantic(parsedTopology.get, topologyFileSystem, parsedDependencies)
+        val topologyDependencies = normativeTypes :: providerCsar.get :: parsedDependencies
+        val semanticErrors = analyzeSemantic(parsedTopology.get, topologyFileSystem, topologyDependencies)
         if (semanticErrors.isEmpty) {
-          CodeGenerator.generate(parsedTopology.get, parsedDependencies, topologyFileSystem, outputFileSystem)
+          CodeGenerator.generate(parsedTopology.get, topologyDependencies, topologyFileSystem, outputFileSystem)
           logger.info("Deployment generated to " + output)
+          return true
         }
       }
+      false
     } finally {
       if (topologyIsZipped) {
         Closeables.close(topologyFileSystem.getFileSystem, true)
@@ -69,47 +110,10 @@ object Compiler extends LazyLogging {
       if (outputIsZipped) {
         Closeables.close(outputFileSystem.getFileSystem, true)
       }
+      if (providerIsZipped) {
+        Closeables.close(provider.getFileSystem, true)
+      }
       dependenciesFileSystems.filter(_._2.isDefined).foreach { case (_, fileSystem: Option[FileSystem]) =>
-        Closeables.close(fileSystem.get, true)
-      }
-    }
-  }
-
-  /**
-   * Compile a csar and produce generated java code for types and topology
-   * @param csar the csar to compile
-   * @param dependencies the dependencies, must be compiled csar
-   * @param output the output for compilation
-   */
-  def compile(csar: Path, dependencies: List[Path], output: Path): Unit = {
-    // Create the file system based on the csar path
-    var csarFileSystem = csar
-    val csarIsZipped = Files.isRegularFile(csar)
-    if (csarIsZipped) {
-      csarFileSystem = FileUtil.createZipFileSystem(csar)
-    }
-    // Load dependencies
-    val dependenciesFileSystems = Util.createZipFileSystems(dependencies).toMap
-    try {
-      val parsedDependencies = dependenciesFileSystems.keys.flatMap(dependencyPath => analyzeSyntax(dependencyPath.resolve(Constant.ARCHIVE_FOLDER))).toList
-      if (parsedDependencies.size < dependencies.size) {
-        logger.error("Syntax error detected in dependencies, check output log for details")
-        return
-      }
-      // Parse the csar to construct syntax tree
-      val parsedCsar = analyzeSyntax(csarFileSystem)
-      if (parsedCsar.isDefined) {
-        val semanticErrors = analyzeSemantic(parsedCsar.get, csarFileSystem, parsedDependencies)
-        if (semanticErrors.isEmpty) {
-          CodeGenerator.generate(parsedCsar.get, parsedDependencies, csarFileSystem, output)
-          logger.info("Code generated to " + output)
-        }
-      }
-    } finally {
-      if (csarIsZipped) {
-        Closeables.close(csarFileSystem.getFileSystem, true)
-      }
-      dependenciesFileSystems.values.filter(_.isDefined).foreach { fileSystem =>
         Closeables.close(fileSystem.get, true)
       }
     }
