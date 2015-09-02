@@ -13,7 +13,7 @@ object CompileTest {
     val phpPath = Paths.get("src/test/resources/components/php")
     val wordpressPath = Paths.get("src/test/resources/components/wordpress")
     val wordpressTopology = Paths.get("src/test/resources/topologies/wordpress")
-    val dockerPath = Paths.get("/Users/mkv/tosca-runtime/docker")
+    val dockerPath = Paths.get("../docker")
     val outputDeployment = Paths.get("target/tosca/wordpress-deployment-batch.zip")
     val compiled = Compiler.compile(wordpressTopology, List(apachePath, mysqlPath, phpPath, wordpressPath), dockerPath, outputDeployment)
     if (compiled) {
