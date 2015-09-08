@@ -11,5 +11,7 @@ node_types:
         type: string
       exposed_ports:
         type: string
+        required: false
       port_mappings:
         type: string
+        required: false

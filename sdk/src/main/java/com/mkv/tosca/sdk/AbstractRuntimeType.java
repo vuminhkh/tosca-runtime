@@ -3,6 +3,8 @@ package com.mkv.tosca.sdk;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
+import com.mkv.exception.NonRecoverableException;
+import com.mkv.util.PropertyUtil;
 
 public abstract class AbstractRuntimeType {
 
@@ -31,8 +33,21 @@ public abstract class AbstractRuntimeType {
     }
 
     protected String getProperty(String propertyName) {
-        Object value = this.properties.get(propertyName);
-        return value != null ? String.valueOf(this.properties.get(propertyName)) : null;
+        return PropertyUtil.getPropertyAsString(this.properties, propertyName);
+    }
+
+    protected String getProperty(String propertyName, String defaultValue) {
+        String value = PropertyUtil.getPropertyAsString(this.properties, propertyName);
+        return value != null ? value : defaultValue;
+    }
+
+    protected String getMandatoryProperty(String propertyName) {
+        String value = PropertyUtil.getPropertyAsString(this.properties, propertyName);
+        if (value == null) {
+            throw new NonRecoverableException("Property <" + propertyName + "> is required but missing");
+        } else {
+            return value;
+        }
     }
 
     protected String getAttribute(String attributeName) {

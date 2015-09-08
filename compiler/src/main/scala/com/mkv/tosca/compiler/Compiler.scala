@@ -18,9 +18,12 @@ import scala.collection.JavaConversions._
  */
 object Compiler extends LazyLogging {
 
-  val normativeTypes: Csar = {
+  val normativeTypesPath: Path = {
     val normativeTypesUrl = classOf[Root].getClassLoader.getResource("tosca-normative-types/")
-    val normativeTypesPath = Paths.get(normativeTypesUrl.toURI)
+    Paths.get(normativeTypesUrl.toURI)
+  }
+
+  val normativeTypes: Csar = {
     val parsedCsar = analyzeSyntax(normativeTypesPath)
     if (parsedCsar.isDefined) {
       val semanticErrors = analyzeSemantic(parsedCsar.get, normativeTypesPath, List.empty)
@@ -97,6 +100,7 @@ object Compiler extends LazyLogging {
         val topologyDependencies = normativeTypes :: providerCsar.get :: parsedDependencies
         val semanticErrors = analyzeSemantic(parsedTopology.get, topologyFileSystem, topologyDependencies)
         if (semanticErrors.isEmpty) {
+          CodeGenerator.generate(normativeTypes, List.empty, normativeTypesPath, outputFileSystem)
           CodeGenerator.generate(parsedTopology.get, topologyDependencies, topologyFileSystem, outputFileSystem)
           logger.info("Deployment generated to " + output)
           return true

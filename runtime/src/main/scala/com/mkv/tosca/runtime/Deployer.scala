@@ -3,10 +3,8 @@ package com.mkv.tosca.runtime
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
 
-import com.google.common.io.Closeables
 import com.mkv.tosca.compiler.{Constant, Util}
 import com.mkv.tosca.sdk.{Deployment, DeploymentPostConstructor}
-import com.mkv.util.FileUtil
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
 
 import scala.collection.JavaConversions._
@@ -52,27 +50,15 @@ object Deployer {
     deploy(deploymentName, generatedRecipe, inputs, providerProperties)
   }
 
-  def deploy(deploymentName: String, generatedRecipe: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, AnyRef]): Unit = {
-    var recipeToDeploy = generatedRecipe
-    val isZippedRecipe = Files.isRegularFile(generatedRecipe)
-    if (isZippedRecipe) {
-      recipeToDeploy = FileUtil.createZipFileSystem(generatedRecipe)
-    }
-    try {
-      val compiledClasses = compileJavaRecipe(List(recipeToDeploy.resolve(Constant.TYPES_FOLDER), recipeToDeploy.resolve(Constant.DEPLOYMENT_FOLDER)))
-      val classLoader = compiledClasses._2
-      val loadedClasses = compiledClasses._1
-      val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-      val deploymentRecipeFolder = ToscarApp.deploymentsDir().resolve(deploymentName)
-      FileUtil.copy(recipeToDeploy.resolve(Constant.ARCHIVE_FOLDER), deploymentRecipeFolder, StandardCopyOption.REPLACE_EXISTING)
-      deployment.initializeDeployment(deploymentRecipeFolder, mapAsJavaMap(inputs))
-      val deploymentPostConstructors = Util.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
-      deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties))
-      deployment.install()
-    } finally {
-      if (isZippedRecipe) {
-        Closeables.close(recipeToDeploy.getFileSystem, true)
-      }
-    }
+  def deploy(deploymentName: String, deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, AnyRef]): Unit = {
+    val compiledClasses = compileJavaRecipe(List(deploymentRecipeFolder.resolve(Constant.TYPES_FOLDER), deploymentRecipeFolder.resolve(Constant.DEPLOYMENT_FOLDER)))
+    val classLoader = compiledClasses._2
+    val loadedClasses = compiledClasses._1
+    val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
+
+    deployment.initializeDeployment(deploymentRecipeFolder.resolve(Constant.ARCHIVE_FOLDER), mapAsJavaMap(inputs))
+    val deploymentPostConstructors = Util.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
+    deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties))
+    deployment.install()
   }
 }

@@ -163,6 +163,11 @@ public class Container extends Compute {
         log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
     }
 
+    @Override
+    public void configure() {
+        // Do nothing
+    }
+
     public void runCommand(List<String> commands) throws IOException {
         ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout().withAttachStderr()
                 .withCmd(commands.toArray(new String[commands.size()]))
