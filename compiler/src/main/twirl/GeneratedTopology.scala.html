@@ -6,12 +6,7 @@
     @node.typeName @node.name = new @node.typeName @Html("();")
     @node.name@Html(".setId(")"@node.name" + @node.name@Html("Index);")
     @node.name@Html(".setName(\"")@node.name@Html("\");")
-  @node.scalarProperties.map { scalaProperty =>
-    @node.name@Html(".getProperties().put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
-  }
-  @node.inputProperties.map { inputProperty =>
-    @node.name@Html(".getProperties().put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
-  }
+    @node.name@Html(".setProperties(")properties@node.name@Html(");")
     nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
   @node.parent.map { parent =>
     @node.name@Html(".setParent(")@parent.name@Html(");")
@@ -23,6 +18,14 @@
 }
 
 @instantiateNode(node: Node) = {
+    @Html("java.util.Map<String, Object> properties")@node.name@Html(" = new java.util.HashMap();")
+  @node.scalarProperties.map { scalaProperty =>
+    properties@node.name@Html(".put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
+  }
+  @node.inputProperties.map { inputProperty =>
+    properties@node.name@Html(".put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
+  }
+    initializeNode("@node.name", properties@node.name);
     @Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
       @instantiateInstance(node)
     @Html("}")

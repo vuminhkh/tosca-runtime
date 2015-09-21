@@ -1,5 +1,6 @@
 import WebKeys._
 
+organization := "com.mkv"
 name := "tosca-runtime"
 
 scalacOptions += "-Ylog-classpath"
@@ -7,7 +8,7 @@ scalacOptions += "-Ylog-classpath"
 lazy val root = project.in(file(".")).settings(
   version := "1.0",
   scalaVersion := "2.11.7"
-).aggregate(deployer, test, runtime, compiler, docker, sdk, common)
+).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common)
 
 lazy val compiler = project.settings(
   version := "1.0",
@@ -35,8 +36,12 @@ lazy val test = project.settings(
 lazy val docker = project.settings(
   version := "1.0",
   scalaVersion := "2.11.7",
-  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1"
-).dependsOn(sdk)
+  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1",
+  mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
+    val dir = base / "src" / "main"
+    dir.*** pair relativeTo(base)
+  }
+).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.settings(
   version := "1.0",
@@ -46,8 +51,12 @@ lazy val openstack = project.settings(
   libraryDependencies += "org.apache.jclouds.api" % "openstack-keystone" % "1.9.1",
   libraryDependencies += "org.apache.jclouds.api" % "openstack-nova" % "1.9.1",
   libraryDependencies += "org.apache.jclouds.api" % "openstack-cinder" % "1.9.1",
-  libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1"
-).dependsOn(sdk)
+  libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1",
+  mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
+    val dir = base / "src" / "main"
+    dir.*** pair relativeTo(base)
+  }
+).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.settings(
   version := "1.0",
@@ -66,5 +75,6 @@ lazy val common = project.settings(
   libraryDependencies += "junit" % "junit" % "4.12" % "test",
   libraryDependencies += "com.google.guava" % "guava" % "18.0",
   libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
-  libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
+  libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9",
+  libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
 )

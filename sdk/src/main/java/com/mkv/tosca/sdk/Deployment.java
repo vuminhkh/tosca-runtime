@@ -1,14 +1,14 @@
 package com.mkv.tosca.sdk;
 
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import tosca.nodes.Root;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mkv.exception.NonRecoverableException;
@@ -24,7 +24,7 @@ import com.mkv.tosca.sdk.workflow.TaskExecutorFactory;
  */
 public abstract class Deployment {
 
-    private static final Logger log = LoggerFactory.getLogger(Deployment.class);
+    // private static final Logger log = LoggerFactory.getLogger(Deployment.class);
 
     /**
      * Inputs for a topology
@@ -32,24 +32,45 @@ public abstract class Deployment {
     protected Map<String, Object> inputs;
 
     /**
-     * id => node instance : A node instance is a physical component of the topology at runtime.
+     * id to node instance : A node instance is a physical component of the topology at runtime.
      */
     protected Map<String, tosca.nodes.Root> nodeInstances = Maps.newLinkedHashMap();
 
     /**
      * A relationship instance is a link between 2 physical components of the topology
      */
-    protected Set<tosca.relationships.Root> relationshipInstances = Sets.newHashSet();
+    protected List<tosca.relationships.Root> relationshipInstances = Lists.newArrayList();
 
     protected Path generatedRecipe;
+
+    protected Map<String, DeploymentNode> nodes = Maps.newHashMap();
+
+    protected List<DeploymentRelationshipNode> relationshipNodes = Lists.newArrayList();
+
+    public List<DeploymentNode> getNodes() {
+        return Lists.newArrayList(nodes.values());
+    }
+
+    public List<DeploymentRelationshipNode> getRelationshipNodes() {
+        return relationshipNodes;
+    }
 
     public void initializeDeployment(Path generatedRecipe, Map<String, Object> inputs) {
         this.inputs = inputs;
         this.generatedRecipe = generatedRecipe;
     }
 
+    protected void initializeNode(String nodeName, Map<String, Object> properties) {
+        DeploymentNode deploymentNode = new DeploymentNode();
+        deploymentNode.setId(nodeName);
+        deploymentNode.setProperties(properties);
+        deploymentNode.setInstances(Lists.newArrayList());
+        this.nodes.put(nodeName, deploymentNode);
+    }
+
     protected void initializeInstance(tosca.nodes.Root instance) {
         instance.setRecipeLocalPath(this.generatedRecipe.toAbsolutePath().toString());
+        this.nodes.get(instance.getName()).getInstances().add(instance);
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
@@ -64,6 +85,11 @@ public abstract class Deployment {
     }
 
     protected void generateRelationships(String sourceName, String targetName, Class<? extends tosca.relationships.Root> relationshipType) {
+        DeploymentRelationshipNode relationshipNode = new DeploymentRelationshipNode();
+        relationshipNode.setSourceNodeId(sourceName);
+        relationshipNode.setTargetNodeId(targetName);
+        relationshipNode.setRelationshipInstances(Lists.newArrayList());
+        this.relationshipNodes.add(relationshipNode);
         for (Root sourceInstance : getNodeInstancesByNodeName(sourceName)) {
             for (Root targetInstance : getNodeInstancesByNodeName(targetName)) {
                 try {
@@ -71,6 +97,7 @@ public abstract class Deployment {
                     relationshipInstance.setSource(sourceInstance);
                     relationshipInstance.setTarget(targetInstance);
                     relationshipInstances.add(relationshipInstance);
+                    relationshipNode.getRelationshipInstances().add(relationshipInstance);
                 } catch (InstantiationException | IllegalAccessException e) {
                     throw new NonRecoverableException("Could not create relationship instance of type " + relationshipType.getName(), e);
                 }
@@ -148,20 +175,26 @@ public abstract class Deployment {
                     @Override
                     public void run() {
                         nodeInstance.create();
+                        nodeInstance.setState("created");
                         Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
                             relationship.preConfigureSource();
+                            relationship.setState("preConfiguredSource");
                         }
                         Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
                             relationship.preConfigureTarget();
+                            relationship.setState("preConfiguredTarget");
                         }
                         nodeInstance.configure();
+                        nodeInstance.setState("configured");
                         for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
                             relationship.postConfigureSource();
+                            relationship.setState("postConfiguredSource");
                         }
                         for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
                             relationship.postConfigureTarget();
+                            relationship.setState("postConfiguredTarget");
                         }
                     }
                 });
@@ -174,6 +207,7 @@ public abstract class Deployment {
         Set<Root> processedStarted = Sets.newHashSet();
         for (final tosca.nodes.Root nodeInstance : waitForStartedQueue) {
             if (!waitForCreatedQueue.contains(nodeInstance)) {
+                // Check if all dependencies have been satisfied in order to start
                 boolean dependenciesSatisfied = true;
                 if (nodeInstance.getDependsOnNodes() != null) {
                     for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
@@ -188,13 +222,16 @@ public abstract class Deployment {
                         @Override
                         public void run() {
                             nodeInstance.start();
+                            nodeInstance.setState("started");
                             Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
                                 relationship.addTarget();
+                                relationship.setState("addedTarget");
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
                                 relationship.addSource();
+                                relationship.setState("addedSource");
                             }
                         }
                     });
@@ -204,6 +241,76 @@ public abstract class Deployment {
         }
         waitForStartedQueue.removeAll(processedStarted);
         step.getActionList().add(startParallel);
+        return step;
+    }
+
+    public void uninstall() {
+        Sequence uninstallSequence = new Sequence();
+        Set<tosca.nodes.Root> waitForStoppedQueue = Sets.newHashSet(nodeInstances.values());
+        Set<tosca.nodes.Root> waitForDeletedQueue = Sets.newHashSet(nodeInstances.values());
+        int waitForStoppedQueueSize = nodeInstances.size();
+        int waitForDeletedQueueSize = nodeInstances.size();
+        while (waitForStoppedQueueSize > 0 || waitForDeletedQueueSize > 0) {
+            uninstallSequence.getActionList().add(buildUnInstallWorkflowStep(waitForStoppedQueue, waitForDeletedQueue));
+            if (waitForStoppedQueue.size() >= waitForStoppedQueueSize && waitForDeletedQueue.size() >= waitForDeletedQueueSize) {
+                throw new NonRecoverableException("Detected cyclic dependencies in topology");
+            } else {
+                waitForDeletedQueueSize = waitForDeletedQueue.size();
+                waitForStoppedQueueSize = waitForStoppedQueue.size();
+            }
+        }
+        TaskExecutorFactory.getSequenceExecutor().execute(uninstallSequence);
+    }
+
+    private Sequence buildUnInstallWorkflowStep(final Set<Root> waitForStoppedQueue,
+            final Set<tosca.nodes.Root> waitForDeletedQueue) {
+        Sequence step = new Sequence();
+        Parallel stopParallel = new Parallel();
+        Set<Root> processedStopped = Sets.newHashSet();
+        for (final tosca.nodes.Root nodeInstance : waitForStoppedQueue) {
+            // Only run stop unless if the node has no children or all of its children has been deleted
+            if (nodeInstance.getChildren() == null || nodeInstance.getChildren().isEmpty()
+                    || !Collections.disjoint(waitForStoppedQueue, nodeInstance.getChildren())) {
+                // TODO We also must verify that components that depends on the nodes have been stopped in order to have a clean stop
+                stopParallel.getActionList().add(new Task() {
+                    @Override
+                    public void run() {
+                        nodeInstance.stop();
+                        nodeInstance.setState("stopped");
+                        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
+                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                            relationship.removeTarget();
+                            relationship.setState("removedTarget");
+                        }
+                        Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
+                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                            relationship.removeSource();
+                            relationship.setState("removedSource");
+                        }
+                    }
+                });
+                processedStopped.add(nodeInstance);
+            }
+        }
+        waitForStoppedQueue.removeAll(processedStopped);
+        step.getActionList().add(stopParallel);
+        Parallel deleteParallel = new Parallel();
+        Set<Root> processedDeleted = Sets.newHashSet();
+        for (final tosca.nodes.Root nodeInstance : waitForDeletedQueue) {
+            // Only run delete if the node instance has been stopped
+            if (!waitForStoppedQueue.contains(nodeInstance)) {
+                deleteParallel.getActionList().add(new Task() {
+                    @Override
+                    public void run() {
+                        nodeInstance.delete();
+                        nodeInstance.setState("deleted");
+                    }
+                });
+                processedDeleted.add(nodeInstance);
+            }
+        }
+        waitForDeletedQueue.removeAll(processedDeleted);
+        step.getActionList().add(deleteParallel);
         return step;
     }
 }

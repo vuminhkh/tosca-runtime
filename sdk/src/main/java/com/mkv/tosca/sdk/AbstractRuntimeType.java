@@ -16,6 +16,16 @@ public abstract class AbstractRuntimeType {
 
     protected String csarName;
 
+    protected String state;
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
     public Map<String, Object> getProperties() {
         return properties;
     }
