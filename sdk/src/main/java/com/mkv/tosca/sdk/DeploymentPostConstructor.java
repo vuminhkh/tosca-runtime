@@ -9,5 +9,5 @@ import java.util.Map;
  */
 public interface DeploymentPostConstructor {
 
-    void postConstruct(Deployment deployment, Map<String, Object> providerProperties);
+    void postConstruct(Deployment deployment, Map<String, String> providerProperties);
 }

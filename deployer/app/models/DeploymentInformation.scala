@@ -29,7 +29,7 @@ object RelationshipNode {
   implicit val RelationshipNodeFormat = Json.format[RelationshipNode]
 }
 
-case class DeploymentInformation(nodes: List[Node], relationships: List[RelationshipNode])
+case class DeploymentInformation(name: String, nodes: List[Node], relationships: List[RelationshipNode])
 
 object DeploymentInformation {
 
@@ -40,19 +40,23 @@ object DeploymentInformation {
    * @param deployment the managed deployment
    * @return current deployment information
    */
-  def fromDeployment(deployment: Deployment) = {
+  def fromDeployment(name: String, deployment: Deployment) = {
     val nodes = deployment.getNodes.asScala.map { node =>
       val instances = node.getInstances.asScala.map { instance =>
-        Instance(instance.getId, instance.getState, instance.getAttributes.asScala.toMap)
+        val instanceAttributes = if (instance.getAttributes == null) Map.empty[String, String] else instance.getAttributes.asScala.toMap
+        Instance(instance.getId, instance.getState, instanceAttributes)
       }.toList
-      Node(node.getId, node.getProperties.asScala.toMap.asInstanceOf[Map[String, String]], instances)
+      val nodeProperties = if (node.getProperties == null) Map.empty[String, String] else node.getProperties.asScala.toMap.asInstanceOf[Map[String, String]]
+      Node(node.getId, nodeProperties, instances)
     }.toList
     val relationships = deployment.getRelationshipNodes.asScala.map { relationshipNode =>
       val relationshipInstances = relationshipNode.getRelationshipInstances.asScala.map { relationshipInstance =>
-        RelationshipInstance(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstance.getAttributes.asScala.toMap)
+        val relationshipInstanceAttributes = if (relationshipInstance.getAttributes == null) Map.empty[String, String] else relationshipInstance.getAttributes.asScala.toMap
+        RelationshipInstance(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstanceAttributes)
       }.toList
-      RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]], relationshipInstances)
+      val relationshipNodeProperties = if (relationshipNode.getProperties == null) Map.empty[String, String] else relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]]
+      RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)
     }.toList
-    DeploymentInformation(nodes, relationships)
+    DeploymentInformation(name, nodes, relationships)
   }
 }

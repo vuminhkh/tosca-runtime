@@ -19,7 +19,7 @@ import com.mkv.tosca.sdk.DeploymentPostConstructor;
 public class DockerDeploymentPostConstructor implements DeploymentPostConstructor {
 
     @Override
-    public void postConstruct(Deployment deployment, Map<String, Object> providerProperties) {
+    public void postConstruct(Deployment deployment, Map<String, String> providerProperties) {
         System.setProperty("http.maxConnections", String.valueOf(Integer.MAX_VALUE));
         Properties properties = new Properties();
         properties.putAll(providerProperties);

@@ -18,7 +18,7 @@ import com.mkv.util.PropertyUtil;
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
 
     @Override
-    public void postConstruct(Deployment deployment, Map<String, Object> providerProperties) {
+    public void postConstruct(Deployment deployment, Map<String, String> providerProperties) {
         Iterable<Module> modules = ImmutableSet.<Module> of(new SLF4JLoggingModule());
         String keystoneUrl = PropertyUtil.getPropertyAsString(providerProperties, "keystone_url");
         String tenant = PropertyUtil.getPropertyAsString(providerProperties, "tenant");

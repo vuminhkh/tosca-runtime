@@ -147,7 +147,7 @@ public class Container extends Compute {
         }
         log.info("Node [" + getName() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
-        log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        log.info("Node [" + getName() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
         getAttributes().remove("ip_address");
         ipAddress = null;
     }
@@ -159,8 +159,8 @@ public class Container extends Compute {
         }
         log.info("Node [" + getName() + "] : Deleting container with id " + containerId);
         dockerClient.removeContainerCmd(containerId).exec();
-        containerId = null;
         log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
+        containerId = null;
     }
 
     @Override

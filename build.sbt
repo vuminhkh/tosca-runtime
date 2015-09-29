@@ -3,7 +3,21 @@ import WebKeys._
 organization := "com.mkv"
 name := "tosca-runtime"
 
-scalacOptions += "-Ylog-classpath"
+scalacOptions ++= Seq(
+  "-target:jvm-1.8",
+  "-encoding", "UTF-8",
+  "-deprecation", // warning and location for usages of deprecated APIs
+  "-feature", // warning and location for usages of features that should be imported explicitly
+  "-unchecked", // additional warnings where generated code depends on assumptions
+  "-Xlint", // recommended additional warnings
+  "-Xcheckinit", // runtime error when a val is not initialized due to trait hierarchies (instead of NPE somewhere else)
+  "-Ywarn-adapted-args", // Warn if an argument list is modified to match the receiver
+  "-Ywarn-value-discard", // Warn when non-Unit expression results are unused
+  "-Ywarn-inaccessible",
+  "-Ywarn-dead-code"
+)
+
+emojiLogs
 
 lazy val root = project.in(file(".")).settings(
   version := "1.0",
@@ -19,18 +33,21 @@ lazy val compiler = project.settings(
 lazy val runtime = project.settings(
   version := "1.0",
   scalaVersion := "2.11.7",
-  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
-  libraryDependencies += "com.typesafe" % "config" % "1.2.1"
+  libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3"
 ).dependsOn(compiler)
 
 lazy val deployer = project.settings(
   version := "1.0",
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.7",
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(runtime).enablePlugins(PlayScala)
 
 lazy val test = project.settings(
   version := "1.0",
-  scalaVersion := "2.11.7"
+  scalaVersion := "2.11.7",
+  libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
+  libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.12",
+  libraryDependencies += "log4j" % "log4j" % "1.2.17"
 ).dependsOn(runtime, docker)
 
 lazy val docker = project.settings(
@@ -68,9 +85,6 @@ lazy val common = project.settings(
   scalaVersion := "2.11.7",
   libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
   libraryDependencies += "org.apache.sshd" % "sshd-core" % "0.14.0",
-  libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
-  libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.12",
-  libraryDependencies += "log4j" % "log4j" % "1.2.17",
   libraryDependencies += "commons-lang" % "commons-lang" % "2.6",
   libraryDependencies += "junit" % "junit" % "4.12" % "test",
   libraryDependencies += "com.google.guava" % "guava" % "18.0",
