@@ -1,8 +1,3 @@
-import WebKeys._
-
-organization := "com.mkv"
-name := "tosca-runtime"
-
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
   "-encoding", "UTF-8",
@@ -20,30 +15,55 @@ scalacOptions ++= Seq(
 emojiLogs
 
 lazy val root = project.in(file(".")).settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "tosca-runtime-parent",
+  version := "1.0-SNAPSHOT",
+  crossPaths := false,
   scalaVersion := "2.11.7"
-).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common)
+).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common, cli)
+
+lazy val cli = project.settings(
+  organization := "com.mkv.tosca",
+  name := "cli",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
+  scalaVersion := "2.11.7",
+  libraryDependencies += "org.scala-sbt" % "command" % "0.13.8"
+).dependsOn(runtime)
 
 lazy val compiler = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "compiler",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
-  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4"
+  libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
+  libraryDependencies += "com.typesafe" % "config" % "1.3.0"
 ).dependsOn(sdk).enablePlugins(SbtTwirl)
 
 lazy val runtime = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "runtime",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3"
 ).dependsOn(compiler)
 
 lazy val deployer = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "deployer",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
-  net.virtualvoid.sbt.graph.Plugin.graphSettings
-).dependsOn(runtime).enablePlugins(PlayScala)
+  dockerExposedPorts in Docker := Seq(9000, 9443)
+).dependsOn(runtime).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val test = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "test",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
   libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
   libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.12",
@@ -51,9 +71,11 @@ lazy val test = project.settings(
 ).dependsOn(runtime, docker)
 
 lazy val docker = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "docker",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
-  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1",
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
     val dir = base / "src" / "main"
     dir.*** pair relativeTo(base)
@@ -61,7 +83,10 @@ lazy val docker = project.settings(
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "openstack",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
   libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.1",
   libraryDependencies += "org.apache.jclouds.driver" % "jclouds-sshj" % "1.9.1",
@@ -76,12 +101,18 @@ lazy val openstack = project.settings(
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "sdk",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7"
 ).dependsOn(common)
 
 lazy val common = project.settings(
-  version := "1.0",
+  organization := "com.mkv.tosca",
+  name := "common",
+  crossPaths := false,
+  version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
   libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
   libraryDependencies += "org.apache.sshd" % "sshd-core" % "0.14.0",
@@ -90,5 +121,6 @@ lazy val common = project.settings(
   libraryDependencies += "com.google.guava" % "guava" % "18.0",
   libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
   libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9",
-  libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
+  libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
+  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1"
 )

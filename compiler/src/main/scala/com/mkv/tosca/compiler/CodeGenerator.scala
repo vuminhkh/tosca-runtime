@@ -6,6 +6,7 @@ import com.google.common.io.Closeables
 import com.mkv.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
 import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.tosca.compiler.tosca._
+import com.mkv.tosca.constant.CompilerConstant
 import com.mkv.tosca.sdk.Deployment
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
@@ -163,9 +164,9 @@ object CodeGenerator extends LazyLogging {
     }
     try {
       // Copy original archive to the compiled output
-      FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(Constant.ARCHIVE_FOLDER).resolve(csar.csarName), StandardCopyOption.REPLACE_EXISTING)
+      FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(csar.csarName), StandardCopyOption.REPLACE_EXISTING)
       // Generate Java classes for types
-      generateTypesForCsar(csar, recipeOutputPath.resolve(Constant.TYPES_FOLDER))
+      generateTypesForCsar(csar, recipeOutputPath.resolve(CompilerConstant.TYPES_FOLDER))
       val definitionsWithTopology = csar.definitions.filter(_._2.topologyTemplate.isDefined)
       if (definitionsWithTopology.size > 1) {
         throw new NotSupportedGenerationException("More than one topology is found in the CSAR at " + definitionsWithTopology.keys + ", this is currently not supported")
@@ -173,7 +174,7 @@ object CodeGenerator extends LazyLogging {
         val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csarPath :+ csar, recipeOutputPath)
         val generatedTopologyText = html.GeneratedTopology.render(deployment).body
         // Generate Deployment for the topology
-        FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(Constant.DEPLOYMENT_FILE))
+        FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(CompilerConstant.DEPLOYMENT_FILE))
       }
     } finally {
       if (createZip) {

@@ -1,16 +1,18 @@
 package com.mkv.tosca.runtime
 
 import java.io.File
-import java.net.{URLClassLoader, URL}
+import java.net.{URL, URLClassLoader}
 import java.nio.file._
 import java.nio.file.attribute.BasicFileAttributes
+import java.util
 
-import com.mkv.tosca.compiler.{Constant, Util}
+import com.mkv.tosca.compiler.Util
+import com.mkv.tosca.constant.CompilerConstant
 import com.mkv.tosca.sdk.{Deployment, DeploymentPostConstructor}
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
-import org.slf4j.{LoggerFactory, Logger}
+import org.slf4j.{Logger, LoggerFactory}
+import org.yaml.snakeyaml.Yaml
 
-import scala.collection.JavaConversions._
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -19,6 +21,8 @@ import scala.collection.mutable.ListBuffer
 object Deployer {
 
   private val log: Logger = LoggerFactory.getLogger(Deployer.getClass)
+
+  val yamlParser = new Yaml()
 
   def getClassPath(classLoader: ClassLoader) = {
     val buffer = new StringBuilder(System.getProperty("java.class.path"))
@@ -91,25 +95,38 @@ object Deployer {
   }
 
   /**
-   * Deploy the given recipe
+   * Deploy the given recipe from the given recipe folder and the given input file
+   *
+   * @param deploymentRecipeFolder recipe's path
+   * @param inputFile deployment input file
+   * @param providerProperties provider's properties
+   * @return the created deployment
+   */
+  def deploy(deploymentRecipeFolder: Path, inputFile: Path, providerProperties: java.util.Map[String, String]): Deployment = {
+    val inputs = yamlParser.loadAs(Files.newInputStream(inputFile), classOf[util.Map[String, AnyRef]])
+    deploy(deploymentRecipeFolder, inputs, providerProperties)
+  }
+
+  /**
+   * Deploy the given recipe from the given recipe folder and the given input properties
+   *
    * @param deploymentRecipeFolder recipe's path
    * @param inputs deployment input
    * @param providerProperties provider's properties
    * @return the created deployment
    */
-  def deploy(deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String]): Deployment = {
+  def deploy(deploymentRecipeFolder: Path, inputs: java.util.Map[String, AnyRef], providerProperties: java.util.Map[String, String]): Deployment = {
     val compiledClasses = compileJavaRecipe(
       List(
-        deploymentRecipeFolder.resolve(Constant.TYPES_FOLDER),
-        deploymentRecipeFolder.resolve(Constant.DEPLOYMENT_FOLDER)
-      ), deploymentRecipeFolder.resolve(Constant.LIB_FOLDER))
+        deploymentRecipeFolder.resolve(CompilerConstant.TYPES_FOLDER),
+        deploymentRecipeFolder.resolve(CompilerConstant.DEPLOYMENT_FOLDER)
+      ), deploymentRecipeFolder.resolve(CompilerConstant.LIB_FOLDER))
     val classLoader = compiledClasses._2
     val loadedClasses = compiledClasses._1
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(classLoader)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-
-    deployment.initializeDeployment(deploymentRecipeFolder.resolve(Constant.ARCHIVE_FOLDER), mapAsJavaMap(inputs))
+    deployment.initializeDeployment(deploymentRecipeFolder.resolve(CompilerConstant.ARCHIVE_FOLDER), inputs)
     val deploymentPostConstructors = Util.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
     deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties))
     deployment.install()

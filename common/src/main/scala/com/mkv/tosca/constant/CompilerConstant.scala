@@ -1,6 +1,9 @@
-package com.mkv.tosca.compiler
+package com.mkv.tosca.constant
 
-object Constant {
+/**
+ * Contain constants that are used for compilation
+ */
+object CompilerConstant {
   val LIB_FOLDER = "lib"
   val DEPLOYMENT_FOLDER = "deployment"
   val DEPLOYMENT_FILE = DEPLOYMENT_FOLDER + "/Deployment.java"

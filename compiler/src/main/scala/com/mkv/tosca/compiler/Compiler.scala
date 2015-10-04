@@ -6,6 +6,7 @@ import _root_.tosca.nodes.Root
 import com.google.common.io.Closeables
 import com.mkv.exception.InitializationException
 import com.mkv.tosca.compiler.tosca.Csar
+import com.mkv.tosca.constant.CompilerConstant
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
@@ -71,7 +72,7 @@ object Compiler extends LazyLogging {
         logger.error("Syntax error detected in dependencies, check output log for details")
         return false
       }
-      val providerCsar = analyzeSyntax(providerFileSystem.resolve(Constant.ARCHIVE_FOLDER))
+      val providerCsar = analyzeSyntax(providerFileSystem.resolve(CompilerConstant.ARCHIVE_FOLDER))
       if (providerCsar.isEmpty) {
         logger.error("Syntax error detected in provider definitions, check output log for details")
         return false
