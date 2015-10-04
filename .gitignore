@@ -5,8 +5,8 @@
 
 # sbt specific
 .cache
-.history
 .lib/
+.idea/
 dist/*
 target/
 lib_managed/
@@ -20,8 +20,6 @@ project/plugins/project/
 
 
 ### Java template
-*.class
-
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
