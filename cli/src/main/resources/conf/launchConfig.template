@@ -2,9 +2,9 @@
   version: auto
 
 [app]
-  org: com.mkv.tosca
-  name: cli
-  version: 1.0-SNAPSHOT
+  org: @organization
+  name: @name
+  version: @version
   class: com.mkv.tosca.cli.Main
   components: xsbti
   cross-versioned: true
