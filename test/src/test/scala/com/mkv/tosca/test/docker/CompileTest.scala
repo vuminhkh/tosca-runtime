@@ -2,10 +2,8 @@ package com.mkv.tosca.test.docker
 
 import java.nio.file.{Files, Paths}
 
-import com.google.common.collect.Maps
 import com.mkv.tosca.compiler.Compiler
 import com.mkv.tosca.runtime.Deployer
-import scala.collection.JavaConverters._
 
 object CompileTest {
 
@@ -22,7 +20,7 @@ object CompileTest {
     val compiled = Compiler.compile(wordpressTopology, List(apachePath, mysqlPath, phpPath, wordpressPath), dockerPath, outputDeployment)
     if (compiled) {
       val providerProperties = Map("docker.io.url" -> "https://192.168.99.100:2376", "docker.io.dockerCertPath" -> (userHome + "/.docker/machine/machines/default"))
-      Deployer.deploy(outputDeployment, Maps.newHashMap[String, AnyRef], providerProperties.asJava)
+      Deployer.deploy(outputDeployment, Map.empty[String, AnyRef], providerProperties)
     }
   }
 }

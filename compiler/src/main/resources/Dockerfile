@@ -1,3 +1,3 @@
-FROM deployer
-RUN mkdir -P /var/lib/tosca/recipe
-ADD recipe /var/lib/tosca/recipe
+FROM toscaruntime/deployer
+LABEL organization=toscaruntime
+ADD . /var/lib/tosca/

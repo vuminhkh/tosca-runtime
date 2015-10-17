@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.CopyOption;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -81,7 +82,7 @@ public final class FileUtil {
     /**
      * Recursively zip file and directory
      *
-     * @param inputPath file path can be directory
+     * @param inputPath  file path can be directory
      * @param outputPath where to put the zip
      * @throws IOException when IO error happened
      */
@@ -110,11 +111,11 @@ public final class FileUtil {
     /**
      * Recursively tar file
      *
-     * @param inputPath file path can be directory
-     * @param outputPath where to put the archived file
+     * @param inputPath    file path can be directory
+     * @param outputPath   where to put the archived file
      * @param childrenOnly if inputPath is directory and if childrenOnly is true, the archive will contain all of its children, else the archive contains unique
-     *            entry which is the inputPath itself
-     * @param gZipped compress with gzip algorithm
+     *                     entry which is the inputPath itself
+     * @param gZipped      compress with gzip algorithm
      */
     public static void tar(Path inputPath, Path outputPath, boolean gZipped, boolean childrenOnly) throws IOException {
         if (!Files.exists(inputPath)) {
@@ -147,7 +148,7 @@ public final class FileUtil {
     /**
      * Unzip a zip file to a destination folder.
      *
-     * @param zipFile The zip file to unzip.
+     * @param zipFile     The zip file to unzip.
      * @param destination The destination folder in which to save the file.
      * @throws IOException In case something fails.
      */
@@ -233,7 +234,7 @@ public final class FileUtil {
     /**
      * Read all files bytes and create a string.
      *
-     * @param path The file's path.
+     * @param path    The file's path.
      * @param charset The charset to use to convert the bytes to string.
      * @return A string from the file content.
      * @throws IOException In case the file cannot be read.
@@ -255,8 +256,8 @@ public final class FileUtil {
 
     /**
      * Write given text to a file
-     * 
-     * @param text the text to write
+     *
+     * @param text       the text to write
      * @param outputFile the output
      * @return the path
      * @throws IOException
@@ -303,8 +304,8 @@ public final class FileUtil {
 
     /**
      * List all files with extension
-     * 
-     * @param path the folder path
+     *
+     * @param path       the folder path
      * @param extensions the extension without '.'
      * @return list of all files in the folder that have the extension
      * @throws IOException
@@ -314,11 +315,15 @@ public final class FileUtil {
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                for (String extension : extensions) {
-                    if (file.getFileName().toString().endsWith(extension)) {
-                        allFiles.add(file);
-                        break;
+                if (extensions.length > 0) {
+                    for (String extension : extensions) {
+                        if (file.getFileName().toString().endsWith(extension)) {
+                            allFiles.add(file);
+                            break;
+                        }
                     }
+                } else {
+                    allFiles.add(file);
                 }
                 return super.visitFile(file, attrs);
             }
@@ -327,8 +332,34 @@ public final class FileUtil {
     }
 
     /**
+     * List files and directories of a parent directory
+     *
+     * @param path the directory path
+     * @return the list of all file and nested directories inside this directory
+     * @throws IOException
+     */
+    public static List<String> ls(final Path path) throws IOException {
+        if (!Files.isDirectory(path)) {
+            throw new IOException("Not a directory " + path);
+        }
+        final List<String> allFiles = Lists.newArrayList();
+        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
+            for (Path child : directoryStream) {
+                if (Files.isDirectory(child)) {
+                    allFiles.add(child + "/");
+                } else {
+                    allFiles.add(child.toString());
+                }
+            }
+        }
+        allFiles.add(".");
+        allFiles.add("..");
+        return allFiles;
+    }
+
+    /**
      * Create a zip file system and returns back the root
-     * 
+     *
      * @param path the path to the file
      * @return the root of the new file system
      * @throws IOException

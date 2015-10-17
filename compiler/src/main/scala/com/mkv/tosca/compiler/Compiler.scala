@@ -2,7 +2,7 @@ package com.mkv.tosca.compiler
 
 import java.nio.file._
 
-import _root_.tosca.nodes.Root
+import com.google.common.collect.Maps
 import com.google.common.io.Closeables
 import com.mkv.exception.InitializationException
 import com.mkv.tosca.compiler.tosca.Csar
@@ -10,7 +10,7 @@ import com.mkv.tosca.constant.CompilerConstant
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 /**
  * Entry point to compile csars to its java implementation
@@ -20,8 +20,14 @@ import scala.collection.JavaConversions._
 object Compiler extends LazyLogging {
 
   val normativeTypesPath: Path = {
-    val normativeTypesUrl = classOf[Root].getClassLoader.getResource("tosca-normative-types/")
-    Paths.get(normativeTypesUrl.toURI)
+    val normativeTypesUrl = Thread.currentThread().getContextClassLoader.getResource("tosca-normative-types/")
+    val normativeTypesUri = normativeTypesUrl.toURI
+    if (!"file".equals(normativeTypesUrl.getProtocol)) {
+      val env = Maps.newHashMap[String, String]()
+      env.put("create", "true")
+      FileSystems.newFileSystem(normativeTypesUri, env)
+    }
+    Paths.get(normativeTypesUri)
   }
 
   val normativeTypes: Csar = {
@@ -144,7 +150,7 @@ object Compiler extends LazyLogging {
   }
 
   def analyzeSyntax(csarPath: Path) = {
-    val allYamlFiles = FileUtil.listFiles(csarPath, ".yml", ".yaml").toList
+    val allYamlFiles = FileUtil.listFiles(csarPath, ".yml", ".yaml").asScala.toList
     val allParseResults = allYamlFiles.map { yamlPath =>
       val toscaDefinitionText = FileUtil.readTextFile(yamlPath)
       (FileUtil.relativizePath(csarPath, yamlPath), SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, toscaDefinitionText))

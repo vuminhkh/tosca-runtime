@@ -19,9 +19,6 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tosca.nodes.Compute;
-import tosca.nodes.Root;
-
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.model.Bind;
@@ -29,8 +26,13 @@ import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.mkv.util.DockerUtil;
+
+import tosca.nodes.Compute;
+import tosca.nodes.Root;
 
 public class Container extends Compute {
 
@@ -81,6 +83,12 @@ public class Container extends Compute {
         return mapping;
     }
 
+    private static synchronized void pullImageIfNotExisting(DockerClient dockerClient, String imageTag) {
+        if (!DockerUtil.imageExist(dockerClient, imageTag)) {
+            dockerClient.pullImageCmd(imageTag).exec(new PullImageResultCallback()).awaitSuccess();
+        }
+    }
+
     @Override
     public void create() {
         String imageId = getImageId();
@@ -121,6 +129,13 @@ public class Container extends Compute {
                     log.error("Port exposed not in good format " + exposedPort, e);
                 }
             }
+        }
+        String imageTag = imageId;
+        if (!imageTag.contains(":")) {
+            imageTag += ":latest";
+        }
+        if (!DockerUtil.imageExist(dockerClient, imageTag)) {
+            pullImageIfNotExisting(dockerClient, imageTag);
         }
         containerId = dockerClient.createContainerCmd(imageId).withName(getId()).withLinks(links.toArray(new Link[links.size()]))
                 .withBinds(new Bind(recipeLocalPath, recipeVolume)).withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
@@ -192,7 +207,7 @@ public class Container extends Compute {
 
     /**
      * Use docker exec to run scripts inside docker container
-     * 
+     *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
     public void execute(String operationArtifactPath, Map<String, String> environmentVariables) {

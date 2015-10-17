@@ -1,6 +1,5 @@
 import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport._
 import sbt.Keys._
-import sbt.Process
 
 scalacOptions ++= Seq(
   "-target:jvm-1.8",
@@ -25,7 +24,7 @@ lazy val root = project.in(file(".")).settings(
   crossPaths := false,
   scalaVersion := "2.11.7",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project.settings(
@@ -37,7 +36,7 @@ lazy val compiler = project.settings(
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
   libraryDependencies += "com.typesafe" % "config" % "1.3.0",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(sdk).enablePlugins(SbtTwirl, UniversalPlugin)
 
 lazy val runtime = project.settings(
@@ -48,7 +47,7 @@ lazy val runtime = project.settings(
   scalaVersion := "2.11.7",
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(compiler).enablePlugins(UniversalPlugin)
 
 lazy val deployer = project.settings(
@@ -57,9 +56,11 @@ lazy val deployer = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  packageName in Docker := "toscaruntime/deployer",
+  version in Docker := "latest",
   dockerExposedPorts in Docker := Seq(9000, 9443),
-  stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  stage <<= stage dependsOn(publishLocal, publishLocal in Docker),
+  dist <<= dist dependsOn stage
 ).dependsOn(runtime).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val test = project.settings(
@@ -68,11 +69,8 @@ lazy val test = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
-  libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
-  libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.12",
-  libraryDependencies += "log4j" % "log4j" % "1.2.17",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(runtime, docker).enablePlugins(UniversalPlugin)
 
 lazy val docker = project.settings(
@@ -86,7 +84,7 @@ lazy val docker = project.settings(
     dir.*** pair relativeTo(base)
   },
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.settings(
@@ -106,7 +104,7 @@ lazy val openstack = project.settings(
     dir.*** pair relativeTo(base)
   },
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.settings(
@@ -116,7 +114,7 @@ lazy val sdk = project.settings(
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).dependsOn(common).enablePlugins(UniversalPlugin)
 
 lazy val common = project.settings(
@@ -134,8 +132,10 @@ lazy val common = project.settings(
   libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9",
   libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
   libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1",
+  libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
+  libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn publishLocal
+  dist <<= dist dependsOn stage
 ).enablePlugins(UniversalPlugin)
 
 lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
@@ -148,13 +148,16 @@ lazy val cli = project.settings(
   scalaVersion := "2.11.7",
   libraryDependencies += "org.scala-sbt" % "command" % "0.13.8",
   downloadSbtLauncher := {
+    val logFile = target.value / "prepare-stage"/ "log" / "cli.log"
+    logFile.getParentFile.mkdirs()
+    IO.touch(logFile)
     val sbtLaunchTarget = target.value / "prepare-stage" / "bin" / "sbt-launch.jar"
     sbtLaunchTarget.getParentFile.mkdirs()
     IO.download(url("https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.8/sbt-launch.jar"), sbtLaunchTarget)
     val toscaRuntimeScriptTarget = target.value / "prepare-stage" / "bin" / "tosca-runtime.sh"
     toscaRuntimeScriptTarget.getParentFile.mkdirs()
-    toscaRuntimeScriptTarget.setExecutable(true)
     IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeScriptTarget)
+    toscaRuntimeScriptTarget.setExecutable(true)
     val launchConfigTarget = target.value / "prepare-stage" / "conf" / "launchConfig"
     launchConfigTarget.getParentFile.mkdirs()
     val launchConfigSource = (resourceDirectory in Compile).value / "conf" / "launchConfig.template"

@@ -43,7 +43,7 @@ topology_template:
     computeDb:
       type: com.mkv.tosca.docker.nodes.Container
       properties:
-        image_id: tosca
+        image_id: phusion/baseimage
         os_type: { get_input: os_type }
         os_distribution: { get_input: os_distribution }
         os_version: { get_input: os_version }
@@ -54,7 +54,7 @@ topology_template:
     computeWww:
       type: com.mkv.tosca.docker.nodes.Container
       properties:
-        image_id: tosca
+        image_id: phusion/baseimage
         exposed_ports: 80
         port_mappings: 80 - 51000
         os_type: { get_input: os_type }
