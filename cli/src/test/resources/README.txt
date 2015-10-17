@@ -14,4 +14,4 @@ deployments -u https://192.168.99.100:2376 -c /Users/vuminhkh/.docker/machine/ma
 
 Create deployment agent:
 
-deploy -i <image> -u https://192.168.99.100:2376 -c /Users/vuminhkh/.docker/machine/machines/default
+deploy -i wordpress -u https://192.168.99.100:2376 -c /Users/vuminhkh/.docker/machine/machines/default

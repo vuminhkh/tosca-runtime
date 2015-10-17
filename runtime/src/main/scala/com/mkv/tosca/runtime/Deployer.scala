@@ -9,7 +9,7 @@ import com.google.common.collect.Maps
 import com.mkv.tosca.compiler.Util
 import com.mkv.tosca.constant.CompilerConstant
 import com.mkv.tosca.sdk.{Deployment, DeploymentPostConstructor}
-import com.typesafe.config.{Config, ConfigValue}
+import com.typesafe.config.Config
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
 import org.slf4j.{Logger, LoggerFactory}
 import org.yaml.snakeyaml.Yaml
@@ -131,7 +131,7 @@ object Deployer {
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(classLoader)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-    deployment.initializeDeployment(deploymentRecipeFolder.resolve(CompilerConstant.ARCHIVE_FOLDER), inputs.asJava)
+    deployment.initializeDeployment(deploymentRecipeFolder, inputs.asJava)
     val deploymentPostConstructors = Util.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
     deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties.asJava))
     deployment.install()

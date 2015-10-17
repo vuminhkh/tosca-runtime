@@ -12,7 +12,15 @@ public abstract class AbstractRuntimeType {
 
     protected Map<String, String> attributes = Maps.newHashMap();
 
-    protected String recipeLocalPath;
+    /**
+     * Where scripts are stored
+     */
+    protected String artifactsPath;
+
+    /**
+     * Where the whole deployment's recipe are stored (which contains artifactsPath where scripts are plus jars etc ...)
+     */
+    protected String recipePath;
 
     protected String csarName;
 
@@ -64,12 +72,20 @@ public abstract class AbstractRuntimeType {
         return this.attributes.get(attributeName);
     }
 
-    public String getRecipeLocalPath() {
-        return recipeLocalPath;
+    public String getArtifactsPath() {
+        return artifactsPath;
     }
 
-    public void setRecipeLocalPath(String recipeLocalPath) {
-        this.recipeLocalPath = recipeLocalPath;
+    public void setArtifactsPath(String artifactsPath) {
+        this.artifactsPath = artifactsPath;
+    }
+
+    public String getRecipePath() {
+        return recipePath;
+    }
+
+    public void setRecipePath(String recipePath) {
+        this.recipePath = recipePath;
     }
 
     public String getCsarName() {

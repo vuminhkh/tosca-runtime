@@ -17,12 +17,19 @@ scalacOptions ++= Seq(
 
 emojiLogs
 
+val buildResolvers = Seq(
+  "Local Maven Repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository",
+  "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/",
+  "Typesafe Ivy repository" at "http://repo.typesafe.com/typesafe/ivy-releases/"
+)
+
 lazy val root = project.in(file(".")).settings(
   organization := "com.mkv.tosca",
   name := "tosca-runtime-parent",
   version := "1.0-SNAPSHOT",
   crossPaths := false,
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
 ).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
@@ -33,6 +40,7 @@ lazy val compiler = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
   libraryDependencies += "com.typesafe" % "config" % "1.3.0",
   stage <<= stage dependsOn publishLocal,
@@ -45,6 +53,7 @@ lazy val runtime = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
@@ -56,6 +65,7 @@ lazy val deployer = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   packageName in Docker := "toscaruntime/deployer",
   version in Docker := "latest",
   dockerExposedPorts in Docker := Seq(9000, 9443),
@@ -69,6 +79,7 @@ lazy val test = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
 ).dependsOn(runtime, docker).enablePlugins(UniversalPlugin)
@@ -79,6 +90,7 @@ lazy val docker = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
     val dir = base / "src" / "main"
     dir.*** pair relativeTo(base)
@@ -93,6 +105,7 @@ lazy val openstack = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.1",
   libraryDependencies += "org.apache.jclouds.driver" % "jclouds-sshj" % "1.9.1",
   libraryDependencies += "org.apache.jclouds.api" % "openstack-keystone" % "1.9.1",
@@ -113,6 +126,7 @@ lazy val sdk = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
 ).dependsOn(common).enablePlugins(UniversalPlugin)
@@ -123,6 +137,7 @@ lazy val common = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
   libraryDependencies += "org.apache.sshd" % "sshd-core" % "0.14.0",
   libraryDependencies += "commons-lang" % "commons-lang" % "2.6",
@@ -131,7 +146,7 @@ lazy val common = project.settings(
   libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
   libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9",
   libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
-  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.0.1",
+  libraryDependencies += "com.github.docker-java" % "docker-java" % "2.1.2-SNAPSHOT",
   libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
   libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3",
   stage <<= stage dependsOn publishLocal,
@@ -146,9 +161,10 @@ lazy val cli = project.settings(
   crossPaths := false,
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.7",
+  resolvers ++= buildResolvers,
   libraryDependencies += "org.scala-sbt" % "command" % "0.13.8",
   downloadSbtLauncher := {
-    val logFile = target.value / "prepare-stage"/ "log" / "cli.log"
+    val logFile = target.value / "prepare-stage" / "log" / "cli.log"
     logFile.getParentFile.mkdirs()
     IO.touch(logFile)
     val sbtLaunchTarget = target.value / "prepare-stage" / "bin" / "sbt-launch.jar"

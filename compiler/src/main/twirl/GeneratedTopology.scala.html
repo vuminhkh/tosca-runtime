@@ -33,8 +33,8 @@
 
 public class Deployment extends com.mkv.tosca.sdk.Deployment @Html("{")
 
-  public void initializeDeployment@Html("(java.nio.file.Path generatedRecipe, java.util.Map<String, Object> inputs) {")
-    @Html("super.initializeDeployment(generatedRecipe, inputs);")
+  public void initializeDeployment@Html("(java.nio.file.Path recipePath, java.util.Map<String, Object> inputs) {")
+    @Html("super.initializeDeployment(recipePath, inputs);")
 @deployment.roots.map { node =>
     @instantiateNode(node)
 }

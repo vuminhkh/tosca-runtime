@@ -6,25 +6,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import tosca.nodes.Root;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.constant.CompilerConstant;
 import com.mkv.tosca.sdk.workflow.Parallel;
 import com.mkv.tosca.sdk.workflow.Sequence;
 import com.mkv.tosca.sdk.workflow.Task;
 import com.mkv.tosca.sdk.workflow.TaskExecutorFactory;
 
+import tosca.nodes.Root;
+
 /**
  * This represents a runtime topology
- * 
+ *
  * @author Minh Khang VU
  */
 public abstract class Deployment {
 
-    // private static final Logger log = LoggerFactory.getLogger(Deployment.class);
+    private static final Logger log = LoggerFactory.getLogger(Deployment.class);
 
     /**
      * Inputs for a topology
@@ -41,7 +45,9 @@ public abstract class Deployment {
      */
     protected List<tosca.relationships.Root> relationshipInstances = Lists.newArrayList();
 
-    protected Path generatedRecipe;
+    protected Path recipePath;
+
+    protected Path artifactsPath;
 
     protected Map<String, DeploymentNode> nodes = Maps.newHashMap();
 
@@ -55,9 +61,10 @@ public abstract class Deployment {
         return relationshipNodes;
     }
 
-    public void initializeDeployment(Path generatedRecipe, Map<String, Object> inputs) {
+    public void initializeDeployment(Path recipePath, Map<String, Object> inputs) {
         this.inputs = inputs;
-        this.generatedRecipe = generatedRecipe;
+        this.recipePath = recipePath;
+        this.artifactsPath = this.recipePath.resolve(CompilerConstant.ARCHIVE_FOLDER());
     }
 
     protected void initializeNode(String nodeName, Map<String, Object> properties) {
@@ -69,7 +76,7 @@ public abstract class Deployment {
     }
 
     protected void initializeInstance(tosca.nodes.Root instance) {
-        instance.setRecipeLocalPath(this.generatedRecipe.toAbsolutePath().toString());
+        instance.setArtifactsPath(this.artifactsPath.toAbsolutePath().toString());
         this.nodes.get(instance.getName()).getInstances().add(instance);
     }
 
@@ -146,6 +153,7 @@ public abstract class Deployment {
     }
 
     public void install() {
+        log.info("Begin to run install workflow");
         Sequence installSequence = new Sequence();
         Set<tosca.nodes.Root> waitForCreatedQueue = Sets.newHashSet(nodeInstances.values());
         Set<tosca.nodes.Root> waitForStartedQueue = Sets.newHashSet(nodeInstances.values());
@@ -161,10 +169,11 @@ public abstract class Deployment {
             }
         }
         TaskExecutorFactory.getSequenceExecutor().execute(installSequence);
+        log.info("Finished to run install workflow");
     }
 
     private Sequence buildInstallWorkflowStep(final Set<Root> waitForCreatedQueue,
-            final Set<tosca.nodes.Root> waitForStartedQueue) {
+                                              final Set<tosca.nodes.Root> waitForStartedQueue) {
         Sequence step = new Sequence();
         Parallel createParallel = new Parallel();
         Set<Root> processedCreated = Sets.newHashSet();
@@ -245,6 +254,7 @@ public abstract class Deployment {
     }
 
     public void uninstall() {
+        log.info("Begin to run uninstall workflow");
         Sequence uninstallSequence = new Sequence();
         Set<tosca.nodes.Root> waitForStoppedQueue = Sets.newHashSet(nodeInstances.values());
         Set<tosca.nodes.Root> waitForDeletedQueue = Sets.newHashSet(nodeInstances.values());
@@ -260,10 +270,11 @@ public abstract class Deployment {
             }
         }
         TaskExecutorFactory.getSequenceExecutor().execute(uninstallSequence);
+        log.info("Finished to run uninstall workflow");
     }
 
     private Sequence buildUnInstallWorkflowStep(final Set<Root> waitForStoppedQueue,
-            final Set<tosca.nodes.Root> waitForDeletedQueue) {
+                                                final Set<tosca.nodes.Root> waitForDeletedQueue) {
         Sequence step = new Sequence();
         Parallel stopParallel = new Parallel();
         Set<Root> processedStopped = Sets.newHashSet();

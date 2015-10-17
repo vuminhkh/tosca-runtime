@@ -39,7 +39,7 @@ public class OpenstackCompute extends Compute {
     public void execute(String operationArtifactPath, Map<String, String> inputs) {
         String user = getMandatoryProperty("login");
         String keyPath = getMandatoryProperty("key_path");
-        String absoluteKeyPath = Paths.get(this.recipeLocalPath, keyPath).toString();
+        String absoluteKeyPath = Paths.get(this.artifactsPath, keyPath).toString();
         String port = getProperty("ssh_port", "22");
         try {
             SSHUtil.executeScript(user, this.server.getAccessIPv4(), Integer.parseInt(port), absoluteKeyPath, operationArtifactPath, inputs);

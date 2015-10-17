@@ -3,12 +3,12 @@ package com.mkv.tosca.docker.nodes;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
@@ -21,11 +21,9 @@ import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -38,8 +36,6 @@ public class Container extends Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
 
-    public static final String GENERATED_SCRIPT_PATH = "/.generated";
-
     private DockerClient dockerClient;
 
     private String containerId;
@@ -47,6 +43,8 @@ public class Container extends Compute {
     private String ipAddress;
 
     private static final String RECIPE_LOCATION = "/var/recipe";
+
+    public static final String GENERATED_SCRIPT_PATH = "/.generated";
 
     private static final String RECIPE_GENERATED_SCRIPT_LOCATION = RECIPE_LOCATION + GENERATED_SCRIPT_PATH;
 
@@ -93,7 +91,6 @@ public class Container extends Compute {
     public void create() {
         String imageId = getImageId();
         log.info("Node [" + getName() + "] : Creating container with image " + imageId);
-        Volume recipeVolume = new Volume(RECIPE_LOCATION);
         Set<String> linkedWithContainers = Sets.newHashSet();
         for (Root child : getChildren()) {
             for (Root childDependency : child.getDependsOnNodes()) {
@@ -137,8 +134,10 @@ public class Container extends Compute {
         if (!DockerUtil.imageExist(dockerClient, imageTag)) {
             pullImageIfNotExisting(dockerClient, imageTag);
         }
-        containerId = dockerClient.createContainerCmd(imageId).withName(getId()).withLinks(links.toArray(new Link[links.size()]))
-                .withBinds(new Bind(recipeLocalPath, recipeVolume)).withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
+        containerId = dockerClient.createContainerCmd(imageId)
+                .withName(getId())
+                .withLinks(links.toArray(new Link[links.size()]))
+                .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
                 .withPortBindings(portBindings).exec().getId();
         log.info("Node [" + getName() + "] : Created container with id " + containerId);
     }
@@ -153,6 +152,8 @@ public class Container extends Compute {
         ipAddress = dockerClient.inspectContainerCmd(containerId).exec().getNetworkSettings().getIpAddress();
         getAttributes().put("ip_address", ipAddress);
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        runCommand(Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION));
+        dockerClient.copyFileToContainerCmd(containerId, artifactsPath).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
     @Override
@@ -183,7 +184,7 @@ public class Container extends Compute {
         // Do nothing
     }
 
-    public void runCommand(List<String> commands) throws IOException {
+    public void runCommand(List<String> commands) {
         ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout().withAttachStderr()
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
@@ -194,6 +195,8 @@ public class Container extends Compute {
             while ((line = scriptOutputReader.readLine()) != null) {
                 log.info(line);
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Script " + commands + " exec encountered error while reading for output ", e);
         } finally {
             IOUtils.closeQuietly(startResponse);
         }
@@ -211,13 +214,13 @@ public class Container extends Compute {
      * @param operationArtifactPath the relative path to the script in the recipe
      */
     public void execute(String operationArtifactPath, Map<String, String> environmentVariables) {
-        String containerGeneratedScriptPath = RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath;
+        String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
-        String localGeneratedScriptPath = recipeLocalPath + GENERATED_SCRIPT_PATH + "/" + getId() + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
         try {
-            Files.createDirectories(Paths.get(localGeneratedScriptPath).getParent());
-            localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(new FileOutputStream(localGeneratedScriptPath)));
+            Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
+            Files.createDirectories(localGeneratedScriptPath.getParent());
+            localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
             localGeneratedScriptWriter.write("#!/bin/sh -e\n");
             if (environmentVariables != null) {
                 for (Map.Entry<String, String> envEntry : environmentVariables.entrySet()) {
@@ -227,10 +230,13 @@ public class Container extends Compute {
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
             localGeneratedScriptWriter.write(containerScriptPath + "\n");
             localGeneratedScriptWriter.flush();
-            runCommand(Lists.newArrayList("chmod", "+x", containerGeneratedScriptPath));
-            runCommand(Lists.newArrayList(containerGeneratedScriptPath));
+            runCommand(Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir));
+            dockerClient.copyFileToContainerCmd(containerId, localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
+            String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
+            runCommand(Lists.newArrayList("chmod", "+x", copiedScript));
+            runCommand(Lists.newArrayList(copiedScript));
         } catch (IOException e) {
-            throw new RuntimeException("Unable to create generated script at " + localGeneratedScriptPath, e);
+            throw new RuntimeException("Unable to create generated script for " + operationArtifactPath, e);
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }
