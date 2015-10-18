@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -17,14 +19,15 @@ public class DockerUtil {
         Properties properties = new Properties();
         properties.putAll(providerProperties);
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
-        DockerClient dockerClient = DockerClientBuilder.getInstance(config).build();
-        return dockerClient;
+        return DockerClientBuilder.getInstance(config).build();
     }
 
     public static DockerClient buildDockerClient(String url, String certPath) {
         Map<String, String> providerProperties = Maps.newHashMap();
         providerProperties.put("docker.io.url", url);
-        providerProperties.put("docker.io.dockerCertPath", certPath);
+        if (StringUtils.isNotBlank(certPath)) {
+            providerProperties.put("docker.io.dockerCertPath", certPath);
+        }
         return buildDockerClient(providerProperties);
     }
 

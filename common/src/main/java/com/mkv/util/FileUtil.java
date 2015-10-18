@@ -176,7 +176,25 @@ public final class FileUtil {
         return relativizedPath;
     }
 
+    /**
+     * Copy file or directory. In case of directory, the copy is recursive
+     *
+     * @param source      source directory or file
+     * @param destination destination directory or file
+     * @param options     copy options
+     * @throws IOException
+     */
     public static void copy(final Path source, final Path destination, final CopyOption... options) throws IOException {
+        if (Files.isRegularFile(source)) {
+            // Simple file copy
+            if (Files.notExists(destination)) {
+                Files.createDirectories(destination.getParent());
+            }
+            Files.copy(source, destination, options);
+            return;
+        }
+
+        // Directories copy
         if (Files.notExists(destination)) {
             Files.createDirectories(destination);
         }

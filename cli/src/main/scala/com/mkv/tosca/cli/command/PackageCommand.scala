@@ -65,12 +65,12 @@ object PackageCommand {
     var fail = false
     var imageId = ""
     var imageName = ""
-    if (!argsMap.contains(dockerUrlOpt) || !argsMap.contains(dockerCertOpt)) {
-      println(dockerUrlOpt + " and " + dockerCertOpt + " are mandatory")
+    if (!argsMap.contains(dockerUrlOpt)) {
+      println(dockerUrlOpt + " are mandatory")
       fail = true
     }
 
-    val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap(dockerCertOpt))
+    val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
     try {
       if (!fail) {
         if (argsMap.contains(deploymentArchiveOpt)) {

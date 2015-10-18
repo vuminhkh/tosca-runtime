@@ -35,11 +35,11 @@ object ListDeploymentCommand {
   lazy val instance = Command("deployments", listDeploymentHelp)(_ => listDeploymentArgsParser) { (state, args) =>
     val argsMap = args.toMap
     var fail = false
-    if (!argsMap.contains(dockerUrlOpt) || !argsMap.contains(dockerCertOpt)) {
-      println(dockerUrlOpt + " and " + dockerCertOpt + " are mandatory")
+    if (!argsMap.contains(dockerUrlOpt)) {
+      println(dockerUrlOpt + " are mandatory")
       fail = true
     } else {
-      val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap(dockerCertOpt))
+      val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
       // TODO How to filter dangling image more efficiently
       val images = dockerClient.listImagesCmd().withFilters("{\"label\":[\"organization=toscaruntime\"]}").exec().asScala
         .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))

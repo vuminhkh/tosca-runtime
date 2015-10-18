@@ -38,13 +38,14 @@ object DeployCommand {
     var fail = false
     var containerId = ""
     var ipAddress = ""
-    if (!argsMap.contains(dockerUrlOpt) || !argsMap.contains(dockerCertOpt) || !argsMap.contains(imageIdOpt)) {
-      println(imageIdOpt + "," + dockerUrlOpt + " and " + dockerCertOpt + " are mandatory")
+    if (!argsMap.contains(dockerUrlOpt) || !argsMap.contains(imageIdOpt)) {
+      println(imageIdOpt + "," + dockerUrlOpt + " are mandatory")
       fail = true
     } else {
-      val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap(dockerCertOpt))
+      val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
       try {
-        containerId = dockerClient.createContainerCmd(argsMap(imageIdOpt)).exec.getId
+        val imageId = argsMap(imageIdOpt)
+        containerId = dockerClient.createContainerCmd(imageId).withName(imageId + "_agent").exec.getId
         dockerClient.startContainerCmd(containerId).exec
         ipAddress = dockerClient.inspectContainerCmd(containerId).exec.getNetworkSettings.getIpAddress
       } finally {
