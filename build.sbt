@@ -82,7 +82,7 @@ lazy val test = project.settings(
   resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
-).dependsOn(runtime, docker).enablePlugins(UniversalPlugin)
+).dependsOn(runtime, docker, openstack).enablePlugins(UniversalPlugin)
 
 lazy val docker = project.settings(
   organization := "com.mkv.tosca",

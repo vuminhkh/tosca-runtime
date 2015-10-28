@@ -30,10 +30,7 @@ public abstract class Deployment {
 
     private static final Logger log = LoggerFactory.getLogger(Deployment.class);
 
-    /**
-     * Inputs for a topology
-     */
-    protected Map<String, Object> inputs;
+    protected DeploymentConfig config;
 
     /**
      * id to node instance : A node instance is a physical component of the topology at runtime.
@@ -44,10 +41,6 @@ public abstract class Deployment {
      * A relationship instance is a link between 2 physical components of the topology
      */
     protected List<tosca.relationships.Root> relationshipInstances = Lists.newArrayList();
-
-    protected Path recipePath;
-
-    protected Path artifactsPath;
 
     protected Map<String, DeploymentNode> nodes = Maps.newHashMap();
 
@@ -61,10 +54,12 @@ public abstract class Deployment {
         return relationshipNodes;
     }
 
-    public void initializeDeployment(Path recipePath, Map<String, Object> inputs) {
-        this.inputs = inputs;
-        this.recipePath = recipePath;
-        this.artifactsPath = this.recipePath.resolve(CompilerConstant.ARCHIVE_FOLDER());
+    public void initializeDeployment(Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
+        this.config = new DeploymentConfig();
+        this.config.setInputs(inputs);
+        this.config.setRecipePath(recipePath);
+        this.config.setBootstrap(bootstrap);
+        this.config.setArtifactsPath(recipePath.resolve(CompilerConstant.ARCHIVE_FOLDER()));
     }
 
     protected void initializeNode(String nodeName, Map<String, Object> properties) {
@@ -76,7 +71,7 @@ public abstract class Deployment {
     }
 
     protected void initializeInstance(tosca.nodes.Root instance) {
-        instance.setArtifactsPath(this.artifactsPath.toAbsolutePath().toString());
+        instance.setConfig(this.config);
         this.nodes.get(instance.getName()).getInstances().add(instance);
     }
 
@@ -122,7 +117,7 @@ public abstract class Deployment {
         return result;
     }
 
-    public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByNodeType(Class<T> type) {
+    public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
         Set<T> result = Sets.newHashSet();
         for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
             if (type.isAssignableFrom(nodeInstance.getClass())) {
@@ -130,6 +125,27 @@ public abstract class Deployment {
             }
         }
         return result;
+    }
+
+    public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
+        Set<T> result = Sets.newHashSet();
+        for (tosca.relationships.Root relationshipInstance : getRelationshipInstanceBySourceId(sourceId)) {
+            if (type.isAssignableFrom(relationshipInstance.getClass())) {
+                result.add((T) relationshipInstance);
+            }
+        }
+        return result;
+    }
+
+    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
+        Set<U> relationships = getRelationshipInstancesByType(sourceId, relationshipType);
+        Set<T> targets = Sets.newHashSet();
+        for (U relationship : relationships) {
+            if (targetType.isAssignableFrom(relationship.getTarget().getClass())) {
+                targets.add((T) relationship.getTarget());
+            }
+        }
+        return targets;
     }
 
     public Set<tosca.relationships.Root> getRelationshipInstanceBySourceId(String sourceId) {
@@ -180,43 +196,7 @@ public abstract class Deployment {
         for (final tosca.nodes.Root nodeInstance : waitForCreatedQueue) {
             // Only run create + configure unless if the node has no parent or its parent has been started
             if (nodeInstance.getParent() == null || !waitForStartedQueue.contains(nodeInstance.getParent())) {
-                createParallel.getActionList().add(new Task() {
-                    @Override
-                    public void run() {
-                        nodeInstance.create();
-                        nodeInstance.setState("created");
-                        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                            relationship.preConfigureSource();
-                            relationship.setState("preConfiguredSource");
-                        }
-                        Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                            relationship.preConfigureTarget();
-                            relationship.setState("preConfiguredTarget");
-                        }
-                        nodeInstance.configure();
-                        nodeInstance.setState("configured");
-                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                            relationship.postConfigureSource();
-                            relationship.setState("postConfiguredSource");
-                        }
-                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                            relationship.postConfigureTarget();
-                            relationship.setState("postConfiguredTarget");
-                        }
-                    }
-                });
-                processedCreated.add(nodeInstance);
-            }
-        }
-        waitForCreatedQueue.removeAll(processedCreated);
-        step.getActionList().add(createParallel);
-        Parallel startParallel = new Parallel();
-        Set<Root> processedStarted = Sets.newHashSet();
-        for (final tosca.nodes.Root nodeInstance : waitForStartedQueue) {
-            if (!waitForCreatedQueue.contains(nodeInstance)) {
-                // Check if all dependencies have been satisfied in order to start
+                // Check if all dependencies have been satisfied in order to create
                 boolean dependenciesSatisfied = true;
                 if (nodeInstance.getDependsOnNodes() != null) {
                     for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
@@ -227,29 +207,69 @@ public abstract class Deployment {
                     }
                 }
                 if (dependenciesSatisfied) {
-                    startParallel.getActionList().add(new Task() {
+                    createParallel.getActionList().add(new Task() {
                         @Override
                         public void run() {
-                            nodeInstance.start();
-                            nodeInstance.setState("started");
+                            nodeInstance.create();
+                            nodeInstance.setState("created");
                             Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                                relationship.addTarget();
-                                relationship.setState("addedTarget");
+                                relationship.preConfigureSource();
+                                relationship.setState("preConfiguredSource");
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                                relationship.addSource();
-                                relationship.setState("addedSource");
+                                relationship.preConfigureTarget();
+                                relationship.setState("preConfiguredTarget");
+                            }
+                            nodeInstance.configure();
+                            nodeInstance.setState("configured");
+                            for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                                relationship.postConfigureSource();
+                                relationship.setState("postConfiguredSource");
+                            }
+                            for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                                relationship.postConfigureTarget();
+                                relationship.setState("postConfiguredTarget");
                             }
                         }
                     });
-                    processedStarted.add(nodeInstance);
+                    processedCreated.add(nodeInstance);
                 }
             }
         }
+        waitForCreatedQueue.removeAll(processedCreated);
+        if (!createParallel.getActionList().isEmpty()) {
+            step.getActionList().add(createParallel);
+        }
+        Parallel startParallel = new Parallel();
+        Set<Root> processedStarted = Sets.newHashSet();
+        for (final tosca.nodes.Root nodeInstance : waitForStartedQueue) {
+            if (!waitForCreatedQueue.contains(nodeInstance)) {
+                startParallel.getActionList().add(new Task() {
+                    @Override
+                    public void run() {
+                        nodeInstance.start();
+                        nodeInstance.setState("started");
+                        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
+                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                            relationship.addTarget();
+                            relationship.setState("addedTarget");
+                        }
+                        Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
+                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                            relationship.addSource();
+                            relationship.setState("addedSource");
+                        }
+                    }
+                });
+                processedStarted.add(nodeInstance);
+            }
+        }
         waitForStartedQueue.removeAll(processedStarted);
-        step.getActionList().add(startParallel);
+        if (!startParallel.getActionList().isEmpty()) {
+            step.getActionList().add(startParallel);
+        }
         return step;
     }
 

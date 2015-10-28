@@ -3,7 +3,6 @@ package com.mkv.tosca.sdk;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
-import com.mkv.exception.NonRecoverableException;
 import com.mkv.util.PropertyUtil;
 
 public abstract class AbstractRuntimeType {
@@ -12,17 +11,7 @@ public abstract class AbstractRuntimeType {
 
     protected Map<String, String> attributes = Maps.newHashMap();
 
-    /**
-     * Where scripts are stored
-     */
-    protected String artifactsPath;
-
-    /**
-     * Where the whole deployment's recipe are stored (which contains artifactsPath where scripts are plus jars etc ...)
-     */
-    protected String recipePath;
-
-    protected String csarName;
+    protected DeploymentConfig config;
 
     protected String state;
 
@@ -54,45 +43,24 @@ public abstract class AbstractRuntimeType {
         return PropertyUtil.getPropertyAsString(this.properties, propertyName);
     }
 
-    protected String getProperty(String propertyName, String defaultValue) {
+    public String getProperty(String propertyName, String defaultValue) {
         String value = PropertyUtil.getPropertyAsString(this.properties, propertyName);
         return value != null ? value : defaultValue;
     }
 
-    protected String getMandatoryProperty(String propertyName) {
-        String value = PropertyUtil.getPropertyAsString(this.properties, propertyName);
-        if (value == null) {
-            throw new NonRecoverableException("Property <" + propertyName + "> is required but missing");
-        } else {
-            return value;
-        }
+    public String getMandatoryProperty(String propertyName) {
+        return PropertyUtil.getMandatoryPropertyAsString(this.properties, propertyName);
     }
 
     protected String getAttribute(String attributeName) {
         return this.attributes.get(attributeName);
     }
 
-    public String getArtifactsPath() {
-        return artifactsPath;
+    public DeploymentConfig getConfig() {
+        return config;
     }
 
-    public void setArtifactsPath(String artifactsPath) {
-        this.artifactsPath = artifactsPath;
-    }
-
-    public String getRecipePath() {
-        return recipePath;
-    }
-
-    public void setRecipePath(String recipePath) {
-        this.recipePath = recipePath;
-    }
-
-    public String getCsarName() {
-        return csarName;
-    }
-
-    public void setCsarName(String csarName) {
-        this.csarName = csarName;
+    public void setConfig(DeploymentConfig config) {
+        this.config = config;
     }
 }

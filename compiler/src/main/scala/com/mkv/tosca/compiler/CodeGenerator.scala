@@ -7,7 +7,6 @@ import com.mkv.exception.{InvalidTopologyException, NonRecoverableException, Not
 import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.tosca.compiler.tosca._
 import com.mkv.tosca.constant.CompilerConstant
-import com.mkv.tosca.sdk.Deployment
 import com.mkv.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
@@ -94,7 +93,7 @@ object CodeGenerator extends LazyLogging {
     }
   }
 
-  def parseTopology(topology: TopologyTemplate, csarPath: Seq[Csar], outputDir: Path) = {
+  def parseTopology(topology: TopologyTemplate, topologyCsarName: String, csarPath: Seq[Csar], outputDir: Path) = {
     if (topology.nodeTemplates.isEmpty) {
       throw new InvalidTopologyException("Topology do not contain any node")
     }
@@ -144,7 +143,7 @@ object CodeGenerator extends LazyLogging {
               if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.HostedOn", csarPath)) {
                 sourceNode.parent = Some(targetNode)
                 targetNode.children = targetNode.children :+ sourceNode
-              } else if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.DependsOn", csarPath)) {
+              } else {
                 sourceNode.dependencies = sourceNode.dependencies :+ targetNode
               }
             }
@@ -153,7 +152,7 @@ object CodeGenerator extends LazyLogging {
       }.getOrElse(Seq.empty)
     }
     val topologyRoots = topologyNodes.values.filter(node => node.parent.isEmpty)
-    runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq, topologyRoots.toSeq)
+    runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq, topologyRoots.toSeq, topologyCsarName)
   }
 
   def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {
@@ -171,7 +170,7 @@ object CodeGenerator extends LazyLogging {
       if (definitionsWithTopology.size > 1) {
         throw new NotSupportedGenerationException("More than one topology is found in the CSAR at " + definitionsWithTopology.keys + ", this is currently not supported")
       } else if (definitionsWithTopology.nonEmpty) {
-        val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csarPath :+ csar, recipeOutputPath)
+        val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csar.csarName, csarPath :+ csar, recipeOutputPath)
         val generatedTopologyText = html.GeneratedTopology.render(deployment).body
         // Generate Deployment for the topology
         FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(CompilerConstant.DEPLOYMENT_FILE))

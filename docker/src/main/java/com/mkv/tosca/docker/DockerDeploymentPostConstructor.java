@@ -19,7 +19,7 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
     @Override
     public void postConstruct(Deployment deployment, Map<String, String> providerProperties) {
         DockerClient dockerClient = DockerUtil.buildDockerClient(providerProperties);
-        Set<Container> containers = deployment.getNodeInstancesByNodeType(Container.class);
+        Set<Container> containers = deployment.getNodeInstancesByType(Container.class);
         for (Container container : containers) {
             container.setDockerClient(dockerClient);
         }

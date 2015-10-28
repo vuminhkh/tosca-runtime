@@ -39,7 +39,8 @@ case class Method(name: String,
 
 case class Deployment(nodes: Seq[Node],
                       relationships: Seq[Relationship],
-                      roots: Seq[Node])
+                      roots: Seq[Node],
+                      topologyCsarName: String)
 
 case class Input(name: String)
 

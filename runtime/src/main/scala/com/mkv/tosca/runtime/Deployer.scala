@@ -104,12 +104,12 @@ object Deployer {
    * @param providerConfig provider's configuration
    * @return the created deployment
    */
-  def deploy(deploymentRecipeFolder: Path, inputFile: Option[Path], providerConfig: Config): Deployment = {
+  def deploy(deploymentRecipeFolder: Path, inputFile: Option[Path], providerConfig: Config, bootstrap: Boolean): Deployment = {
     val inputs = inputFile.map(input => yamlParser.loadAs(Files.newInputStream(input), classOf[java.util.Map[String, AnyRef]])).getOrElse(Maps.newHashMap[String, AnyRef]())
     val providerConfiguration = providerConfig.entrySet().asScala.map { entry =>
       (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])
     }.toMap
-    deploy(deploymentRecipeFolder, inputs.asScala.toMap, providerConfiguration)
+    deploy(deploymentRecipeFolder, inputs.asScala.toMap, providerConfiguration, bootstrap)
   }
 
   /**
@@ -120,7 +120,7 @@ object Deployer {
    * @param providerProperties provider's properties
    * @return the created deployment
    */
-  def deploy(deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String]): Deployment = {
+  def deploy(deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String], bootstrap: Boolean): Deployment = {
     val compiledClasses = compileJavaRecipe(
       List(
         deploymentRecipeFolder.resolve(CompilerConstant.TYPES_FOLDER),
@@ -131,7 +131,7 @@ object Deployer {
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(classLoader)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-    deployment.initializeDeployment(deploymentRecipeFolder, inputs.asJava)
+    deployment.initializeDeployment(deploymentRecipeFolder, inputs.asJava, bootstrap)
     val deploymentPostConstructors = Util.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
     deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties.asJava))
     deployment.install()

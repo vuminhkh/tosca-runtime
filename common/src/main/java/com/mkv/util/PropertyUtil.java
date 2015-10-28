@@ -3,7 +3,18 @@ package com.mkv.util;
 import java.util.Map;
 import java.util.Properties;
 
+import com.mkv.exception.NonRecoverableException;
+
 public class PropertyUtil {
+
+    public static String getMandatoryPropertyAsString(Map<String, ?> properties, String propertyName) {
+        String value = PropertyUtil.getPropertyAsString(properties, propertyName);
+        if (value == null) {
+            throw new NonRecoverableException("Property <" + propertyName + "> is required but missing");
+        } else {
+            return value;
+        }
+    }
 
     public static String getPropertyAsString(Map<String, ?> properties, String propertyName) {
         Object value = properties.get(propertyName);

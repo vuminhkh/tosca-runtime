@@ -1,0 +1,2 @@
+- image: { get_input: "image" } not working
+  image: { get_input: image } taking also into account space

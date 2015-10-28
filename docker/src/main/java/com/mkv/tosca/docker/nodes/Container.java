@@ -153,7 +153,7 @@ public class Container extends Compute {
         getAttributes().put("ip_address", ipAddress);
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
         runCommand(Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION));
-        dockerClient.copyFileToContainerCmd(containerId, artifactsPath).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
+        dockerClient.copyFileToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
     @Override

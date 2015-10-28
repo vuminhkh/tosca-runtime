@@ -7,7 +7,6 @@ import com.mkv.tosca.constant.DeployerConstant
 import com.mkv.tosca.runtime.Deployer
 import com.mkv.tosca.sdk.Deployment
 import com.typesafe.config.ConfigFactory
-import com.typesafe.config.impl.ConfigImpl
 import models.{DeploymentInformation, RestResponse}
 import org.yaml.snakeyaml.Yaml
 import play.api.libs.json._
@@ -50,7 +49,7 @@ object Application extends Controller with Logging {
       deploymentOpt.map { deployment =>
         BadRequest("Application is already deployed")
       }.getOrElse {
-        deploymentOpt = Some(Deployer.deploy(recipePath, deploymentInputsPath, providerConfiguration))
+        deploymentOpt = Some(Deployer.deploy(recipePath, deploymentInputsPath, providerConfiguration, bootstrap = false))
         Ok
       }
   }
