@@ -44,7 +44,8 @@ lazy val compiler = project.settings(
   libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
   libraryDependencies += "com.typesafe" % "config" % "1.3.0",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(sdk).enablePlugins(SbtTwirl, UniversalPlugin)
 
 lazy val runtime = project.settings(
@@ -56,7 +57,8 @@ lazy val runtime = project.settings(
   resolvers ++= buildResolvers,
   libraryDependencies += "org.abstractmeta" % "compilation-toolbox" % "0.3.3",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(compiler).enablePlugins(UniversalPlugin)
 
 lazy val deployer = project.settings(
@@ -70,7 +72,8 @@ lazy val deployer = project.settings(
   version in Docker := "latest",
   dockerExposedPorts in Docker := Seq(9000, 9443),
   stage <<= stage dependsOn(publishLocal, publishLocal in Docker),
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(runtime).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val test = project.settings(
@@ -81,7 +84,8 @@ lazy val test = project.settings(
   scalaVersion := "2.11.7",
   resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(runtime, docker, openstack).enablePlugins(UniversalPlugin)
 
 lazy val docker = project.settings(
@@ -96,7 +100,8 @@ lazy val docker = project.settings(
     dir.*** pair relativeTo(base)
   },
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.settings(
@@ -117,7 +122,8 @@ lazy val openstack = project.settings(
     dir.*** pair relativeTo(base)
   },
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.settings(
@@ -128,7 +134,8 @@ lazy val sdk = project.settings(
   scalaVersion := "2.11.7",
   resolvers ++= buildResolvers,
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(common).enablePlugins(UniversalPlugin)
 
 lazy val common = project.settings(
@@ -150,7 +157,8 @@ lazy val common = project.settings(
   libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
   libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3",
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).enablePlugins(UniversalPlugin)
 
 lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
@@ -182,6 +190,15 @@ lazy val cli = project.settings(
     launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@name", name.value)
     launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@version", version.value)
     IO.write(launchConfigTarget, launchConfigTemplateText)
+    val dockerProvider = target.value / "prepare-stage" / "providers" / "docker"
+    dockerProvider.mkdirs()
+    val openstackProvider = target.value / "prepare-stage" / "providers" / "openstack"
+    openstackProvider.mkdirs()
+    val providerConf = target.value / "prepare-stage" / "conf" / "providers"
+    providerConf.mkdirs()
+    IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "providers", providerConf)
+    IO.copyDirectory((stage in docker).value, dockerProvider)
+    IO.copyDirectory((stage in openstack).value, openstackProvider)
     val command = "java -jar " + sbtLaunchTarget.toString + " @" + launchConfigTarget
     Process(command, Some(sbtLaunchTarget.getParentFile)) ! match {
       case 0 => println("Successfully loaded cli dependencies")
@@ -197,5 +214,6 @@ lazy val cli = project.settings(
   },
   downloadSbtLauncher <<= downloadSbtLauncher dependsOn publishLocal,
   stage <<= (stage in Universal) dependsOn downloadSbtLauncher,
-  dist <<= (packageZipTarball in Universal) dependsOn stage
+  dist <<= (packageZipTarball in Universal) dependsOn stage,
+  net.virtualvoid.sbt.graph.Plugin.graphSettings
 ).dependsOn(runtime).enablePlugins(UniversalPlugin)

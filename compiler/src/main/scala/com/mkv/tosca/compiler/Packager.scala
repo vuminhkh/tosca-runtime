@@ -67,7 +67,7 @@ object Packager {
     Files.copy(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), tempDockerImageBuildDir.resolve("Dockerfile"))
     val deploymentConfig = ConfigFactory.empty().withValue(DeployerConstant.DEPLOYMENT_NAME_KEY, ConfigValueFactory.fromAnyRef(deploymentName))
     FileUtil.writeTextFile(deploymentConfig.root().render(), tempDockerImageBuildDir.resolve("deployment").resolve("deployment.conf"))
-    FileUtil.copy(providerConfigPath, tempDockerImageBuildDir.resolve("provider").resolve("provider.conf"))
+    FileUtil.copy(providerConfigPath, tempDockerImageBuildDir.resolve("provider"))
     if (inputsPath.nonEmpty) {
       FileUtil.copy(inputsPath.get, tempDockerImageBuildDir.resolve("deployment").resolve("inputs.yaml"))
     }

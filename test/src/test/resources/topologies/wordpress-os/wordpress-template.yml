@@ -17,7 +17,21 @@ topology_template:
       type: string
     login:
       type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: string
   node_templates:
+    publicNetwork:
+      type: com.mkv.tosca.openstack.nodes.ExternalNetwork
+      properties:
+        network_id: { get_input: external_network_id}
+    privateNetwork:
+      type: com.mkv.tosca.openstack.nodes.Network
+      properties:
+        network_name: "wordpressPrivateNetwork"
+        cidr: "192.168.1.0/24"
+        dns_name_servers: "8.8.8.8"
     wordpress:
       type: alien.nodes.Wordpress
       requirements:
@@ -45,6 +59,7 @@ topology_template:
         login: { get_input: login}
         key_pair_name: { get_input: key_pair_name}
         key_path: { get_input: key_path}
+        security_group_names: { get_input: security_group_names}
       requirements:
         - network: privateNetwork
     computeWww:
@@ -55,8 +70,10 @@ topology_template:
         login: { get_input: login}
         key_pair_name: { get_input: key_pair_name}
         key_path: { get_input: key_path}
+        security_group_names: { get_input: security_group_names}
       requirements:
         - network: privateNetwork
+        - network: publicNetwork
     apache:
       type: alien.nodes.Apache
       properties:

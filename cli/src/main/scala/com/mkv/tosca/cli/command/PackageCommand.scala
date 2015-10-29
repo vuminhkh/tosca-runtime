@@ -3,8 +3,8 @@ package com.mkv.tosca.cli.command
 import java.nio.file.Paths
 
 import com.mkv.tosca.cli.parser._
+import com.mkv.tosca.cli.{Args, Attributes}
 import com.mkv.tosca.compiler.Packager
-import com.mkv.util.DockerUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -15,10 +15,6 @@ import sbt.{Command, Help}
  */
 object PackageCommand {
 
-  private val dockerUrlOpt = "-u"
-
-  private val dockerCertOpt = "-c"
-
   private val deploymentNameOpt = "-n"
 
   private val deploymentArchiveOpt = "-d"
@@ -26,12 +22,6 @@ object PackageCommand {
   private val recipePathOpt = "-r"
 
   private val inputPathOpt = "-i"
-
-  private val providerConfigPathOpt = "-p"
-
-  private lazy val dockerUrlArg = token(dockerUrlOpt) ~ (Space ~> token(URIClass))
-
-  private lazy val dockerCertPathArg = token(dockerCertOpt) ~ (Space ~> token(Parsers.filePathParser))
 
   private lazy val deploymentNameArg = token(deploymentNameOpt) ~ (Space ~> token(StringBasic))
 
@@ -41,22 +31,18 @@ object PackageCommand {
 
   private lazy val inputPathArg = token(inputPathOpt) ~ (Space ~> token(Parsers.filePathParser))
 
-  private lazy val providerConfigPathArg = token(providerConfigPathOpt) ~ (Space ~> token(Parsers.filePathParser))
-
-  private lazy val packageArgsParser = Space ~> (deploymentArchiveArg | dockerCertPathArg | dockerUrlArg | deploymentNameArg | recipePathArg | inputPathArg | providerConfigPathArg) +
+  private lazy val packageArgsParser = Space ~> (deploymentArchiveArg | deploymentNameArg | recipePathArg | inputPathArg | Args.providerArg) +
 
   private lazy val packageHelp = Help("package", ("package", "Package a deployable archive to a docker image"),
     """
-      |package -d <deployment path> -u <docker daemon url> -c <certificate path>
+      |package -d <deployment path>
       | or
-      |package -n <deployment name> -r <recipe path> [-i <deployment input path>] -u <docker daemon url> -c <certificate path> -p <provider config path>
+      |package -n <deployment name> -r <recipe path> [-i <deployment input path>] -p <provider name>
       |-d   : path to the deployment archive. If specified -n, -r, -i, -p will not be considered, all those configs will be loaded from the deployment archive.
       |-n   : name of the deployment
       |-r   : path to the recipe
       |-i   : path to the input for the deployment
-      |-u   : url of the docker daemon
-      |-c   : path to the the certificate to connect to the docker daemon
-      |-p   : path to the provider's config
+      |-p   : name of the provider
     """.stripMargin
   )
 
@@ -65,41 +51,31 @@ object PackageCommand {
     var fail = false
     var imageId = ""
     var imageName = ""
-    if (!argsMap.contains(dockerUrlOpt)) {
-      println(dockerUrlOpt + " are mandatory")
-      fail = true
-    }
 
-    val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
-    try {
-      if (!fail) {
-        if (argsMap.contains(deploymentArchiveOpt)) {
-          val image = Packager.createDockerImage(
-            dockerClient,
-            Paths.get(argsMap(deploymentArchiveOpt))
-          )
-          imageId = image._1
-          imageName = image._2
-        } else {
-          if (!argsMap.contains(recipePathOpt) || !argsMap.contains(providerConfigPathOpt) || !argsMap.contains(deploymentNameOpt)) {
-            println(recipePathOpt + ", " + providerConfigPathOpt + " and " + deploymentNameOpt + " are mandatory")
-            fail = true
-          } else {
-            val recipePath = Paths.get(argsMap(recipePathOpt))
-            val image = Packager.createDockerImage(
-              dockerClient,
-              argsMap(deploymentNameOpt),
-              recipePath,
-              argsMap.get(inputPathOpt).map(Paths.get(_)),
-              Paths.get(argsMap(providerConfigPathOpt))
-            )
-            imageId = image._1
-            imageName = image._2
-          }
-        }
+    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get
+    if (argsMap.contains(deploymentArchiveOpt)) {
+      val image = Packager.createDockerImage(
+        dockerClient,
+        Paths.get(argsMap(deploymentArchiveOpt))
+      )
+      imageId = image._1
+      imageName = image._2
+    } else {
+      if (!argsMap.contains(recipePathOpt) || !argsMap.contains(Args.providerOpt) || !argsMap.contains(deploymentNameOpt)) {
+        println(recipePathOpt + ", " + Args.providerOpt + " and " + deploymentNameOpt + " are mandatory")
+        fail = true
+      } else {
+        val recipePath = Paths.get(argsMap(recipePathOpt))
+        val image = Packager.createDockerImage(
+          dockerClient,
+          argsMap(deploymentNameOpt),
+          recipePath,
+          argsMap.get(inputPathOpt).map(Paths.get(_)),
+          state.attributes.get(Attributes.basedirAttribute).get.resolve("conf").resolve("providers").resolve(argsMap(Args.providerOpt)).resolve("default")
+        )
+        imageId = image._1
+        imageName = image._2
       }
-    } finally {
-      dockerClient.close()
     }
     if (fail) {
       state.fail
