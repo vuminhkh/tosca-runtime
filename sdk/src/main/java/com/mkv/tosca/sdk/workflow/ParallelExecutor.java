@@ -1,5 +1,6 @@
 package com.mkv.tosca.sdk.workflow;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -8,8 +9,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.Lists;
-import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.exception.NonRecoverableException;
 
 public class ParallelExecutor implements Executor<Parallel> {
 
@@ -32,7 +32,7 @@ public class ParallelExecutor implements Executor<Parallel> {
 
     @Override
     public void execute(Parallel parallel) {
-        List<Future<?>> futures = Lists.newArrayList();
+        List<Future<?>> futures = new ArrayList<>();
         for (final Action action : parallel.getActionList()) {
             futures.add(executorService.submit(new Runnable() {
                 @Override

@@ -12,6 +12,8 @@ import org.yaml.snakeyaml.Yaml
 import play.api.libs.json._
 import play.api.mvc.{Action, Controller}
 
+import scala.collection.JavaConverters._
+
 object Application extends Controller with Logging {
 
   val yamlParser = new Yaml()
@@ -38,9 +40,12 @@ object Application extends Controller with Logging {
   val deploymentName = deploymentConfiguration.getString(DeployerConstant.DEPLOYMENT_NAME_KEY)
 
   val providerConfiguration = {
-    ConfigFactory.parseFile(
+    val providerConfig = ConfigFactory.parseFile(
       new File(play.Play.application().configuration().getString("tosca.runtime.provider.confFile"))
     ).resolveWith(play.Play.application().configuration().underlying())
+    providerConfig.entrySet().asScala.map { entry =>
+      (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])
+    }.toMap
   }
 
   def deploy() = Action {

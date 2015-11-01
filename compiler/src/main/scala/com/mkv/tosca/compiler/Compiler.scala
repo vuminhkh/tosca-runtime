@@ -2,12 +2,11 @@ package com.mkv.tosca.compiler
 
 import java.nio.file._
 
-import com.google.common.collect.Maps
 import com.google.common.io.Closeables
-import com.mkv.exception.InitializationException
 import com.mkv.tosca.compiler.tosca.Csar
 import com.mkv.tosca.constant.CompilerConstant
-import com.mkv.util.FileUtil
+import com.mkv.tosca.exception.InitializationException
+import com.mkv.tosca.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.JavaConverters._
@@ -19,18 +18,7 @@ import scala.collection.JavaConverters._
  */
 object Compiler extends LazyLogging {
 
-  val normativeTypesPath: Path = {
-    val normativeTypesUrl = Thread.currentThread().getContextClassLoader.getResource("tosca-normative-types/")
-    val normativeTypesUri = normativeTypesUrl.toURI
-    if (!"file".equals(normativeTypesUrl.getProtocol)) {
-      val env = Maps.newHashMap[String, String]()
-      env.put("create", "true")
-      FileSystems.newFileSystem(normativeTypesUri, env)
-    }
-    Paths.get(normativeTypesUri)
-  }
-
-  val normativeTypes: Csar = {
+  def loadNormativeTypes(normativeTypesPath: Path): Csar = {
     val parsedCsar = analyzeSyntax(normativeTypesPath)
     if (parsedCsar.isDefined) {
       val semanticErrors = analyzeSemantic(parsedCsar.get, normativeTypesPath, List.empty)
@@ -49,9 +37,11 @@ object Compiler extends LazyLogging {
    * @param topology the topology to produce deployment for
    * @param dependencies the topology's dependencies
    * @param provider the provider's binary package
+   * @param normativeTypesPath path to the normative types definition
    * @param output output for the deployable package
    */
-  def compile(topology: Path, dependencies: List[Path], provider: Path, output: Path): Boolean = {
+  def compile(topology: Path, dependencies: List[Path], provider: Path, normativeTypesPath: Path, output: Path): Boolean = {
+    val normativeTypes = loadNormativeTypes(normativeTypesPath)
     var topologyFileSystem = topology
     val topologyIsZipped = Files.isRegularFile(topology)
     if (topologyIsZipped) {
@@ -69,7 +59,7 @@ object Compiler extends LazyLogging {
       outputFileSystem = FileUtil.createZipFileSystem(output)
     }
     // Load dependencies
-    val dependenciesFileSystems = Util.createZipFileSystems(dependencies)
+    val dependenciesFileSystems = CompilerUtil.createZipFileSystems(dependencies)
     try {
       val parsedDependenciesWithPaths = dependenciesFileSystems.flatMap {
         case (dependencyPath: Path, _) => analyzeSyntax(dependencyPath).map((_, dependencyPath))

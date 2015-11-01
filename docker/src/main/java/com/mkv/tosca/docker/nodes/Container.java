@@ -27,7 +27,7 @@ import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.mkv.util.DockerUtil;
+import com.mkv.tosca.util.DockerUtil;
 
 import tosca.nodes.Compute;
 import tosca.nodes.Root;

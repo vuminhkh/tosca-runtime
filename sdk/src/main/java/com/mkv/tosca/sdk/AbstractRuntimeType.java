@@ -1,15 +1,15 @@
 package com.mkv.tosca.sdk;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import com.google.common.collect.Maps;
-import com.mkv.util.PropertyUtil;
+import com.mkv.tosca.util.PropertyUtil;
 
 public abstract class AbstractRuntimeType {
 
-    protected Map<String, Object> properties = Maps.newHashMap();
+    protected Map<String, Object> properties = new HashMap<>();
 
-    protected Map<String, String> attributes = Maps.newHashMap();
+    protected Map<String, String> attributes = new HashMap<>();
 
     protected DeploymentConfig config;
 

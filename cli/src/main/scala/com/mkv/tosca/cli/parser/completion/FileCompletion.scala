@@ -2,8 +2,7 @@ package com.mkv.tosca.cli.parser.completion
 
 import java.io.{File, IOException}
 import java.nio.file.{Files, Paths}
-
-import com.mkv.util.FileUtil
+import com.mkv.tosca.util.FileUtil
 import sbt.complete.ExampleSource
 
 import scala.collection.JavaConverters._

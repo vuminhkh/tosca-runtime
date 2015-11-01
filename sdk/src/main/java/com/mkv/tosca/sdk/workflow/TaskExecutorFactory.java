@@ -1,6 +1,6 @@
 package com.mkv.tosca.sdk.workflow;
 
-import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.exception.NonRecoverableException;
 
 public class TaskExecutorFactory {
 

@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path}
 import com.github.dockerjava.api.DockerClient
 import com.github.dockerjava.core.command.BuildImageResultCallback
 import com.mkv.tosca.constant.DeployerConstant
-import com.mkv.util.FileUtil
+import com.mkv.tosca.util.FileUtil
 import com.typesafe.config.impl.ConfigImpl
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 

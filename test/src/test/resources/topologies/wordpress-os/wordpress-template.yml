@@ -21,6 +21,8 @@ topology_template:
       type: string
     security_group_names:
       type: string
+    external_network_id:
+      type: string
   node_templates:
     publicNetwork:
       type: com.mkv.tosca.openstack.nodes.ExternalNetwork

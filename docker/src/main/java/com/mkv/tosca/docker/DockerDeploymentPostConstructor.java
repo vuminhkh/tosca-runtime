@@ -7,7 +7,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.mkv.tosca.docker.nodes.Container;
 import com.mkv.tosca.sdk.Deployment;
 import com.mkv.tosca.sdk.DeploymentPostConstructor;
-import com.mkv.util.DockerUtil;
+import com.mkv.tosca.util.DockerUtil;
 
 /**
  * This represents a docker deployment which must hold a docker client and inject this instance in all container in order to process the execution of workflows

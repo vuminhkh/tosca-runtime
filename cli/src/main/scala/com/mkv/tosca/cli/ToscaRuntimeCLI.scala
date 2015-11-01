@@ -5,7 +5,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import com.github.dockerjava.api.DockerClient
 import com.mkv.tosca.cli.command._
-import com.mkv.util.DockerUtil
+import com.mkv.tosca.util.DockerUtil
 import sbt._
 
 /**

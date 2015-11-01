@@ -3,11 +3,11 @@ package com.mkv.tosca.compiler
 import java.nio.file.{Files, Path, StandardCopyOption}
 
 import com.google.common.io.Closeables
-import com.mkv.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
 import com.mkv.tosca.compiler.runtime.Method
 import com.mkv.tosca.compiler.tosca._
 import com.mkv.tosca.constant.CompilerConstant
-import com.mkv.util.FileUtil
+import com.mkv.tosca.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
+import com.mkv.tosca.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -30,7 +30,7 @@ object CodeGenerator extends LazyLogging {
   }
 
   def parseMethod(interfaceName: String, operationName: String, operation: Operation) = {
-    val methodName = Util.getGeneratedMethodName(interfaceName, operationName)
+    val methodName = CompilerUtil.getGeneratedMethodName(interfaceName, operationName)
     Method(methodName, getScalarInputs(operation), getFunctionInputs(operation), operation.implementation.map(_.value))
   }
 
@@ -41,7 +41,7 @@ object CodeGenerator extends LazyLogging {
   }
 
   def parseRuntimeType(runtimeType: RuntimeType) = {
-    val packageNameAndClassName = Util.splitClassNameAndPackageName(runtimeType.name.value)
+    val packageNameAndClassName = CompilerUtil.splitClassNameAndPackageName(runtimeType.name.value)
     val methods = runtimeType.interfaces.map(_.flatMap {
       case (name: ParsedValue[String], interface: Interface) => parseInterface(name.value, interface)
     }).getOrElse(Seq.empty).toSeq
@@ -49,26 +49,26 @@ object CodeGenerator extends LazyLogging {
   }
 
   def generateNodeType(csar: Csar, nodeType: NodeType, outputDir: Path) = {
-    if (Util.isTypeDefined(nodeType.name.value)) {
+    if (ClassLoaderUtil.isTypeDefined(nodeType.name.value)) {
       logger.info(s"Ignoring node type ${nodeType.name.value} as it's part of SDK")
     } else {
       logger.info(s"Generating node type class ${nodeType.name.value}")
       val parsedType = parseRuntimeType(nodeType)
       val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.csarName)).body
-      val outputFile = Util.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
+      val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.info(s"Generated node type class ${nodeType.name.value} to $generatedPath")
     }
   }
 
   def generateRelationshipType(csar: Csar, relationshipType: RelationshipType, outputDir: Path) = {
-    if (Util.isTypeDefined(relationshipType.name.value)) {
+    if (ClassLoaderUtil.isTypeDefined(relationshipType.name.value)) {
       logger.info(s"Ignoring relationship type ${relationshipType.name.value} as it's part of SDK")
     } else {
       logger.info(s"Generating relationship type class ${relationshipType.name.value}")
       val parsedType = parseRuntimeType(relationshipType)
       val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType._1, parsedType._2, parsedType._3, parsedType._4, parsedType._5, csar.csarName)).body
-      val outputFile = Util.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
+      val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.info(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
     }

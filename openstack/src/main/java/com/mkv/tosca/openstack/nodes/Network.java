@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.mkv.exception.ResourcesNotFoundException;
+import com.mkv.tosca.exception.ResourcesNotFoundException;
 
 public class Network extends tosca.nodes.Network {
 

@@ -18,8 +18,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
-import com.mkv.exception.NonRecoverableException;
-import com.mkv.util.SSHUtil;
+import com.mkv.tosca.exception.NonRecoverableException;
+import com.mkv.tosca.util.SSHUtil;
 
 public class Compute extends tosca.nodes.Compute {
 

@@ -1,10 +1,11 @@
 package com.mkv.tosca.cli.command
 
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 
 import com.mkv.tosca.cli.parser._
 import com.mkv.tosca.cli.{Args, Attributes}
 import com.mkv.tosca.compiler.Compiler
+import com.mkv.tosca.util.FileUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -61,11 +62,19 @@ object CompileCommand {
         val cpr = cp.asInstanceOf[(String, Seq[String])]
         Paths.get(cpr._1) :: cpr._2.map(Paths.get(_)).toList
       }.getOrElse(List.empty)
+      val basedir = state.attributes.get(Attributes.basedirAttribute).get
+      val outputPath = Paths.get(output.get.asInstanceOf[String])
+      if (Files.isRegularFile(outputPath)) {
+        Files.delete(outputPath)
+      } else if (Files.isDirectory(outputPath)) {
+        FileUtil.delete(outputPath)
+      }
       val compilationSuccessful = Compiler.compile(
         Paths.get(topology.get.asInstanceOf[String]),
         csarPathsForCompilation,
-        state.attributes.get(Attributes.basedirAttribute).get.resolve("providers").resolve(provider.get.asInstanceOf[String]),
-        Paths.get(output.get.asInstanceOf[String])
+        basedir.resolve("providers").resolve(provider.get.asInstanceOf[String]),
+        basedir.resolve("sdk"),
+        outputPath
       )
       if (compilationSuccessful) {
         println("Compiled successfully and produced deployable recipe at <" + output.get.asInstanceOf[String] + ">")

@@ -1,15 +1,14 @@
 package com.mkv.tosca.sdk.workflow;
 
+import java.util.ArrayList;
 import java.util.List;
-
-import com.google.common.collect.Lists;
 
 /**
  * @author Minh Khang VU
  */
 public abstract class CompositeAction implements Action {
 
-    protected List<Action> actionList = Lists.newArrayList();
+    protected List<Action> actionList = new ArrayList<>();
 
     public List<Action> getActionList() {
         return actionList;

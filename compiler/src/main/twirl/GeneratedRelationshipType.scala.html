@@ -1,11 +1,11 @@
-@import com.mkv.tosca.compiler.Util
+@import com.mkv.tosca.compiler.CompilerUtil
 @import com.mkv.tosca.compiler.runtime.RelationshipType
 @(relationshipType: RelationshipType)
 package @relationshipType.packageName;
 
 public @if(relationshipType.isAbstract){abstract }class @relationshipType.className extends @relationshipType.superClass.getOrElse("tosca.relationships.Root") @Html("{")
 @relationshipType.methods.map { method =>
-  public void @Util.toCamelCase(method.name)@Html("() {")
+  public void @CompilerUtil.toCamelCase(method.name)@Html("() {")
     @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
   @method.scalarInputs.map { scalarInput =>
     inputs.put("@scalarInput._1", "@scalarInput._2");

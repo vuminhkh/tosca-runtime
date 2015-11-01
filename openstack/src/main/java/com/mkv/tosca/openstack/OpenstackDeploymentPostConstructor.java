@@ -18,13 +18,13 @@ import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
-import com.mkv.exception.ProviderInitializationException;
+import com.mkv.tosca.exception.ProviderInitializationException;
 import com.mkv.tosca.openstack.nodes.Compute;
 import com.mkv.tosca.openstack.nodes.ExternalNetwork;
 import com.mkv.tosca.openstack.nodes.Network;
 import com.mkv.tosca.sdk.Deployment;
 import com.mkv.tosca.sdk.DeploymentPostConstructor;
-import com.mkv.util.PropertyUtil;
+import com.mkv.tosca.util.PropertyUtil;
 
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
 

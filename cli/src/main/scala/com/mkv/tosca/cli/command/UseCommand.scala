@@ -2,7 +2,7 @@ package com.mkv.tosca.cli.command
 
 import com.mkv.tosca.cli.Attributes
 import com.mkv.tosca.cli.parser.Parsers
-import com.mkv.util.DockerUtil
+import com.mkv.tosca.util.DockerUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 

@@ -1,14 +1,14 @@
 package tosca.nodes;
 
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Sets;
-import com.mkv.exception.IllegalFunctionException;
-import com.mkv.exception.NonRecoverableException;
+import com.mkv.tosca.exception.IllegalFunctionException;
+import com.mkv.tosca.exception.NonRecoverableException;
 import com.mkv.tosca.sdk.AbstractRuntimeType;
 
 public abstract class Root extends AbstractRuntimeType {
@@ -21,9 +21,9 @@ public abstract class Root extends AbstractRuntimeType {
 
     private Root parent;
 
-    private Set<Root> dependsOnNodes = Sets.newHashSet();
+    private Set<Root> dependsOnNodes = new HashSet<>();
 
-    private Set<Root> children = Sets.newHashSet();
+    private Set<Root> children = new HashSet<>();
 
     public Set<Root> getChildren() {
         return children;
@@ -113,25 +113,25 @@ public abstract class Root extends AbstractRuntimeType {
     public String evaluateFunction(String functionName, String entity, String path) {
         String value;
         switch (entity) {
-        case "HOST":
-            if (getParent() == null) {
-                throw new IllegalFunctionException("Cannot access to HOST's <" + path + "> property/attribute as this node do not have a parent");
-            }
-            return getParent().evaluateFunction(functionName, "SELF", path);
-        case "SELF":
-            switch (functionName) {
-            case "get_property":
-                value = getProperty(path);
-                break;
-            case "get_attribute":
-                value = getAttribute(path);
+            case "HOST":
+                if (getParent() == null) {
+                    throw new IllegalFunctionException("Cannot access to HOST's <" + path + "> property/attribute as this node do not have a parent");
+                }
+                return getParent().evaluateFunction(functionName, "SELF", path);
+            case "SELF":
+                switch (functionName) {
+                    case "get_property":
+                        value = getProperty(path);
+                        break;
+                    case "get_attribute":
+                        value = getAttribute(path);
+                        break;
+                    default:
+                        throw new IllegalFunctionException("Function " + functionName + " is not supported");
+                }
                 break;
             default:
-                throw new IllegalFunctionException("Function " + functionName + " is not supported");
-            }
-            break;
-        default:
-            throw new IllegalFunctionException("Entity " + entity + " is not supported");
+                throw new IllegalFunctionException("Entity " + entity + " is not supported");
         }
         if (value == null) {
             if (getParent() != null) {
