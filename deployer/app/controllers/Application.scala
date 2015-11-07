@@ -7,6 +7,7 @@ import com.mkv.tosca.constant.DeployerConstant
 import com.mkv.tosca.runtime.Deployer
 import com.mkv.tosca.sdk.Deployment
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.impl.ConfigImpl
 import models.{DeploymentInformation, RestResponse}
 import org.yaml.snakeyaml.Yaml
 import play.api.libs.json._
@@ -35,14 +36,16 @@ object Application extends Controller with Logging {
 
   val deploymentConfiguration = ConfigFactory.parseFile(
     new File(play.Play.application().configuration().getString("tosca.runtime.deployment.confFile"))
-  ).resolveWith(play.Play.application().configuration().underlying())
+  ).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
 
   val deploymentName = deploymentConfiguration.getString(DeployerConstant.DEPLOYMENT_NAME_KEY)
+
+  val bootstrap = deploymentConfiguration.getBoolean(DeployerConstant.BOOTSTRAP_KEY)
 
   val providerConfiguration = {
     val providerConfig = ConfigFactory.parseFile(
       new File(play.Play.application().configuration().getString("tosca.runtime.provider.confFile"))
-    ).resolveWith(play.Play.application().configuration().underlying())
+    ).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
     providerConfig.entrySet().asScala.map { entry =>
       (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])
     }.toMap
@@ -54,7 +57,7 @@ object Application extends Controller with Logging {
       deploymentOpt.map { deployment =>
         BadRequest("Application is already deployed")
       }.getOrElse {
-        deploymentOpt = Some(Deployer.deploy(recipePath, deploymentInputsPath, providerConfiguration, bootstrap = false))
+        deploymentOpt = Some(Deployer.deploy(recipePath, deploymentInputsPath, providerConfiguration, bootstrap))
         Ok
       }
   }

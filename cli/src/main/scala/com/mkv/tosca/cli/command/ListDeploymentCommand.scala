@@ -15,7 +15,7 @@ object ListDeploymentCommand {
   private lazy val listDeploymentHelp = Help("deployments", ("deployments", "List all packaged deployments (docker images) available on the docker daemon"), "")
 
   lazy val instance = Command.command("deployments", listDeploymentHelp) { state =>
-    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get
+    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
     // TODO How to filter dangling image more efficiently
     val images = dockerClient.listImagesCmd().withFilters("{\"label\":[\"organization=toscaruntime\"]}").exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))

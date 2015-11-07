@@ -33,7 +33,7 @@ object DeployCommand {
       println(imageIdOpt + " is mandatory")
       fail = true
     } else {
-      val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get
+      val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
       val imageId = argsMap(imageIdOpt)
       containerId = dockerClient.createContainerCmd(imageId).withName(imageId + "_agent").exec.getId
       dockerClient.startContainerCmd(containerId).exec

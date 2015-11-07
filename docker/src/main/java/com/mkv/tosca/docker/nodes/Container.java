@@ -1,11 +1,7 @@
 package com.mkv.tosca.docker.nodes;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Ports;
@@ -152,7 +147,7 @@ public class Container extends Compute {
         ipAddress = dockerClient.inspectContainerCmd(containerId).exec().getNetworkSettings().getIpAddress();
         getAttributes().put("ip_address", ipAddress);
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
-        runCommand(Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION));
+        DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
         dockerClient.copyFileToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
@@ -184,30 +179,6 @@ public class Container extends Compute {
         // Do nothing
     }
 
-    public void runCommand(List<String> commands) {
-        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout().withAttachStderr()
-                .withCmd(commands.toArray(new String[commands.size()]))
-                .exec();
-        InputStream startResponse = dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec();
-        try {
-            BufferedReader scriptOutputReader = new BufferedReader(new InputStreamReader(new BufferedInputStream(startResponse), "UTF-8"));
-            String line;
-            while ((line = scriptOutputReader.readLine()) != null) {
-                log.info(line);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Script " + commands + " exec encountered error while reading for output ", e);
-        } finally {
-            IOUtils.closeQuietly(startResponse);
-        }
-        int exitStatus = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec().getExitCode();
-        if (exitStatus != 0) {
-            throw new RuntimeException("Script " + commands + " exec has exited with error status " + exitStatus);
-        } else {
-            log.info("Script " + commands + "  exec has exited normally");
-        }
-    }
-
     /**
      * Use docker exec to run scripts inside docker container
      *
@@ -230,11 +201,11 @@ public class Container extends Compute {
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
             localGeneratedScriptWriter.write(containerScriptPath + "\n");
             localGeneratedScriptWriter.flush();
-            runCommand(Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir));
+            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
             dockerClient.copyFileToContainerCmd(containerId, localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
             String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
-            runCommand(Lists.newArrayList("chmod", "+x", copiedScript));
-            runCommand(Lists.newArrayList(copiedScript));
+            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("chmod", "+x", copiedScript), log);
+            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), log);
         } catch (IOException e) {
             throw new RuntimeException("Unable to create generated script for " + operationArtifactPath, e);
         } finally {

@@ -52,10 +52,10 @@ object PackageCommand {
     var imageId = ""
     var imageName = ""
 
-    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get
+    val dockerClientHolder = state.attributes.get(Attributes.dockerDaemonAttribute).get
     if (argsMap.contains(deploymentArchiveOpt)) {
       val image = Packager.createDockerImage(
-        dockerClient,
+        dockerClientHolder.dockerClient,
         Paths.get(argsMap(deploymentArchiveOpt))
       )
       imageId = image._1
@@ -67,8 +67,9 @@ object PackageCommand {
       } else {
         val recipePath = Paths.get(argsMap(recipePathOpt))
         val image = Packager.createDockerImage(
-          dockerClient,
+          dockerClientHolder.dockerClient,
           argsMap(deploymentNameOpt),
+          false,
           recipePath,
           argsMap.get(inputPathOpt).map(Paths.get(_)),
           state.attributes.get(Attributes.basedirAttribute).get.resolve("conf").resolve("providers").resolve(argsMap(Args.providerOpt)).resolve("default")

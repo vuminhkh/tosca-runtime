@@ -1,0 +1,52 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+
+template_name: openstack-bootstrap-template
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+topology_template:
+  description: Wordpress deployment template for openstack
+  inputs:
+    image:
+      type: string
+    flavor:
+      type: string
+    key_path:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: string
+    external_network_id:
+      type: string
+  node_templates:
+    publicNetwork:
+      type: com.mkv.tosca.openstack.nodes.ExternalNetwork
+      properties:
+        network_id: { get_input: external_network_id}
+    privateNetwork:
+      type: com.mkv.tosca.openstack.nodes.Network
+      properties:
+        network_name: "dockerDaemonNetwork"
+        cidr: "192.168.1.0/24"
+        dns_name_servers: "8.8.8.8"
+    dockerMachine:
+      type: com.mkv.tosca.openstack.nodes.Compute
+      properties:
+        image: { get_input: image}
+        flavor: { get_input: flavor}
+        login: { get_input: login}
+        key_pair_name: { get_input: key_pair_name}
+        key_path: { get_input: key_path}
+        security_group_names: { get_input: security_group_names}
+      requirements:
+        - network: privateNetwork
+        - network: publicNetwork
+    dockerComponent:
+      type: com.mkv.tosca.docker.nodes.Docker
+      requirements:
+        - host: dockerMachine

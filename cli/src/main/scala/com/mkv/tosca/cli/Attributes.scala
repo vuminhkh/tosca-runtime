@@ -2,7 +2,6 @@ package com.mkv.tosca.cli
 
 import java.nio.file.Path
 
-import com.github.dockerjava.api.DockerClient
 import sbt.AttributeKey
 
 /**
@@ -12,7 +11,7 @@ import sbt.AttributeKey
  */
 object Attributes {
 
-  val dockerDaemonAttribute: AttributeKey[DockerClient] = AttributeKey[DockerClient]("docker_daemon")
+  val dockerDaemonAttribute: AttributeKey[DockerClientHolder] = AttributeKey[DockerClientHolder]("docker_daemon")
 
   val basedirAttribute: AttributeKey[Path] = AttributeKey[Path]("basedir")
 

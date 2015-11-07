@@ -66,6 +66,8 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       DeployCommand.instance,
       ListDeploymentCommand.instance,
       UseCommand.instance,
+      BootStrapCommand.instance,
+      LogCommand.instance,
       BasicCommands.shell,
       BasicCommands.help,
       BasicCommands.exit)
@@ -73,7 +75,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val osName = System.getProperty("os.name")
     println("Starting tosca runtime cli on <" + osName + "> operating system from <" + basedir + ">")
     val attributes = AttributeMap(
-      AttributeEntry(Attributes.dockerDaemonAttribute, buildDockerClient(basedir)),
+      AttributeEntry(Attributes.dockerDaemonAttribute, new DockerClientHolder(buildDockerClient(basedir))),
       AttributeEntry(Attributes.basedirAttribute, basedir)
     )
     State(configuration, commandDefinitions, Set.empty, None, Seq("shell"), State.newHistory, attributes, initialGlobalLogging, State.Continue)

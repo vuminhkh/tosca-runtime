@@ -28,7 +28,7 @@ object CompileCommand {
 
   private lazy val compileHelp = Help("compile", ("compile", "Compile a topology to produce a deployable archive"),
     """
-      |compile -t <topology path> [-cp <csar path>] -p <provider path> -o <output path>
+      |compile -t <topology path> [-cp <csar path>] -p <provider name> -o <output path>
       |-t   : path to topology archive
       |-cp  : csars path separated by ':', a csar should be preceded by all of its dependencies on the csars path
       |-p   : name of the provider

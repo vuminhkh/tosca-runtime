@@ -76,7 +76,7 @@ lazy val dockerUtil = project.in(file("common/docker-util"))
   .settings(
     name := "docker-util",
     libraryDependencies ++= commonDependencies,
-    libraryDependencies += "com.github.docker-java" % "docker-java" % "2.1.2-SNAPSHOT" exclude("org.glassfish.hk2", "hk2-api") exclude("org.glassfish.hk2.external", "javax.inject") exclude("org.glassfish.hk2", "hk2-locator"),
+    libraryDependencies += "com.github.docker-java" % "docker-java" % "3.0.0-SNAPSHOT" exclude("org.glassfish.hk2", "hk2-api") exclude("org.glassfish.hk2.external", "javax.inject") exclude("org.glassfish.hk2", "hk2-locator"),
     libraryDependencies += "org.glassfish.hk2" % "hk2-api" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2.external" % "javax.inject" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2" % "hk2-locator" % "2.4.0-b32"
@@ -192,6 +192,9 @@ lazy val cli = project
       val providerConf = target.value / "prepare-stage" / "conf" / "providers"
       providerConf.mkdirs()
       IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "providers", providerConf)
+      val bootstrapConf = target.value / "prepare-stage" / "bootstrap"
+      bootstrapConf.mkdirs()
+      IO.copyDirectory((resourceDirectory in Compile).value / "bootstrap", bootstrapConf)
       IO.copyDirectory((stage in docker).value, dockerProviderTarget)
       IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
       val sdkTarget = target.value / "prepare-stage" / "sdk"

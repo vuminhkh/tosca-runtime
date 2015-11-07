@@ -32,3 +32,5 @@ project/plugins/project/
 hs_err_pid*
 
 
+cli/src/main/resources/bootstrap/openstack/default/inputs.yml
+cli/src/main/resources/bootstrap/openstack/default/archive/toscaruntime.pem

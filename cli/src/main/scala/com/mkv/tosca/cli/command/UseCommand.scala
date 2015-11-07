@@ -34,18 +34,20 @@ object UseCommand {
   lazy val instance = Command("use", useHelp)(_ => useArgsParser) { (state, args) =>
     val argsMap = args.toMap
     var fail = false
+    val dockerClientHolder = state.attributes.get(Attributes.dockerDaemonAttribute).get
     if (!argsMap.contains(dockerUrlOpt)) {
       println(dockerUrlOpt + " is mandatory")
       fail = true
     } else {
-      state.attributes.get(Attributes.dockerDaemonAttribute).foreach(_.close())
-      val dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
-      state.attributes.put(Attributes.dockerDaemonAttribute, dockerClient)
+      dockerClientHolder.dockerClient.close()
+      dockerClientHolder.dockerClient = DockerUtil.buildDockerClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
+      println(argsMap(dockerUrlOpt) + " is using api version " + dockerClientHolder.dockerClient.versionCmd().exec().getApiVersion)
+
     }
     if (fail) {
       state.fail
     } else {
-      println("Begin to use docker daemon at <" + argsMap(dockerUrlOpt) + ">")
+      println("Begin to use docker daemon at <" + argsMap(dockerUrlOpt) + ">" + " with api version <" + dockerClientHolder.dockerClient.versionCmd().exec().getApiVersion + ">")
       state
     }
   }

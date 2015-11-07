@@ -36,7 +36,7 @@ object Packager {
       .getString(DeployerConstant.DEPLOYMENT_NAME_KEY)
     FileUtil.copy(realDeploymentPath, tempDockerImageBuildDir)
     Files.copy(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), tempDockerImageBuildDir.resolve("Dockerfile"))
-    (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(deploymentName).withNoCache.exec(new BuildImageResultCallback).awaitImageId, deploymentName)
+    (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(deploymentName).withNoCache(true).exec(new BuildImageResultCallback).awaitImageId, deploymentName)
   }
 
   /**
@@ -49,7 +49,7 @@ object Packager {
    * @param inputsPath inputs for the deployment
    * @return id of the created docker image
    */
-  def createDockerImage(dockerClient: DockerClient, deploymentName: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path) = {
+  def createDockerImage(dockerClient: DockerClient, deploymentName: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path) = {
     val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
     val tempRecipePath = tempDockerImageBuildDir.resolve("deployment").resolve("recipe")
     val recipeIsZipped = Files.isRegularFile(recipePath)
@@ -65,12 +65,14 @@ object Packager {
       }
     }
     Files.copy(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), tempDockerImageBuildDir.resolve("Dockerfile"))
-    val deploymentConfig = ConfigFactory.empty().withValue(DeployerConstant.DEPLOYMENT_NAME_KEY, ConfigValueFactory.fromAnyRef(deploymentName))
+    val deploymentConfig = ConfigFactory.empty()
+      .withValue(DeployerConstant.DEPLOYMENT_NAME_KEY, ConfigValueFactory.fromAnyRef(deploymentName))
+      .withValue(DeployerConstant.BOOTSTRAP_KEY, ConfigValueFactory.fromAnyRef(bootstrap))
     FileUtil.writeTextFile(deploymentConfig.root().render(), tempDockerImageBuildDir.resolve("deployment").resolve("deployment.conf"))
     FileUtil.copy(providerConfigPath, tempDockerImageBuildDir.resolve("provider"))
     if (inputsPath.nonEmpty) {
       FileUtil.copy(inputsPath.get, tempDockerImageBuildDir.resolve("deployment").resolve("inputs.yaml"))
     }
-    (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(deploymentName).withNoCache.exec(new BuildImageResultCallback).awaitImageId, deploymentName)
+    (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(deploymentName).withNoCache(true).exec(new BuildImageResultCallback).awaitImageId, deploymentName)
   }
 }
