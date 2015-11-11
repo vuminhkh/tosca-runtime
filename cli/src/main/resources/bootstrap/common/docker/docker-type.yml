@@ -5,7 +5,7 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 node_types:
-  com.mkv.tosca.docker.nodes.Docker:
+  com.toscaruntime.docker.nodes.Docker:
     derived_from: tosca.nodes.SoftwareComponent
     description: >
       The docker software component

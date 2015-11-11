@@ -7,9 +7,9 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mkv.tosca.exception.IllegalFunctionException;
-import com.mkv.tosca.exception.NonRecoverableException;
-import com.mkv.tosca.sdk.AbstractRuntimeType;
+import com.toscaruntime.exception.IllegalFunctionException;
+import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.sdk.AbstractRuntimeType;
 
 public abstract class Root extends AbstractRuntimeType {
 

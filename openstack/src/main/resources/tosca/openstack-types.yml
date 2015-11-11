@@ -5,7 +5,7 @@ template_author: mkv
 
 node_types:
 
-  com.mkv.tosca.openstack.nodes.Compute:
+  com.toscaruntime.openstack.nodes.Compute:
     derived_from: tosca.nodes.Compute
     properties:
       image:
@@ -41,8 +41,8 @@ node_types:
         type: boolean
         required: false
 
-  com.mkv.tosca.openstack.nodes.Network:
+  com.toscaruntime.openstack.nodes.Network:
     derived_from: tosca.nodes.Network
 
-  com.mkv.tosca.openstack.nodes.ExternalNetwork:
+  com.toscaruntime.openstack.nodes.ExternalNetwork:
     derived_from: tosca.nodes.Network

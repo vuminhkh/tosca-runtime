@@ -4,7 +4,7 @@ template_version: 1.0.0-SNAPSHOT
 template_author: mkv
 
 node_types:
-  com.mkv.tosca.docker.nodes.Container:
+  com.toscaruntime.docker.nodes.Container:
     derived_from: tosca.nodes.Compute
     properties:
       image_id:

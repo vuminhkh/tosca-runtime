@@ -4,7 +4,7 @@ import sbt.Keys._
 emojiLogs
 
 val commonSettings: Seq[Setting[_]] = Seq(
-  organization := "com.mkv.tosca",
+  organization := "com.toscaruntime",
   version := "1.0-SNAPSHOT",
   crossPaths := false,
   scalaVersion := "2.11.7",
@@ -68,7 +68,7 @@ lazy val sshUtil = project.in(file("common/ssh-util"))
     name := "ssh-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
-    libraryDependencies += "org.apache.sshd" % "sshd-core" % "0.14.0"
+    libraryDependencies += "org.apache.sshd" % "sshd-core" % "1.0.0"
   ).enablePlugins(UniversalPlugin)
 
 lazy val dockerUtil = project.in(file("common/docker-util"))

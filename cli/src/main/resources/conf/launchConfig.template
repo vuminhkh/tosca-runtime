@@ -5,7 +5,7 @@
   org: @organization
   name: @name
   version: @version
-  class: com.mkv.tosca.cli.ToscaRuntimeCLI
+  class: com.toscaruntime.cli.ToscaRuntimeCLI
   components: xsbti
   cross-versioned: true
 

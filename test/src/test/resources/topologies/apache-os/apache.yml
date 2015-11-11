@@ -8,17 +8,17 @@ topology_template:
   description: A simple topology template created directly from a CSAR archive
   node_templates:
     publicNetwork:
-      type: com.mkv.tosca.openstack.nodes.ExternalNetwork
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
       properties:
         network_id: { get_input: external_network_id}
     privateNetwork:
-      type: com.mkv.tosca.openstack.nodes.Network
+      type: com.toscaruntime.openstack.nodes.Network
       properties:
         network_name: "wordpressPrivateNetwork"
         cidr: "192.168.1.0/24"
         dns_name_servers: "8.8.8.8"
     compute:
-      type: com.mkv.tosca.openstack.nodes.Compute
+      type: com.toscaruntime.openstack.nodes.Compute
       properties:
         image: { get_input: image}
         flavor: { get_input: flavor}

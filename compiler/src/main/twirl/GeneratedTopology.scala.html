@@ -1,5 +1,4 @@
-@import com.mkv.tosca.compiler.runtime.Deployment
-@import com.mkv.tosca.compiler.runtime.Node
+@import com.toscaruntime.compiler.runtime.{Node, Deployment}
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
@@ -31,7 +30,7 @@
     @Html("}")
 }
 
-public class Deployment extends com.mkv.tosca.sdk.Deployment @Html("{")
+public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
 
   public void initializeDeployment@Html("(java.nio.file.Path recipePath, java.util.Map<String, Object> inputs, boolean bootstrap) {")
     @Html("super.initializeDeployment(recipePath, inputs, bootstrap);")

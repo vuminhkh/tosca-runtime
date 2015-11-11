@@ -1,6 +1,6 @@
 package models
 
-import com.mkv.tosca.sdk.Deployment
+import com.toscaruntime.sdk.Deployment
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._

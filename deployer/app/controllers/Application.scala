@@ -2,10 +2,9 @@ package controllers
 
 import java.io.File
 import java.nio.file.{Files, Paths}
-
-import com.mkv.tosca.constant.DeployerConstant
-import com.mkv.tosca.runtime.Deployer
-import com.mkv.tosca.sdk.Deployment
+import com.toscaruntime.constant.DeployerConstant
+import com.toscaruntime.sdk.Deployment
+import com.toscaruntime.tosca.runtime.Deployer
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
 import models.{DeploymentInformation, RestResponse}
@@ -18,8 +17,6 @@ import scala.collection.JavaConverters._
 object Application extends Controller with Logging {
 
   val yamlParser = new Yaml()
-
-  var deploymentOpt: Option[Deployment] = None
 
   val recipePath = {
     Paths.get(play.Play.application().configuration().getString("tosca.runtime.deployment.recipeDir"))
@@ -51,31 +48,22 @@ object Application extends Controller with Logging {
     }.toMap
   }
 
-  def deploy() = Action {
-    implicit request =>
-      log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)
-      deploymentOpt.map { deployment =>
-        BadRequest("Application is already deployed")
-      }.getOrElse {
-        deploymentOpt = Some(Deployer.deploy(recipePath, deploymentInputsPath, providerConfiguration, bootstrap))
-        Ok
-      }
+  val deployment: Deployment = Deployer.createDeployment(recipePath, deploymentInputsPath, providerConfiguration, bootstrap)
+
+  def deploy() = Action { implicit request =>
+    log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)
+    deployment.install()
+    Ok
   }
 
-  def undeploy() = Action {
-    implicit request =>
-      log.info("Uninstall deployment with name " + deploymentName)
-      deploymentOpt.map { deployment =>
-        deployment.uninstall()
-        deploymentOpt = None
-        Ok
-      }.getOrElse(BadRequest("Application is not deployed"))
+  def undeploy() = Action { implicit request =>
+    log.info("Uninstall deployment with name " + deploymentName)
+    deployment.uninstall()
+    Ok
   }
 
-  def getDeploymentInformation = Action {
-    implicit request =>
-      deploymentOpt.map { deployment =>
-        Ok(Json.toJson(RestResponse.success[DeploymentInformation](Some(DeploymentInformation.fromDeployment(deploymentName, deployment)))))
-      }.getOrElse(Ok("Application is not deployed"))
+  def getDeploymentInformation = Action { implicit request =>
+    Ok(Json.toJson(RestResponse.success[DeploymentInformation](Some(DeploymentInformation.fromDeployment(deploymentName, deployment)))))
   }
+
 }

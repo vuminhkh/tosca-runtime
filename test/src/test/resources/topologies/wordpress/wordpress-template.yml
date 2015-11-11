@@ -41,7 +41,7 @@ topology_template:
       requirements:
         - host: computeWww
     computeDb:
-      type: com.mkv.tosca.docker.nodes.Container
+      type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: phusion/baseimage
         os_type: { get_input: os_type }
@@ -52,7 +52,7 @@ topology_template:
         mem_size: 1024 MB
         disk_size: 1 GB
     computeWww:
-      type: com.mkv.tosca.docker.nodes.Container
+      type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: phusion/baseimage
         exposed_ports: 80
