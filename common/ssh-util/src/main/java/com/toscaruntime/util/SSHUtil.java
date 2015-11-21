@@ -12,15 +12,14 @@ import java.security.KeyPair;
 import java.security.Security;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.channel.ClientChannel;
-import org.apache.sshd.client.future.AuthFuture;
 import org.apache.sshd.client.scp.ScpClient;
 import org.apache.sshd.client.session.ClientSession;
-import org.apache.sshd.common.future.SshFutureListener;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -48,29 +47,14 @@ public class SSHUtil {
         }
     }
 
-    public static ClientSession connect(SshClient client, final String user, KeyPair keyPair, final String ip, final int port) throws IOException,
+    public static ClientSession connect(SshClient client, final String user, String pemPath, final String ip, final int port) throws IOException,
             InterruptedException {
         ClientSession session = client.connect(user, ip, port).await().getSession();
-        int authState = ClientSession.WAIT_AUTH;
-        while ((authState & ClientSession.WAIT_AUTH) != 0) {
-            if (keyPair != null) {
-                session.addPublicKeyIdentity(keyPair);
-            }
-            log.info("Authenticating to " + user + "@" + ip);
-            AuthFuture authFuture = session.auth();
-            authFuture.addListener(new SshFutureListener<AuthFuture>() {
-                @Override
-                public void operationComplete(AuthFuture authFuture) {
-                    log.info("Authentication completed with " + (authFuture.isSuccess() ? "success" : "failure") + " for " + user + "@" + ip + ":" + port);
-                }
-            });
-            authState = session.waitFor(ClientSession.WAIT_AUTH | ClientSession.CLOSED | ClientSession.AUTHED, 10000L);
-            Thread.sleep(2000L);
+        KeyPair keyPair = SSHUtil.loadKeyPair(pemPath);
+        if (keyPair != null) {
+            session.addPublicKeyIdentity(keyPair);
         }
-
-        if ((authState & ClientSession.CLOSED) != 0) {
-            throw new IOException("Authentication failed for " + user + "@" + ip);
-        }
+        session.auth().verify(5, TimeUnit.MINUTES);
         return session;
     }
 
@@ -101,7 +85,7 @@ public class SSHUtil {
         ClientSession session = null;
         try {
             client.start();
-            session = connect(client, user, loadKeyPair(pemPath), ip, port);
+            session = connect(client, user, pemPath, ip, port);
             doWithSshAction.doSshAction(session);
         } finally {
             if (session != null) {

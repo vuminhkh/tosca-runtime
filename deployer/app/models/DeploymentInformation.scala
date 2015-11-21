@@ -29,17 +29,17 @@ object RelationshipNode {
   implicit val RelationshipNodeFormat = Json.format[RelationshipNode]
 }
 
-case class DeploymentInformation(name: String, nodes: List[Node], relationships: List[RelationshipNode])
+case class DeploymentInformation(name: String, nodes: List[Node], relationships: List[RelationshipNode], outputs: Map[String, String])
 
 object DeploymentInformation {
 
   implicit val DeploymentInformationFormat = Json.format[DeploymentInformation]
 
   /**
-   * Convert from java deployment to deployment information to return back to rest client
-   * @param deployment the managed deployment
-   * @return current deployment information
-   */
+    * Convert from java deployment to deployment information to return back to rest client
+    * @param deployment the managed deployment
+    * @return current deployment information
+    */
   def fromDeployment(name: String, deployment: Deployment) = {
     val nodes = deployment.getNodes.asScala.map { node =>
       val instances = node.getInstances.asScala.map { instance =>
@@ -57,6 +57,6 @@ object DeploymentInformation {
       val relationshipNodeProperties = if (relationshipNode.getProperties == null) Map.empty[String, String] else relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]]
       RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)
     }.toList
-    DeploymentInformation(name, nodes, relationships)
+    DeploymentInformation(name, nodes, relationships, deployment.getOutputs.asScala.toMap.map { case (key: String, value: AnyRef) => (key, String.valueOf(value)) })
   }
 }

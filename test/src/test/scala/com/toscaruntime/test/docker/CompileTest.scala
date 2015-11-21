@@ -18,9 +18,9 @@ object CompileTest {
     val outputDeployment = Paths.get(userHome + "/.tosca/deployment/recipe")
     Files.createDirectories(outputDeployment)
     val compiled = Compiler.compile(wordpressTopology, List(apachePath, mysqlPath, phpPath, wordpressPath), dockerPath, NormativeTypesLoader.normativeTypesPath, outputDeployment)
-    if (compiled) {
-      val providerProperties = Map("docker.io.url" -> "https://192.168.99.100:2376", "docker.io.dockerCertPath" -> (userHome + "/.docker/machine/machines/default"))
-      Deployer.createDeployment(outputDeployment, Map.empty[String, AnyRef], providerProperties, true)
-    }
+//    if (compiled) {
+//      val providerProperties = Map("docker.io.url" -> "https://192.168.99.100:2376", "docker.io.dockerCertPath" -> (userHome + "/.docker/machine/machines/default"))
+//      Deployer.createDeployment(outputDeployment, Map.empty[String, AnyRef], providerProperties, true)
+//    }
   }
 }

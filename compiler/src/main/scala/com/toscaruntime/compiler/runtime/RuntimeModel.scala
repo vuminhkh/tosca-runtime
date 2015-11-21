@@ -32,6 +32,9 @@ case class Function(name: String,
                     entity: String,
                     path: String)
 
+case class CompositeFunction(name: String,
+                             members: Seq[Any])
+
 case class Method(name: String,
                   scalarInputs: Map[String, String],
                   functionInputs: Map[String, Function],
@@ -40,6 +43,8 @@ case class Method(name: String,
 case class Deployment(nodes: Seq[Node],
                       relationships: Seq[Relationship],
                       roots: Seq[Node],
+                      // One of String, Function or CompositeFunction
+                      outputs: Map[String, Any],
                       topologyCsarName: String)
 
 case class Input(name: String)

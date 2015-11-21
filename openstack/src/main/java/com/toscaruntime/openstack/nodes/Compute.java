@@ -112,7 +112,9 @@ public class Compute extends tosca.nodes.Compute {
                             }
                         }
                     } else {
-                        initSshExecutor(attachedFloatingIP);
+                        if (sshExecutor == null) {
+                            initSshExecutor(attachedFloatingIP);
+                        }
                     }
                     doExecute(operationArtifactPath, inputs);
                 } finally {
@@ -184,6 +186,7 @@ public class Compute extends tosca.nodes.Compute {
             } catch (IOException e) {
                 log.warn("Cannot close SSH Session", e);
             }
+            this.sshExecutor = null;
         }
     }
 
@@ -214,6 +217,7 @@ public class Compute extends tosca.nodes.Compute {
 
     @Override
     public void start() {
+        super.start();
         if (this.serverId == null) {
             throw new NonRecoverableException("Must create the server before starting it");
         }
@@ -258,24 +262,22 @@ public class Compute extends tosca.nodes.Compute {
 
     @Override
     public void stop() {
+        super.stop();
         if (this.serverId == null) {
             log.warn("Server has not been started yet");
+            return;
         }
-        if (this.sshExecutor != null) {
-            try {
-                this.sshExecutor.close();
-            } catch (IOException e) {
-                log.warn("Error while closing ssh session", e);
-            }
-        }
+        destroySshExecutor();
         this.serverApi.stop(this.serverId);
         log.info("Stopped server with id " + this.serverId);
     }
 
     @Override
     public void delete() {
+        super.delete();
         if (this.serverId == null) {
             log.warn("Server has not been started yet");
+            return;
         }
         for (FloatingIP floatingIP : createdFloatingIPs) {
             this.floatingIPApi.delete(floatingIP.getId());

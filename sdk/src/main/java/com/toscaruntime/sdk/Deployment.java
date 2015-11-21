@@ -13,6 +13,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.NonRecoverableException;
 import com.toscaruntime.sdk.workflow.Parallel;
 import com.toscaruntime.sdk.workflow.Sequence;
@@ -83,6 +84,9 @@ public abstract class Deployment {
                 allDependencyInstances.addAll(getNodeInstancesByNodeName(dependency));
             }
             instance.setDependsOnNodes(allDependencyInstances);
+            for (Root dependencyInstance : allDependencyInstances) {
+                dependencyInstance.getDependedByNodes().add(instance);
+            }
         }
     }
 
@@ -186,6 +190,15 @@ public abstract class Deployment {
         }
         TaskExecutorFactory.getSequenceExecutor().execute(installSequence);
         log.info("Finished to run install workflow");
+        Map<String, Object> outputs = getOutputs();
+        if (outputs != null && !outputs.isEmpty()) {
+            log.info("Deployment produced following outputs:");
+            for (Map.Entry<String, Object> outputEntry : outputs.entrySet()) {
+                log.info(outputEntry.getKey() + " : " + outputEntry.getValue());
+            }
+        } else {
+            log.info("Deployment does not have any output");
+        }
     }
 
     private Sequence buildInstallWorkflowStep(final Set<Root> waitForCreatedQueue,
@@ -198,12 +211,10 @@ public abstract class Deployment {
             if (nodeInstance.getParent() == null || !waitForStartedQueue.contains(nodeInstance.getParent())) {
                 // Check if all dependencies have been satisfied in order to create
                 boolean dependenciesSatisfied = true;
-                if (nodeInstance.getDependsOnNodes() != null) {
-                    for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
-                        if (waitForStartedQueue.contains(dependsOnNode)) {
-                            dependenciesSatisfied = false;
-                            break;
-                        }
+                for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
+                    if (waitForStartedQueue.contains(dependsOnNode)) {
+                        dependenciesSatisfied = false;
+                        break;
                     }
                 }
                 if (dependenciesSatisfied) {
@@ -301,26 +312,35 @@ public abstract class Deployment {
         for (final tosca.nodes.Root nodeInstance : waitForStoppedQueue) {
             // Only run stop unless if the node has no children or all of its children has been deleted
             if (nodeInstance.getChildren() == null || nodeInstance.getChildren().isEmpty()
-                    || !Collections.disjoint(waitForStoppedQueue, nodeInstance.getChildren())) {
-                // TODO We also must verify that components that depends on the nodes have been stopped in order to have a clean stop
-                stopParallel.getActionList().add(new Task() {
-                    @Override
-                    public void run() {
-                        nodeInstance.stop();
-                        nodeInstance.setState("stopped");
-                        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                            relationship.removeTarget();
-                            relationship.setState("removedTarget");
-                        }
-                        Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                            relationship.removeSource();
-                            relationship.setState("removedSource");
-                        }
+                    || Collections.disjoint(waitForDeletedQueue, nodeInstance.getChildren())) {
+                // Check if all dependencies have been satisfied in order to stop
+                boolean notDependedByAnyNode = true;
+                for (tosca.nodes.Root dependedByNode : nodeInstance.getDependedByNodes()) {
+                    if (waitForStoppedQueue.contains(dependedByNode)) {
+                        notDependedByAnyNode = false;
+                        break;
                     }
-                });
-                processedStopped.add(nodeInstance);
+                }
+                if (notDependedByAnyNode) {
+                    stopParallel.getActionList().add(new Task() {
+                        @Override
+                        public void run() {
+                            nodeInstance.stop();
+                            nodeInstance.setState("stopped");
+                            Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
+                            for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
+                                relationship.removeTarget();
+                                relationship.setState("removedTarget");
+                            }
+                            Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
+                            for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
+                                relationship.removeSource();
+                                relationship.setState("removedSource");
+                            }
+                        }
+                    });
+                    processedStopped.add(nodeInstance);
+                }
             }
         }
         waitForStoppedQueue.removeAll(processedStopped);
@@ -343,5 +363,36 @@ public abstract class Deployment {
         waitForDeletedQueue.removeAll(processedDeleted);
         step.getActionList().add(deleteParallel);
         return step;
+    }
+
+    public Map<String, Object> getOutputs() {
+        return new HashMap<>();
+    }
+
+    public Object evaluateFunction(String functionName, String entityName, String path) {
+        Set<Root> instances = getNodeInstancesByNodeName(entityName);
+        if (instances.isEmpty()) {
+            return null;
+        } else if (instances.size() == 1) {
+            return instances.iterator().next().evaluateFunction(functionName, "SELF", path);
+        } else {
+            Map<String, Object> outputResult = new HashMap<>();
+            for (Root instance : instances) {
+                outputResult.put(instance.getId(), instance.evaluateFunction(functionName, "SELF", path));
+            }
+            return outputResult;
+        }
+    }
+
+    public Object evaluateCompositeFunction(String functionName, Object... memberValue) {
+        if ("concat".equals(functionName)) {
+            StringBuilder buffer = new StringBuilder();
+            for (Object member : memberValue) {
+                buffer.append(member);
+            }
+            return buffer.toString();
+        } else {
+            throw new IllegalFunctionException("Function " + functionName + " is not supported");
+        }
     }
 }

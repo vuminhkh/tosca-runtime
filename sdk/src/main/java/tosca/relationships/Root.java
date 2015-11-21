@@ -22,26 +22,26 @@ public abstract class Root extends AbstractRuntimeType {
 
     protected void executeOperation(String operationName, String operationArtifactPath, Map<String, String> inputs) {
         switch (operationName) {
-        case "pre_configure_source":
-        case "post_configure_source":
-        case "add_target":
-        case "target_changed":
-        case "remove_target":
-            executeSourceOperation(operationArtifactPath, inputs);
-            break;
-        case "pre_configure_target":
-        case "post_configure_target":
-        case "add_source":
-            executeTargetOperation(operationArtifactPath, inputs);
-            break;
-        default:
-            if (operationName.endsWith("_source")) {
+            case "pre_configure_source":
+            case "post_configure_source":
+            case "add_target":
+            case "target_changed":
+            case "remove_target":
                 executeSourceOperation(operationArtifactPath, inputs);
-            } else if (operationName.endsWith("_target")) {
+                break;
+            case "pre_configure_target":
+            case "post_configure_target":
+            case "add_source":
                 executeTargetOperation(operationArtifactPath, inputs);
-            } else {
-                throw new NonRecoverableException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
-            }
+                break;
+            default:
+                if (operationName.endsWith("_source")) {
+                    executeSourceOperation(operationArtifactPath, inputs);
+                } else if (operationName.endsWith("_target")) {
+                    executeTargetOperation(operationArtifactPath, inputs);
+                } else {
+                    throw new NonRecoverableException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
+                }
         }
     }
 
@@ -60,14 +60,13 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public String evaluateFunction(String functionName, String entity, String path) {
-        String value = null;
         switch (entity) {
-        case "SOURCE":
-            return source.evaluateFunction(functionName, "SELF", path);
-        case "TARGET":
-            return target.evaluateFunction(functionName, "SELF", path);
-        default:
-            throw new IllegalFunctionException("Entity " + entity + " is not supported");
+            case "SOURCE":
+                return source.evaluateFunction(functionName, "SELF", path);
+            case "TARGET":
+                return target.evaluateFunction(functionName, "SELF", path);
+            default:
+                throw new IllegalFunctionException("Entity " + entity + " is not supported");
         }
     }
 

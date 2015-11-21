@@ -24,7 +24,12 @@ topology_template:
     os_version:
       type: string
       required: false
-      description: The host Operating System version.    
+      description: The host Operating System version.
+  outputs:
+    wordpress_url:
+      description: The URL to access the wordpress
+      value: { concat: ["http://", get_attribute: [computeWww, public_ip_address], ":", get_property: [apache, port], get_property: [wordpress, context_path] ] }
+
   node_templates:
     wordpress:
       type: alien.nodes.Wordpress

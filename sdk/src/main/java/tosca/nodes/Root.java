@@ -23,6 +23,8 @@ public abstract class Root extends AbstractRuntimeType {
 
     private Set<Root> dependsOnNodes = new HashSet<>();
 
+    private Set<Root> dependedByNodes = new HashSet<>();
+
     private Set<Root> children = new HashSet<>();
 
     public Set<Root> getChildren() {
@@ -82,6 +84,14 @@ public abstract class Root extends AbstractRuntimeType {
         this.dependsOnNodes = dependsOnNodes;
     }
 
+    public Set<Root> getDependedByNodes() {
+        return dependedByNodes;
+    }
+
+    public void setDependedByNodes(Set<Root> dependedByNodes) {
+        this.dependedByNodes = dependedByNodes;
+    }
+
     protected void executeOperation(String operationArtifactPath, Map<String, String> inputs) {
         Compute host = getHost();
         if (host == null) {
@@ -107,7 +117,7 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public void delete() {
-
+        getAttributes().clear();
     }
 
     public String evaluateFunction(String functionName, String entity, String path) {

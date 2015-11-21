@@ -31,7 +31,7 @@ topology_template:
     privateNetwork:
       type: com.toscaruntime.openstack.nodes.Network
       properties:
-        network_id: 16a97666-7a41-4616-b9db-6a4c38081532
+        network_id: 9733f1fa-1161-452e-98ca-13eb9aeaf451
     wordpress:
       type: alien.nodes.Wordpress
       requirements:

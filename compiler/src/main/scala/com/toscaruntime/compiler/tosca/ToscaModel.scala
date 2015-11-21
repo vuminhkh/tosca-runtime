@@ -53,8 +53,13 @@ case class NodeTemplate(name: ParsedValue[String],
                         properties: Option[Map[ParsedValue[String], Any]],
                         requirements: Option[List[Requirement]]) extends Positional
 
+case class Output(name: ParsedValue[String],
+                  description: Option[ParsedValue[String]],
+                  value: Option[Any]) extends Positional
+
 case class TopologyTemplate(description: Option[ParsedValue[String]],
                             inputs: Option[Map[ParsedValue[String], PropertyDefinition]],
+                            outputs: Option[Map[ParsedValue[String], Output]],
                             nodeTemplates: Option[Map[ParsedValue[String], NodeTemplate]]) extends Positional
 
 case class NodeType(name: ParsedValue[String],
@@ -117,9 +122,14 @@ case class Operation(description: Option[ParsedValue[String]],
                      inputs: Option[Map[ParsedValue[String], Any]],
                      implementation: Option[ParsedValue[String]]) extends Positional
 
-case class Function(function: ParsedValue[String],
-                    entity: ParsedValue[String],
-                    path: ParsedValue[String]) extends Positional
+case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends Positional {
+
+  def entity = paths.head
+
+  def path = paths(1)
+}
+
+case class CompositeFunction(function: ParsedValue[String], members: Seq[Any]) extends Positional
 
 case class PropertyConstraint(operator: ParsedValue[String], reference: Any) extends Positional
 

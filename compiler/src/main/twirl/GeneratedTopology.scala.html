@@ -1,4 +1,6 @@
 @import com.toscaruntime.compiler.runtime.{Node, Deployment}
+@import com.toscaruntime.compiler.runtime.Function
+@import com.toscaruntime.compiler.runtime.CompositeFunction
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
@@ -14,6 +16,16 @@
     @instantiateNode(child)
   }
     initializeInstance(@node.name);
+}
+
+@evaluateFunction(function: Function) = {evaluateFunction("@function.name", "@function.entity", "@function.path")}
+
+@evaluateCompositeFunction(function: CompositeFunction) = {
+      evaluateCompositeFunction("@function.name",
+  @for((item, index) <- function.members.zipWithIndex) {
+    @if(item.isInstanceOf[String]) {@Html("\"" + item.asInstanceOf[String] + "\"")} else {@evaluateFunction(item.asInstanceOf[Function])}@if(index < function.members.size - 1) {@Html(",")}
+  }
+  )
 }
 
 @instantiateNode(node: Node) = {
@@ -47,4 +59,20 @@ public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
     @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @relationship.typeName@Html(".class);")
 }
   @Html("}")
+@if(deployment.outputs.nonEmpty) {
+  @Html("public java.util.Map<String, Object> getOutputs() {")
+    @Html("java.util.Map<String, Object> outputs = new java.util.HashMap<>();")
+  @deployment.outputs.map { output =>
+  @{output match {
+    case (name: String, value: String) =>
+      Html("outputs.put(\"" + name + "\", \"" + value + "\");")
+    case (name: String, function: Function) =>
+      Html("outputs.put(\"" + name + "\", " + evaluateFunction(function) + ");")
+    case (name: String, function: CompositeFunction) =>
+      Html("outputs.put(\"" + name + "\", " + evaluateCompositeFunction(function) + ");")
+  }}
+}
+    return outputs;
+  @Html("}")
+}
 @Html("}")

@@ -3,21 +3,18 @@ package com.toscaruntime.compiler
 import java.nio.file.{Files, Path, StandardCopyOption}
 
 import com.google.common.io.Closeables
-import com.toscaruntime.compiler.tosca._
-import com.toscaruntime.exception.NonRecoverableException
 import com.toscaruntime.compiler.runtime.Method
-import com.toscaruntime.compiler.tosca
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{NonRecoverableException, InvalidTopologyException, NotSupportedGenerationException}
-import com.toscaruntime.util.{FileUtil, ClassLoaderUtil}
+import com.toscaruntime.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
+import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
- * Generate code from compiled csar's topology
- *
- * @author Minh Khang VU
- */
+  * Generate code from compiled csar's topology
+  *
+  * @author Minh Khang VU
+  */
 object CodeGenerator extends LazyLogging {
 
   def getScalarInputs(operation: Operation) = {
@@ -154,8 +151,28 @@ object CodeGenerator extends LazyLogging {
         }
       }.getOrElse(Seq.empty)
     }
+    val topologyOutputs = topology.outputs.getOrElse(Map.empty).map {
+      case (outputName: ParsedValue[String], output: Output) =>
+        output.value.get match {
+          case value: ParsedValue[String] =>
+            (outputName.value, value.value)
+          case outputFunction: Function =>
+            (outputName.value, runtime.Function(outputFunction.function.value, outputFunction.entity.value, outputFunction.path.value))
+          case compositeOutputFunction: CompositeFunction =>
+            (outputName.value, runtime.CompositeFunction(compositeOutputFunction.function.value, compositeOutputFunction.members.map {
+              case value: ParsedValue[String] => value.value
+              case function: Function => runtime.Function(function.function.value, function.entity.value, function.path.value)
+            }))
+        }
+    }
+
     val topologyRoots = topologyNodes.values.filter(node => node.parent.isEmpty)
-    runtime.Deployment(topologyNodes.values.toSeq, topologyRelationships.toSeq, topologyRoots.toSeq, topologyCsarName)
+    runtime.Deployment(
+      topologyNodes.values.toSeq,
+      topologyRelationships.toSeq,
+      topologyRoots.toSeq,
+      topologyOutputs,
+      topologyCsarName)
   }
 
   def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {

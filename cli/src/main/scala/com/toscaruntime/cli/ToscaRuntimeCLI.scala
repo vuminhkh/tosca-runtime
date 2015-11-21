@@ -72,6 +72,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       AgentsCommand.instance,
       BasicCommands.shell,
       BasicCommands.history,
+      BasicCommands.nop,
       BasicCommands.help,
       BasicCommands.exit)
     val basedir = Paths.get(System.getProperty("tosca-runtime.basedir", System.getProperty("user.dir") + "/..")).toAbsolutePath

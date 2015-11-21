@@ -82,6 +82,19 @@ public class DockerUtil {
         return dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec();
     }
 
+    public interface CommandLogger {
+        void log(String line);
+    }
+
+    public static void runCommand(DockerClient dockerClient, String containerId, List<String> commands, Logger log) {
+        runCommand(dockerClient, containerId, commands, new CommandLogger() {
+            @Override
+            public void log(String line) {
+                log.info(line);
+            }
+        });
+    }
+
     /**
      * Run command and block until the end of execution, log all output to the given logger
      *
@@ -89,7 +102,7 @@ public class DockerUtil {
      * @param containerId  id of the container
      * @param commands     commands to be executed on the container
      */
-    public static void runCommand(DockerClient dockerClient, String containerId, List<String> commands, Logger log) {
+    public static void runCommand(DockerClient dockerClient, String containerId, List<String> commands, CommandLogger log) {
         ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout(true).withAttachStderr(true)
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
@@ -98,9 +111,7 @@ public class DockerUtil {
             String line;
             while ((line = scriptOutputReader.readLine()) != null) {
                 if (log != null) {
-                    log.info(line);
-                } else {
-                    System.out.println(line);
+                    log.log(line);
                 }
             }
         } catch (IOException e) {
@@ -112,9 +123,7 @@ public class DockerUtil {
             throw new RuntimeException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
         } else {
             if (log != null) {
-                log.info("Script " + commands + "  exec has exited normally");
-            } else {
-                System.out.println("Script " + commands + "  exec has exited normally");
+                log.log("Script " + commands + "  exec has exited normally");
             }
         }
     }

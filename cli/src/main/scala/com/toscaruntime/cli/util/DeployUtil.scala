@@ -3,11 +3,13 @@ package com.toscaruntime.cli.util
 import com.github.dockerjava.api.DockerClient
 import com.google.common.collect.Lists
 import com.toscaruntime.util.DockerUtil
+import com.toscaruntime.util.DockerUtil.CommandLogger
+import com.typesafe.scalalogging.LazyLogging
 
 /**
  * @author Minh Khang VU
  */
-object DeployUtil {
+object DeployUtil extends LazyLogging {
 
   val deploymentURL = "http://0.0.0.0:9000/deployment"
 
@@ -26,8 +28,10 @@ object DeployUtil {
     DockerUtil.runCommand(dockerClient, containerId, deleteDeploymentCommand)
   }
 
-  def getDetails(dockerClient: DockerClient, containerId: String) = {
-    DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, null)
+  def printDetails(dockerClient: DockerClient, containerId: String) = {
+    DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, new CommandLogger {
+      override def log(line: String): Unit = println(line)
+    })
   }
 
   def waitForDeploymentAgent(dockerClient: DockerClient, containerId: String) = {
@@ -37,7 +41,9 @@ object DeployUtil {
     while (!webAppUp) {
       try {
         // Try to get the deployment information just to be sure that the web app is up
-        DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, null)
+        DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, new CommandLogger {
+          override def log(line: String): Unit = logger.debug(line)
+        })
         webAppUp = true
       } catch {
         case t: Throwable =>

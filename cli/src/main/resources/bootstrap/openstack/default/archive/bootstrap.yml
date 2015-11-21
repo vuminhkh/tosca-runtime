@@ -23,6 +23,10 @@ topology_template:
       type: string
     external_network_id:
       type: string
+  outputs:
+    manager_url:
+      description: The URL to access the wordpress
+      value: { get_attribute: [ dockerMachine, public_ip_address ] }
   node_templates:
     publicNetwork:
       type: com.toscaruntime.openstack.nodes.ExternalNetwork

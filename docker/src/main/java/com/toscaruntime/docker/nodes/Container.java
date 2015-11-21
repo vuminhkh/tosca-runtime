@@ -84,6 +84,7 @@ public class Container extends Compute {
 
     @Override
     public void create() {
+        super.create();
         String imageId = getImageId();
         log.info("Node [" + getName() + "] : Creating container with image " + imageId);
         Set<String> linkedWithContainers = Sets.newHashSet();
@@ -139,6 +140,7 @@ public class Container extends Compute {
 
     @Override
     public void start() {
+        super.start();
         if (containerId == null) {
             throw new RuntimeException("Node [" + getName() + "] : Container has not been created yet");
         }
@@ -153,6 +155,7 @@ public class Container extends Compute {
 
     @Override
     public void stop() {
+        super.stop();
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
@@ -165,6 +168,7 @@ public class Container extends Compute {
 
     @Override
     public void delete() {
+        super.delete();
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
@@ -172,11 +176,6 @@ public class Container extends Compute {
         dockerClient.removeContainerCmd(containerId).exec();
         log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
         containerId = null;
-    }
-
-    @Override
-    public void configure() {
-        // Do nothing
     }
 
     /**

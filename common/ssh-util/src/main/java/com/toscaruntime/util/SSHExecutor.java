@@ -6,6 +6,8 @@ import java.util.Map;
 
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.session.ClientSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * An utility to execute scripts commands by SSH on remote server
@@ -13,6 +15,8 @@ import org.apache.sshd.client.session.ClientSession;
  * @author Minh Khang VU
  */
 public class SSHExecutor implements Closeable {
+
+    private static final Logger log = LoggerFactory.getLogger(SSHUtil.class);
 
     private String user;
     private String ip;
@@ -33,20 +37,37 @@ public class SSHExecutor implements Closeable {
     public void init() throws Exception {
         this.sshClient = SshClient.setUpDefaultClient();
         this.sshClient.start();
-        this.clientSession = SSHUtil.connect(this.sshClient, user, SSHUtil.loadKeyPair(pemPath), ip, port);
+        this.clientSession = SSHUtil.connect(this.sshClient, user, pemPath, ip, port);
+        log.info("Session connected session for " + user + "@" + ip);
+    }
+
+    private void checkConnection() throws IOException, InterruptedException {
+        if (clientSession.isClosed() || clientSession.isClosing()) {
+            log.info("Reconnecting the session for " + user + "@" + ip);
+            this.clientSession.close(false).await();
+            this.clientSession = SSHUtil.connect(this.sshClient, user, pemPath, ip, port);
+            log.info("Session for " + user + "@" + ip);
+        }
     }
 
     @Override
     public void close() throws IOException {
-        this.clientSession.close();
-        this.sshClient.stop();
+        this.clientSession.close(false).await();
+        this.sshClient.close(false).await();
+        log.info("Session has been closed for " + user + "@" + ip);
     }
 
-    public void executeCommand(String command, Map<String, String> env) throws Exception {
+    public synchronized void executeCommand(String command, Map<String, String> env) throws Exception {
+        // TODO bug seems to affect multiple channels on the same session
+        log.info("Executing command " + command + " with environments " + env);
+        checkConnection();
         SSHUtil.executeCommand(clientSession, command, env);
     }
 
-    public void executeScript(String scriptPath, Map<String, String> env) throws Exception {
+    public synchronized void executeScript(String scriptPath, Map<String, String> env) throws Exception {
+        // TODO bug seems to affect multiple channels on the same session
+        log.info("Executing script " + scriptPath + " with environments " + env);
+        checkConnection();
         SSHUtil.executeScript(clientSession, scriptPath, env);
     }
 }

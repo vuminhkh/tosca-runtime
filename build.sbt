@@ -39,7 +39,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "tosca-runtime-parent"
-  ).aggregate(deployer, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
 val commonDependencies: Seq[ModuleID] = Seq(
   "commons-lang" % "commons-lang" % "2.6",
@@ -116,6 +116,16 @@ lazy val deployer = project
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(runtime).enablePlugins(PlayScala, DockerPlugin)
+
+lazy val proxy = project
+  .settings(commonSettings: _*)
+  .settings(
+    name := "proxy",
+    packageName in Docker := "toscaruntime/proxy",
+    version in Docker := "latest",
+    dockerExposedPorts in Docker := Seq(9000, 9443),
+    stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
+  ).dependsOn(dockerUtil).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val test = project
   .settings(commonSettings: _*)

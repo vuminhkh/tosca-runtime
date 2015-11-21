@@ -1,6 +1,5 @@
 package com.toscaruntime.compiler
 
-import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.parser.YamlParser
 import com.toscaruntime.compiler.tosca._
 
@@ -31,6 +30,7 @@ object SyntaxAnalyzer extends YamlParser {
   val lower_bound_token: String = "lower_bound"
   val upper_bound_token: String = "upper_bound"
   val inputs_token: String = "inputs"
+  val outputs_token: String = "outputs"
   val implementation_token: String = "implementation"
   val operations_token: String = "operations"
   val valid_sources_token: String = "valid_sources"
@@ -41,13 +41,14 @@ object SyntaxAnalyzer extends YamlParser {
   val node_templates_token: String = "node_templates"
   val node_token: String = "node"
   val capability_token: String = "capability"
+  val value_token: String = "value"
 
-  def fileExtension = """[\p{Print} && [^:\[\]\{\}>-]]*""".r ^^ (_.toString)
+  def fileExtension = wrapParserWithPosition( """[\p{Print} && [^:\[\]\{\}>-]]*""".r ^^ (_.toString))
 
   def artifactTypeEntry(indentLevel: Int = 0) =
-    textEntry(indentLevel)(derived_from_token) |
-      textEntry(indentLevel)(description_token) |
-      ((wrapTextWithPosition(file_ext_token) <~ keyValueSeparatorPattern <~ """\[ *""".r) ~ (rep1sep(wrapParserWithPosition(fileExtension), """ *, *""") <~ """ *\]""".r <~ newLinePattern)) ^^ entryParseResultHandler
+    textEntry(derived_from_token)(indentLevel) |
+      textEntry(description_token)(indentLevel) |
+      nestedListEntry(file_ext_token)(fileExtension)
 
   def artifactType(artifactTypeName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(artifactTypeEntry)(indentLevel) ^^ {
@@ -63,14 +64,14 @@ object SyntaxAnalyzer extends YamlParser {
   }
 
   def relationshipTypeEntry(indentLevel: Int) =
-    textEntry(indentLevel)(derived_from_token) |
-      booleanEntry(indentLevel)(abstract_token) |
-      textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(properties_token)(propertyDefinitionsEntry) |
-      (((wrapTextWithPosition(valid_sources_token) <~ keyValueSeparatorPattern <~ """\[ *""".r) ~ (rep1sep(nestedTextValue, """ *, *""") <~ """ *\]""".r <~ newLinePattern)) ^^ entryParseResultHandler) |
-      (((wrapTextWithPosition(valid_targets_token) <~ keyValueSeparatorPattern <~ """\[ *""".r) ~ (rep1sep(nestedTextValue, """ *, *""") <~ """ *\]""".r <~ newLinePattern)) ^^ entryParseResultHandler) |
-      listEntry(indentLevel)(artifacts_token)(genericTextEntry) |
-      mapEntry(indentLevel)(interfaces_token)(interfaceDefinitionsEntry)
+    textEntry(derived_from_token)(indentLevel) |
+      booleanEntry(abstract_token) |
+      textEntry(description_token)(indentLevel) |
+      mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
+      nestedListEntry(valid_sources_token)(nestedTextValue) |
+      nestedListEntry(valid_targets_token)(nestedTextValue) |
+      listEntry(artifacts_token)(textEntry(keyValue))(indentLevel) |
+      mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
 
   def relationshipType(relationshipTypeName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(relationshipTypeEntry)(indentLevel) ^^ {
@@ -91,10 +92,10 @@ object SyntaxAnalyzer extends YamlParser {
   }
 
   def capabilityTypeEntry(indentLevel: Int) =
-    textEntry(indentLevel)(derived_from_token) |
-      booleanEntry(indentLevel)(abstract_token) |
-      textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(properties_token)(propertyDefinitionsEntry)
+    textEntry(derived_from_token)(indentLevel) |
+      booleanEntry(abstract_token) |
+      textEntry(description_token)(indentLevel) |
+      mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel)
 
   def capabilityType(capabilityTypeName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(capabilityTypeEntry)(indentLevel) ^^ {
@@ -116,17 +117,17 @@ object SyntaxAnalyzer extends YamlParser {
 
   def constraintEntry(indentLevel: Int) =
     positioned(
-      ((constraintSingleValueOperator ~ (keyValueSeparatorPattern ~> textValue <~ newLinePattern)) |
-        (constraintMultipleValueOperator ~ (keyValueSeparatorPattern ~> """\[ *""".r ~> rep1sep(nestedTextValue, """ *, *""".r) <~ """ *\]""".r <~ newLinePattern))) ^^ {
-        case (operator ~ reference) => PropertyConstraint(operator, reference)
+      (textEntry(constraintSingleValueOperator)(indentLevel) |
+        nestedListEntry(constraintMultipleValueOperator)(nestedTextValue)) ^^ {
+        case (operator, reference) => PropertyConstraint(operator, reference)
       })
 
   def propertyDefinitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(type_token) |
-      booleanEntry(indentLevel)(required_token) |
-      textEntry(indentLevel)(default_token) |
-      listEntry(indentLevel)(constraints_token)(constraintEntry) |
-      textEntry(indentLevel)(description_token)
+    textEntry(type_token)(indentLevel) |
+      booleanEntry(required_token) |
+      textEntry(default_token)(indentLevel) |
+      listEntry(constraints_token)(constraintEntry)(indentLevel) |
+      textEntry(description_token)(indentLevel)
 
 
   def propertyDefinition(indentLevel: Int): Parser[PropertyDefinition] = positioned(
@@ -143,9 +144,9 @@ object SyntaxAnalyzer extends YamlParser {
   def propertyDefinitionsEntry(indentLevel: Int) = (keyValue ~ (keyComplexSeparatorPattern ~> propertyDefinition(indentLevel))) ^^ entryParseResultHandler
 
   def attributeDefinitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(type_token) |
-      textEntry(indentLevel)(default_token) |
-      textEntry(indentLevel)(description_token)
+    textEntry(type_token)(indentLevel) |
+      textEntry(default_token)(indentLevel) |
+      textEntry(description_token)(indentLevel)
 
   def attributeDefinition(indentLevel: Int): Parser[AttributeDefinition] = positioned(
     map(attributeDefinitionEntry)(indentLevel) ^^ {
@@ -159,10 +160,10 @@ object SyntaxAnalyzer extends YamlParser {
   def attributeDefinitionsEntry(indentLevel: Int) = (keyValue ~ (keyComplexSeparatorPattern ~> attributeDefinition(indentLevel))) ^^ entryParseResultHandler
 
   def requirementDefinitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(type_token) |
-      textEntry(indentLevel)(relationship_type_token) |
-      intEntry(indentLevel)(lower_bound_token) |
-      intEntry(indentLevel)(upper_bound_token)
+    textEntry(type_token)(indentLevel) |
+      textEntry(relationship_type_token)(indentLevel) |
+      intEntry(lower_bound_token) |
+      intEntry(upper_bound_token)
 
   def requirementDefinition(indentLevel: Int): Parser[RequirementDefinition] = positioned(
     map(requirementDefinitionEntry)(indentLevel) ^^ {
@@ -178,9 +179,9 @@ object SyntaxAnalyzer extends YamlParser {
     (keyValue ~ (keyComplexSeparatorPattern ~> requirementDefinition(indentLevel))) ^^ entryParseResultHandler
 
   def capabilityDefinitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(type_token) |
-      intEntry(indentLevel)(upper_bound_token) |
-      mapEntry(indentLevel)(properties_token)(propertyDefinitionsEntry)
+    textEntry(type_token)(indentLevel) |
+      intEntry(upper_bound_token) |
+      mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel)
 
   def simpleCapabilityDefinition(indentLevel: Int) = positioned(textValue ^^ {
     case capabilityType => CapabilityDefinition(Some(capabilityType), ParsedValue(1), None)
@@ -196,19 +197,30 @@ object SyntaxAnalyzer extends YamlParser {
     })
 
   def capabilityDefinitionsEntry(indentLevel: Int) =
-    (keyValue ~ ((keyComplexSeparatorPattern ~> capabilityDefinition(indentLevel)) | (keyValueSeparatorPattern ~> simpleCapabilityDefinition(indentLevel) <~ newLinePattern))) ^^ entryParseResultHandler
+    (keyValue ~ ((keyComplexSeparatorPattern ~> capabilityDefinition(indentLevel)) | (keyValueSeparatorPattern ~> simpleCapabilityDefinition(indentLevel) <~ lineEndingPattern))) ^^ entryParseResultHandler
 
-  // From here
-  def function(indentLevel: Int) = positioned(("""\{ *""".r ~> (wrapParserWithPosition("get_property" | "get_attribute") <~ keyValueSeparatorPattern <~ """\[ *""".r) ~ (wrapParserWithPosition("SELF" | "HOST" | "SOURCE" | "TARGET") <~ """ *, *""".r) ~ (keyValue <~ """ *\] *\}""".r)) ^^ {
-    case (function ~ entity ~ path) => Function(function, entity, path)
+  def simpleFunctionName = wrapParserWithPosition("get_property" | "get_attribute")
+
+  def compositeFunctionName = wrapParserWithPosition("concat")
+
+  def simpleFunction = positioned(internalNestedListEntry(simpleFunctionName)(nestedTextValue) ^^ {
+    case (functionName, paths: Seq[ParsedValue[String]]) => Function(functionName, paths)
   })
 
-  def operationInputEntry(indentLevel: Int) = ((keyValue <~ keyValueSeparatorPattern) ~ (function(indentLevel) | textValue) <~ newLinePattern) ^^ entryParseResultHandler
+  def compositeFunction = positioned(internalNestedListEntry(compositeFunctionName)(simpleFunction | nestedTextValue) ^^ {
+    case (functionName, members: Seq[Any]) =>
+      CompositeFunction(functionName, members)
+  })
+
+  def function = compositeFunction | simpleFunction
+
+  def toscaValueEntry(indentLevel: Int) =
+    textEntry(keyValue)(indentLevel) | nestedComplexEntry(keyValue)(function)
 
   def operationEntry(indentLevel: Int) =
-    textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(inputs_token)(operationInputEntry) |
-      textEntry(indentLevel)(implementation_token)
+    textEntry(description_token)(indentLevel) |
+      mapEntry(inputs_token)(toscaValueEntry)(indentLevel) |
+      textEntry(implementation_token)(indentLevel)
 
   def operation(indentLevel: Int) = positioned(
     map(operationEntry)(indentLevel) ^^ {
@@ -218,14 +230,15 @@ object SyntaxAnalyzer extends YamlParser {
         get[ParsedValue[String]](map, implementation_token))
     })
 
-  def simpleOperation(indentLevel: Int) = positioned(textValue ^^ {
+  def simpleOperation = positioned(textValue ^^ {
     case implementation => Operation(None, None, if (implementation.value == null || implementation.value.isEmpty) None else Some(implementation))
   })
 
-  def operationsEntry(indentLevel: Int) = (keyValue ~ ((keyComplexSeparatorPattern ~> operation(indentLevel)) | (keyValueSeparatorPattern ~> simpleOperation(indentLevel) <~ newLinePattern))) ^^ entryParseResultHandler
+  def operationsEntry(indentLevel: Int) =
+    complexEntry(keyValue)(operation)(indentLevel) | (keyValue ~ (keyValueSeparatorPattern ~> simpleOperation <~ lineEndingPattern)) ^^ entryParseResultHandler
 
   def interfaceDefinitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(description_token) |
+    textEntry(description_token)(indentLevel) |
       (internalMap(operationsEntry)(indentLevel) ^^ {
         case operations => (ParsedValue(operations_token), operations)
       })
@@ -242,16 +255,16 @@ object SyntaxAnalyzer extends YamlParser {
     keyValue ~ (keyComplexSeparatorPattern ~> interfaceDefinition(indentLevel)) ^^ entryParseResultHandler
 
   def nodeTypeEntry(indentLevel: Int) =
-    booleanEntry(indentLevel)(abstract_token) |
-      textEntry(indentLevel)(derived_from_token) |
-      textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(tags_token)(genericTextEntry) |
-      mapEntry(indentLevel)(properties_token)(propertyDefinitionsEntry) |
-      mapEntry(indentLevel)(attributes_token)(attributeDefinitionsEntry) |
-      mapEntry(indentLevel)(requirements_token)(requirementDefinitionsEntry) |
-      mapEntry(indentLevel)(capabilities_token)(capabilityDefinitionsEntry) |
-      listEntry(indentLevel)(artifacts_token)(genericTextEntry) |
-      mapEntry(indentLevel)(interfaces_token)(interfaceDefinitionsEntry)
+    booleanEntry(abstract_token) |
+      textEntry(derived_from_token)(indentLevel) |
+      textEntry(description_token)(indentLevel) |
+      mapEntry(tags_token)(textEntry(keyValue))(indentLevel) |
+      mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
+      mapEntry(attributes_token)(attributeDefinitionsEntry)(indentLevel) |
+      mapEntry(requirements_token)(requirementDefinitionsEntry)(indentLevel) |
+      mapEntry(capabilities_token)(capabilityDefinitionsEntry)(indentLevel) |
+      listEntry(artifacts_token)(textEntry(keyValue))(indentLevel) |
+      mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
 
   def nodeType(nodeTypeName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(nodeTypeEntry)(indentLevel) ^^ {
@@ -273,17 +286,18 @@ object SyntaxAnalyzer extends YamlParser {
     case nodeType => (nodeType.name, nodeType)
   }
 
-  def functionGetInput(indentLevel: Int) = positioned(("""\{ *""".r ~> "get_input" ~> keyValueSeparatorPattern ~> keyValue <~ """ *\}""".r) ^^ {
-    case inputName => Input(inputName)
-  })
+  def functionGetInput = nestedTextEntry("get_input") ^^ {
+    case (_, inputName) => Input(inputName)
+  }
 
-  def propertyInputEntry(indentLevel: Int) = ((keyValue <~ keyValueSeparatorPattern) ~ (functionGetInput(indentLevel) | textValue) <~ newLinePattern) ^^ entryParseResultHandler
+  def propertyInputEntry(indentLevel: Int) =
+    textEntry(keyValue)(indentLevel) | nestedComplexEntry(keyValue)(functionGetInput)
 
   def properties(indentLevel: Int) = map(propertyInputEntry)(indentLevel)
 
   def requirementEntry(indentLevel: Int) =
-    textEntry(indentLevel)(node_token) |
-      textEntry(indentLevel)(capability_token)
+    textEntry(node_token)(indentLevel) |
+      textEntry(capability_token)(indentLevel)
 
   def requirement(requirementName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(requirementEntry)(indentLevel) ^^ {
@@ -298,14 +312,14 @@ object SyntaxAnalyzer extends YamlParser {
   })
 
   def requirementsEntry(indentLevel: Int) =
-    keyValue into (requirementName => (keyComplexSeparatorPattern ~> requirement(requirementName)(indentLevel + 1)) | (keyValueSeparatorPattern ~> simpleRequirement(requirementName)(indentLevel) <~ newLinePattern))
+    keyValue into (requirementName => (keyComplexSeparatorPattern ~> requirement(requirementName)(indentLevel + 1)) | (keyValueSeparatorPattern ~> simpleRequirement(requirementName)(indentLevel) <~ lineEndingPattern))
 
   def requirements(indentLevel: Int) = list(requirementsEntry)(indentLevel)
 
   def nodeTemplateEntry(indentLevel: Int) =
-    textEntry(indentLevel)(type_token) |
-      complexEntry(indentLevel)(properties_token)(properties) |
-      complexEntry(indentLevel)(requirements_token)(requirements)
+    textEntry(type_token)(indentLevel) |
+      complexEntry(properties_token)(properties)(indentLevel) |
+      complexEntry(requirements_token)(requirements)(indentLevel)
 
   def nodeTemplate(nodeTemplateName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(nodeTemplateEntry)(indentLevel) ^^ {
@@ -320,33 +334,55 @@ object SyntaxAnalyzer extends YamlParser {
     case nodeTemplate => (nodeTemplate.name, nodeTemplate)
   }
 
+  def outputValueEntry(indentLevel: Int) =
+    textEntry(value_token)(indentLevel) | nestedComplexEntry(value_token)(function)
+
+  def outputEntry(indentLevel: Int) =
+    textEntry(description_token)(indentLevel) |
+      outputValueEntry(indentLevel)
+
+  def output(outputName: ParsedValue[String])(indentLevel: Int) =
+    positioned(map(outputEntry)(indentLevel) ^^ {
+      case map => Output(
+        outputName,
+        get[ParsedValue[String]](map, description_token),
+        get[Any](map, value_token)
+      )
+    })
+
+  def outputsEntry(indentLevel: Int) = (keyValue into (outputName => keyComplexSeparatorPattern ~> output(outputName)(indentLevel + 1))) ^^ {
+    case output => (output.name, output)
+  }
+
   def topologyTemplateEntry(indentLevel: Int) =
-    textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(inputs_token)(propertyDefinitionsEntry) |
-      mapEntry(indentLevel)(node_templates_token)(nodeTemplatesEntry)
+    textEntry(description_token)(indentLevel) |
+      mapEntry(inputs_token)(propertyDefinitionsEntry)(indentLevel) |
+      mapEntry(outputs_token)(outputsEntry)(indentLevel) |
+      mapEntry(node_templates_token)(nodeTemplatesEntry)(indentLevel)
 
   def topologyTemplate(indentLevel: Int) =
     positioned(map(topologyTemplateEntry)(indentLevel) ^^ {
       case map => TopologyTemplate(
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], PropertyDefinition]](map, inputs_token),
+        get[Map[ParsedValue[String], Output]](map, outputs_token),
         get[Map[ParsedValue[String], NodeTemplate]](map, node_templates_token))
     })
 
   def definitionEntry(indentLevel: Int) =
-    textEntry(indentLevel)(definitions_version_token) |
-      textEntry(indentLevel)(template_name_token) |
-      textEntry(indentLevel)(template_version_token) |
-      textEntry(indentLevel)(template_author_token) |
-      textEntry(indentLevel)(description_token) |
-      mapEntry(indentLevel)(node_types_token)(nodeTypesEntry) |
-      mapEntry(indentLevel)(capability_types_token)(capabilityTypesEntry) |
-      mapEntry(indentLevel)(relationship_types_token)(relationshipTypesEntry) |
-      mapEntry(indentLevel)(artifact_types_token)(artifactTypesEntry) |
-      complexEntry(indentLevel)(topology_template_token)(topologyTemplate)
+    textEntry(definitions_version_token)(indentLevel) |
+      textEntry(template_name_token)(indentLevel) |
+      textEntry(template_version_token)(indentLevel) |
+      textEntry(template_author_token)(indentLevel) |
+      textEntry(description_token)(indentLevel) |
+      mapEntry(node_types_token)(nodeTypesEntry)(indentLevel) |
+      mapEntry(capability_types_token)(capabilityTypesEntry)(indentLevel) |
+      mapEntry(relationship_types_token)(relationshipTypesEntry)(indentLevel) |
+      mapEntry(artifact_types_token)(artifactTypesEntry)(indentLevel) |
+      complexEntry(topology_template_token)(topologyTemplate)(indentLevel)
 
   def definition =
-    positioned(phrase(opt(newLinePattern) ~> map(definitionEntry)(0) <~ opt(newLinePattern)) ^^ {
+    positioned(phrase(opt(lineEndingPattern) ~> map(definitionEntry)(0) <~ opt(lineEndingPattern)) ^^ {
       case map => Definition(
         get[ParsedValue[String]](map, definitions_version_token),
         get[ParsedValue[String]](map, template_name_token),

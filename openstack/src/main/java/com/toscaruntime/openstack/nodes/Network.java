@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.ResourcesNotFoundException;
+import com.toscaruntime.util.RetryUtil;
 
 public class Network extends tosca.nodes.Network {
 
@@ -76,6 +77,7 @@ public class Network extends tosca.nodes.Network {
 
     @Override
     public void create() {
+        super.create();
         String networkId = getProperty("network_id");
         String dnsNameServers = getProperty("dns_name_servers");
         if (StringUtils.isBlank(networkId)) {
@@ -115,27 +117,62 @@ public class Network extends tosca.nodes.Network {
     }
 
     @Override
-    public void configure() {
-    }
-
-    @Override
-    public void start() {
-    }
-
-    @Override
-    public void stop() {
-    }
-
-    @Override
     public void delete() {
-        if (this.createdSubnet != null) {
-            this.subnetApi.delete(this.createdSubnet.getId());
+        super.delete();
+        try {
+            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
+                @Override
+                public String getName() {
+                    return "delete routers";
+                }
+
+                @Override
+                public Object doAction() throws Throwable {
+                    for (Router router : createdRouters) {
+                        routerApi.removeInterfaceForSubnet(router.getId(), createdSubnet.getId());
+                        routerApi.delete(router.getId());
+                    }
+                    return null;
+                }
+            }, 3, 2000L, Throwable.class);
+        } catch (Throwable e) {
+            log.warn("Could not delete routers " + createdRouters, e);
         }
-        if (this.createdNetwork != null) {
-            this.networkApi.delete(this.createdNetwork.getId());
+        try {
+            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
+                @Override
+                public String getName() {
+                    return "delete subnet " + createdSubnet.getName();
+                }
+
+                @Override
+                public Object doAction() throws Throwable {
+                    if (createdSubnet != null) {
+                        subnetApi.delete(createdSubnet.getId());
+                    }
+                    return null;
+                }
+            }, 3, 2000L, Throwable.class);
+        } catch (Throwable e) {
+            log.warn("Could not delete subnet " + this.createdSubnet, e);
         }
-        for (Router router : createdRouters) {
-            this.routerApi.delete(router.getId());
+        try {
+            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
+                @Override
+                public String getName() {
+                    return "delete network " + createdNetwork.getName();
+                }
+
+                @Override
+                public Object doAction() throws Throwable {
+                    if (createdNetwork != null) {
+                        networkApi.delete(createdNetwork.getId());
+                    }
+                    return null;
+                }
+            }, 3, 2000L, Throwable.class);
+        } catch (Throwable e) {
+            log.warn("Could not delete network " + this.createdNetwork, e);
         }
         log.info("Deleted network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
     }

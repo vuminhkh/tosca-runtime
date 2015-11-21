@@ -56,14 +56,14 @@ object AgentsCommand {
           println(container.getNames.head + "\t" + container.getId + "\t" + container.getLabels.get("agentType") + "\t" + container.getStatus)
         }
       case ("info", agentName: String) =>
-        DeployUtil.getDetails(dockerClient, agentName)
-        println("Follow deployment with 'log -c '" + agentName + "'")
+        DeployUtil.printDetails(dockerClient, agentName)
+        println("Follow deployment with 'log -c " + agentName + "'")
       case ("deploy", agentName: String) =>
         DeployUtil.deploy(dockerClient, agentName)
-        println("Follow deployment with 'log -c '" + agentName + "'")
+        println("Follow deployment with 'log -c " + agentName + "'")
       case ("undeploy", agentName: String) =>
         DeployUtil.undeploy(dockerClient, agentName)
-        println("Follow undeployment with 'log -c '" + agentName + "'")
+        println("Follow undeployment with 'log -c " + agentName + "'")
       case ("stop", agentName: String) =>
         dockerClient.stopContainerCmd(agentName).exec()
         println("Stopped " + agentName)
