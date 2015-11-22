@@ -2,8 +2,8 @@ package com.toscaruntime.test.docker
 
 import java.nio.file.{Files, Paths}
 import com.toscaruntime.compiler.Compiler
+import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.test.util.NormativeTypesLoader
-import com.toscaruntime.tosca.runtime.Deployer
 
 object CompileTest {
 

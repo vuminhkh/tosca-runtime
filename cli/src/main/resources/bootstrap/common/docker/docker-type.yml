@@ -5,13 +5,34 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 node_types:
-  com.toscaruntime.docker.nodes.Docker:
+  com.toscaruntime.docker.nodes.DockerDaemon:
     derived_from: tosca.nodes.SoftwareComponent
     description: >
-      The docker software component
+      The docker software component to install/ start/ stop docker daemon
     interfaces:
       Standard:
-        create: scripts/create_docker.sh
-        configure: scripts/configure_docker.sh
-        start: scripts/start_docker.sh
-        stop: scripts/stop_docker.sh
+        create: daemon/scripts/create.sh
+        start:
+          inputs:
+            PROXY_URL: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":", "90000" ] }
+          implementation: daemon/scripts/start.sh
+        stop: daemon/scripts/stop.sh
+
+  com.toscaruntime.docker.nodes.DockerComponent:
+    derived_from: tosca.nodes.SoftwareComponent
+    description: >
+      Softwares that are packaged as docker image ready to deploy
+    properties:
+      docker_image:
+        type: string
+      docker_command:
+        type: string
+        required: false
+    interfaces:
+      Standard:
+        create:
+          inputs:
+            DOCKER_IMAGE: { get_property: [SELF, docker_image] }
+            DOCKER_COMMAND: { get_property: [SELF, docker_command] }
+            DOCKER_PORTS: port_mapping
+          implementation: component/scripts/create.sh

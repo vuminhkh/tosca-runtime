@@ -1,60 +1,58 @@
 package com.toscaruntime.cli.util
 
-import com.github.dockerjava.api.DockerClient
-import com.google.common.collect.Lists
-import com.toscaruntime.util.DockerUtil
-import com.toscaruntime.util.DockerUtil.CommandLogger
+import com.toscaruntime.rest.client.ToscaRuntimeClient
+import com.toscaruntime.util.RetryUtil
+import com.toscaruntime.util.RetryUtil.Action
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 /**
- * @author Minh Khang VU
- */
+  * Deployment utilities
+  *
+  * @author Minh Khang VU
+  */
 object DeployUtil extends LazyLogging {
 
-  val deploymentURL = "http://0.0.0.0:9000/deployment"
+  private val waitForEver = 365 day
 
-  val getDeploymentCommand = Lists.newArrayList("curl", "-X", "GET", "http://0.0.0.0:9000/deployment")
-
-  val launchDeploymentCommand = Lists.newArrayList("curl", "-X", "POST", "http://0.0.0.0:9000/deployment")
-
-  val deleteDeploymentCommand = Lists.newArrayList("curl", "-X", "DELETE", "http://0.0.0.0:9000/deployment")
-
-  // TODO Use curl to launch deployment, may we have more elegant ways
-  def deploy(dockerClient: DockerClient, containerId: String) = {
-    DockerUtil.runCommand(dockerClient, containerId, launchDeploymentCommand)
+  def list(client: ToscaRuntimeClient) = {
+    val deployments = Await.result(client.listDeployments(), waitForEver)
+    println("Daemon has " + deployments.length + " deployment agents : ")
+    deployments.foreach { deployment =>
+      println(deployment.name + "\t\t" + deployment.agentStatus + "\t\t" + deployment.agentCreated + "\t\t" + deployment.agentIP + "\t\t" + deployment.agentId)
+    }
   }
 
-  def undeploy(dockerClient: DockerClient, containerId: String) = {
-    DockerUtil.runCommand(dockerClient, containerId, deleteDeploymentCommand)
+  def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.deploy(deploymentId), waitForEver)
   }
 
-  def printDetails(dockerClient: DockerClient, containerId: String) = {
-    DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, new CommandLogger {
-      override def log(line: String): Unit = println(line)
-    })
+  def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.undeploy(deploymentId), waitForEver)
   }
 
-  def waitForDeploymentAgent(dockerClient: DockerClient, containerId: String) = {
-    val maxRetryCount = 60
-    var retryCount = 0
-    var webAppUp = false
-    while (!webAppUp) {
-      try {
-        // Try to get the deployment information just to be sure that the web app is up
-        DockerUtil.runCommand(dockerClient, containerId, getDeploymentCommand, new CommandLogger {
-          override def log(line: String): Unit = logger.debug(line)
-        })
-        webAppUp = true
-      } catch {
-        case t: Throwable =>
-          retryCount += 1
-          if (retryCount < maxRetryCount) {
-            println("Attempt " + retryCount + " to launch bootstrap, web app may not be up yet " + t.getMessage)
-            Thread.sleep(1000L)
-          } else {
-            throw t
-          }
+  def printDetails(client: ToscaRuntimeClient, deploymentId: String) = {
+    val details = Await.result(client.getDeploymentInformation(deploymentId), waitForEver).data.get
+    println("Deployment " + deploymentId + " has " + details.nodes.length + " nodes : ")
+    details.nodes.foreach { node =>
+      println(" - Node " + node.id + " has " + node.instances.length)
+      node.instances.foreach { instance =>
+        println(" \t+ " + instance.id + ": " + instance.state)
       }
     }
+    println("Output for " + deploymentId + " : ")
+    details.outputs.foreach { output =>
+      println(output._1 + " = " + output._2)
+    }
+  }
+
+  def waitForDeploymentAgent(client: ToscaRuntimeClient, deploymentId: String) = {
+    RetryUtil.doActionWithRetry(new Action[Any] {
+      override def getName: String = "Wait for deployment " + deploymentId
+
+      override def doAction(): Any = Await.result(client.getDeploymentInformation(deploymentId), waitForEver)
+    }, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }
 }

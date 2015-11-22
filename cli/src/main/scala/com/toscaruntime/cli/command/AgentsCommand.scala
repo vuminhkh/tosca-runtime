@@ -1,20 +1,19 @@
 package com.toscaruntime.cli.command
 
-import com.github.dockerjava.api.model.Filters
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.util.DeployUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
-import scala.collection.JavaConverters._
-
 /**
- * Command to handle list, delete, show information of an agent
- * @author Minh Khang VU
- */
+  * Command to handle list, delete, show information of an agent
+  * @author Minh Khang VU
+  */
 object AgentsCommand {
 
   private val listOpt = "list"
+
+  private val startOpt = "start"
 
   private val stopOpt = "stop"
 
@@ -28,6 +27,7 @@ object AgentsCommand {
 
   private lazy val agentsArgsParser = Space ~>
     (token(listOpt) |
+      (token(startOpt) ~ (Space ~> token(StringBasic))) |
       (token(stopOpt) ~ (Space ~> token(StringBasic))) |
       (token(deleteOpt) ~ (Space ~> token(StringBasic))) |
       (token(deployOpt) ~ (Space ~> token(StringBasic))) |
@@ -38,6 +38,7 @@ object AgentsCommand {
     """
       |agents [list | [stop|delete|deploy|undeploy|info] <agent name>]
       |list     : list all agents
+      |start    : start agent, agent will begin to manage deployment
       |stop     : stop agent, agent will not manage deployment anymore
       |deploy   : launch default deployment workflow
       |undeploy : launch default undeployment workflow
@@ -46,30 +47,29 @@ object AgentsCommand {
   )
 
   lazy val instance = Command("agents", agentsActionsHelp)(_ => agentsArgsParser) { (state, args) =>
-    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
+    // TODO multiple agents to manage a deployment ... For the moment one agent per deployment
+    val toscaClient = state.attributes.get(Attributes.clientAttribute).get
     args.head match {
       case "list" =>
-        val filters = new Filters().withLabels("organization=toscaruntime")
-        val containers = dockerClient.listContainersCmd().withShowAll(true).withFilters(filters).exec().asScala
-        println("Found " + containers.size + " agents:")
-        containers.foreach { container =>
-          println(container.getNames.head + "\t" + container.getId + "\t" + container.getLabels.get("agentType") + "\t" + container.getStatus)
-        }
-      case ("info", agentName: String) =>
-        DeployUtil.printDetails(dockerClient, agentName)
-        println("Follow deployment with 'log -c " + agentName + "'")
-      case ("deploy", agentName: String) =>
-        DeployUtil.deploy(dockerClient, agentName)
-        println("Follow deployment with 'log -c " + agentName + "'")
-      case ("undeploy", agentName: String) =>
-        DeployUtil.undeploy(dockerClient, agentName)
-        println("Follow undeployment with 'log -c " + agentName + "'")
-      case ("stop", agentName: String) =>
-        dockerClient.stopContainerCmd(agentName).exec()
-        println("Stopped " + agentName)
-      case ("delete", agentName: String) =>
-        dockerClient.removeContainerCmd(agentName).exec()
-        println("Deleted " + agentName)
+        DeployUtil.list(toscaClient)
+      case ("info", deploymentId: String) =>
+        DeployUtil.printDetails(toscaClient, deploymentId)
+        println("Follow deployment with 'log -c " + deploymentId + "'")
+      case ("deploy", deploymentId: String) =>
+        DeployUtil.deploy(toscaClient, deploymentId)
+        println("Follow deployment with 'log -c " + deploymentId + "'")
+      case ("undeploy", deploymentId: String) =>
+        DeployUtil.undeploy(toscaClient, deploymentId)
+        println("Follow undeployment with 'log -c " + deploymentId + "'")
+      case ("start", deploymentId: String) =>
+        toscaClient.start(deploymentId)
+        println("Started " + deploymentId)
+      case ("stop", deploymentId: String) =>
+        toscaClient.stop(deploymentId)
+        println("Stopped " + deploymentId)
+      case ("delete", deploymentId: String) =>
+        toscaClient.delete(deploymentId)
+        println("Deleted " + deploymentId)
     }
     state
   }

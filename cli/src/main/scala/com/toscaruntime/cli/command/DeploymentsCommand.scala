@@ -1,16 +1,15 @@
 package com.toscaruntime.cli.command
 
 import com.toscaruntime.cli.Attributes
+import com.toscaruntime.constant.RuntimeConstant
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
-import scala.collection.JavaConverters._
-
 /**
- * List all packaged deployments (docker images) available on the docker daemon
- *
- * @author Minh Khang VU
- */
+  * List all packaged deployments (docker images) available on the docker daemon
+  *
+  * @author Minh Khang VU
+  */
 object DeploymentsCommand {
 
   private val listOpt = "list"
@@ -32,26 +31,20 @@ object DeploymentsCommand {
 
   lazy val instance = Command("deployments", deploymentActionsHelp)(_ => deploymentsArgsParser) { (state, args) =>
 
-    val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
+    val client = state.attributes.get(Attributes.clientAttribute).get
     args.head match {
       case "list" =>
-        // TODO How to filter dangling image more efficiently
-        val images = dockerClient.listImagesCmd().withFilters("{\"label\":[\"organization=toscaruntime\"]}").exec().asScala
-          .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
+        val images = client.listImages()
         println("Found " + images.size + " deployments:")
         images.foreach { image =>
-          println(image.getRepoTags()(0) + "\t" + image.getId)
+          println(image.getContainerConfig.getLabels.get(RuntimeConstant.DEPLOYMENT_ID_LABEL) + "\t\t" + image.getCreated + "\t\t" + image.getId)
         }
       case "clean" =>
-        val images = dockerClient.listImagesCmd.withFilters("{\"dangling\":[\"true\"]}").withShowAll(true).exec.asScala
-        println("Found " + images.size + " dangling images, cleaning them all")
-        images.foreach { image =>
-          dockerClient.removeImageCmd(image.getId).exec()
-          println(image.getId)
-        }
-      case ("delete", deploymentName: String) =>
-        dockerClient.removeImageCmd(deploymentName).exec()
-        println(deploymentName)
+        client.cleanDanglingImages()
+        println("Cleaned all dangling images")
+      case ("delete", deploymentId: String) =>
+        client.deleteImage(deploymentId)
+        println("Deleted " + deploymentId)
     }
     state
   }

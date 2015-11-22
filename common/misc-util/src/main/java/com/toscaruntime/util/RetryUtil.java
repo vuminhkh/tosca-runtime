@@ -40,7 +40,11 @@ public class RetryUtil {
                 if (isRecoverableError(t.getClass(), recoverableErrors) && currentTimes < times) {
                     // Retry if it's recoverable error
                     Thread.sleep(coolDownInMillis);
-                    log.warn(currentTimes + " attempt to execute " + action.getName() + ", sleep " + coolDownInMillis + " and retry " + t.getMessage());
+                    if(t.getMessage() == null) {
+                        log.warn(currentTimes + " attempt to execute " + action.getName() + ", sleep " + coolDownInMillis + " and retry ", t);
+                    } else {
+                        log.warn(currentTimes + " attempt to execute " + action.getName() + ", sleep " + coolDownInMillis + " and retry " + t.getMessage());
+                    }
                 } else {
                     throw t;
                 }

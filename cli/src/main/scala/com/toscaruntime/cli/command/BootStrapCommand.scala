@@ -2,19 +2,17 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Files
 
-import com.google.common.collect.Maps
-import com.toscaruntime.cli.Args
-import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.cli.util.DeployUtil
-import com.toscaruntime.compiler.{Packager, Compiler}
+import com.toscaruntime.cli.{Args, Attributes}
+import com.toscaruntime.compiler.Compiler
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
 /**
- * Bootstrap docker infrastructure
- *
- * @author Minh Khang VU
- */
+  * Bootstrap docker infrastructure
+  *
+  * @author Minh Khang VU
+  */
 object BootStrapCommand {
 
   private lazy val bootstrapArgsParser = Space ~> Args.providerArg +
@@ -33,7 +31,7 @@ object BootStrapCommand {
       println(Args.providerOpt + " is mandatory")
       fail = true
     } else {
-      val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
+      val client = state.attributes.get(Attributes.clientAttribute).get
       val basedir = state.attributes.get(Attributes.basedirAttribute).get
       val outputPath = Files.createTempDirectory("toscaruntime")
       val providerName = argsMap.get(Args.providerOpt).get
@@ -49,27 +47,17 @@ object BootStrapCommand {
       )
       if (compilationSuccessful) {
         val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(argsMap(Args.providerOpt)).resolve("default")
-        val image = Packager.createDockerImage(
-          dockerClient,
-          "bootstrap_" + providerName,
-          bootstrap = true,
+        val image = client.createBootstrapImage(
+          providerName,
           outputPath,
           if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None,
-          providerConfigurationPath
-        )
-        println("Packaged bootstrap configuration as docker image with name <" + image._2 + "> and id <" + image._1 + ">")
-        val labels = Maps.newHashMap[String, String]()
-        labels.put("organization", "toscaruntime")
-        labels.put("agentType", "bootstrap")
-        labels.put("provider", providerName)
-        val containerId = dockerClient.createContainerCmd(image._1)
-          .withName(image._2 + "_agent")
-          .withLabels(labels)
-          .exec.getId
-        dockerClient.startContainerCmd(containerId).exec
-        DeployUtil.waitForDeploymentAgent(dockerClient, containerId)
-        DeployUtil.deploy(dockerClient, containerId)
-        println("Launched bootstrap operation asynchronously, follow installation by performing 'log -c " + image._2 + "_agent'")
+          providerConfigurationPath).awaitImageId()
+        println("Packaged bootstrap configuration as docker image <" + image + ">")
+        val containerId = client.createBootstrapAgent(providerName).getId
+        val generatedDeploymentId = client.generateDeploymentIdForBootstrap(providerName)
+        DeployUtil.waitForDeploymentAgent(client, generatedDeploymentId)
+        DeployUtil.deploy(client, generatedDeploymentId)
+        println("Launched bootstrap operation asynchronously, follow installation by performing 'log -c " + containerId)
       } else {
         println("Failed to compile bootstrap topology")
         fail = true

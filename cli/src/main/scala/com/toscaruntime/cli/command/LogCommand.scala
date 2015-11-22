@@ -7,13 +7,13 @@ import com.toscaruntime.util.DockerUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
-import scala.io.StdIn
+import scala.io.{Source, StdIn}
 
 /**
- * Showing container's log
- *
- * @author Minh Khang VU
- */
+  * Showing container's log
+  *
+  * @author Minh Khang VU
+  */
 object LogCommand {
 
   private val containerIdOpt = "-c"
@@ -31,13 +31,12 @@ object LogCommand {
 
   lazy val instance = Command("log", logHelp)(_ => containerIdArgsParser) { (state, args) =>
     val argsMap = args.toMap
-    var fail = false
     if (!argsMap.contains(containerIdOpt)) {
-      println(containerIdOpt + " is mandatory")
-      fail = true
+      for (line <- Source.fromFile(state.attributes.get(Attributes.basedirAttribute).get.resolve("log").resolve("cli.log").toFile).getLines())
+        println(line)
     } else {
       val containerId = argsMap(containerIdOpt)
-      val dockerClient = state.attributes.get(Attributes.dockerDaemonAttribute).get.dockerClient
+      val dockerClient = state.attributes.get(Attributes.clientAttribute).get.daemonClient.dockerClient
       val logCallBack = new LogContainerResultCallback() {
         override def onNext(item: Frame): Unit = {
           print(new String(item.getPayload, "UTF-8"))

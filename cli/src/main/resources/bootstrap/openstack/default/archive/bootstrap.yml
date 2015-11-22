@@ -24,9 +24,10 @@ topology_template:
     external_network_id:
       type: string
   outputs:
-    manager_url:
-      description: The URL to access the wordpress
-      value: { get_attribute: [ dockerMachine, public_ip_address ] }
+    daemon_url:
+      description: The URL to access the docker daemon
+      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":", "2376" ] }
+
   node_templates:
     publicNetwork:
       type: com.toscaruntime.openstack.nodes.ExternalNetwork
@@ -50,7 +51,14 @@ topology_template:
       requirements:
         - network: privateNetwork
         - network: publicNetwork
-    dockerComponent:
-      type: com.toscaruntime.docker.nodes.Docker
+    dockerDaemon:
+      type: com.toscaruntime.docker.nodes.DockerDaemon
+      requirements:
+        - host: dockerMachine
+    proxy:
+      type: com.toscaruntime.docker.nodes.DockerComponent
+      properties:
+        docker_image: toscaruntime/proxy
+        port_mapping: 9000:9000
       requirements:
         - host: dockerMachine

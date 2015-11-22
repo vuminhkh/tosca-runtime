@@ -13,7 +13,7 @@ public abstract class AbstractRuntimeType {
 
     protected DeploymentConfig config;
 
-    protected String state;
+    protected String state = "initial";
 
     public String getState() {
         return state;

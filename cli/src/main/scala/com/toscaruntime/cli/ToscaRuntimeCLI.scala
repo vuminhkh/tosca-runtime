@@ -3,17 +3,15 @@ package com.toscaruntime.cli
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
-import com.github.dockerjava.api.DockerClient
 import com.toscaruntime.cli.command._
-import com.toscaruntime.cli.command._
-import com.toscaruntime.util.DockerUtil
+import com.toscaruntime.rest.client.{DockerDaemonClient, ToscaRuntimeClient}
 import sbt._
 
 /**
- * Entry point for the cli
- *
- * @author Minh Khang VU
- */
+  * Entry point for the cli
+  *
+  * @author Minh Khang VU
+  */
 class ToscaRuntimeCLI extends xsbti.AppMain {
 
   /** Defines the entry point for the application.
@@ -24,10 +22,10 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
 
   def buildDockerClient(url: String, certificatePath: String) = {
     println("Using docker daemon with url <" + url + "> and certificate at <" + certificatePath + ">")
-    DockerUtil.buildDockerClient(url, certificatePath)
+    new DockerDaemonClient(url, certificatePath)
   }
 
-  def buildDockerClient(basedir: Path): DockerClient = {
+  def buildDockerClient(basedir: Path): DockerDaemonClient = {
     val daemonUrlSystemProperty = "tosca-runtime.docker.daemon.url"
     System.getProperty(daemonUrlSystemProperty) match {
       case url: String =>
@@ -79,7 +77,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val osName = System.getProperty("os.name")
     println("Starting tosca runtime cli on <" + osName + "> operating system from <" + basedir + ">")
     val attributes = AttributeMap(
-      AttributeEntry(Attributes.dockerDaemonAttribute, new DockerClientHolder(buildDockerClient(basedir))),
+      AttributeEntry(Attributes.clientAttribute, new ToscaRuntimeClient(buildDockerClient(basedir))),
       AttributeEntry(Attributes.basedirAttribute, basedir)
     )
     State(configuration, commandDefinitions, Set.empty, None, Seq("shell"), State.newHistory, attributes, initialGlobalLogging, State.Continue)

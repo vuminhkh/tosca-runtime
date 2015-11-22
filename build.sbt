@@ -39,7 +39,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "tosca-runtime-parent"
-  ).aggregate(deployer, proxy, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
 val commonDependencies: Seq[ModuleID] = Seq(
   "commons-lang" % "commons-lang" % "2.6",
@@ -53,14 +53,26 @@ lazy val common = project
   .settings(commonSettings: _*)
   .settings(
     name := "common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil).enablePlugins(UniversalPlugin)
+  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, constant, exception).enablePlugins(UniversalPlugin)
+
+lazy val constant = project.in(file("common/constant"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "constant"
+  ).enablePlugins(UniversalPlugin)
+
+lazy val exception = project.in(file("common/exception"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "exception"
+  ).enablePlugins(UniversalPlugin)
 
 lazy val miscUtil = project.in(file("common/misc-util"))
   .settings(commonSettings: _*)
   .settings(
     name := "misc-util",
     libraryDependencies ++= commonDependencies
-  ).enablePlugins(UniversalPlugin)
+  ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
 lazy val sshUtil = project.in(file("common/ssh-util"))
   .settings(commonSettings: _*)
@@ -69,7 +81,7 @@ lazy val sshUtil = project.in(file("common/ssh-util"))
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
     libraryDependencies += "org.apache.sshd" % "sshd-core" % "1.0.0"
-  ).enablePlugins(UniversalPlugin)
+  ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
 lazy val dockerUtil = project.in(file("common/docker-util"))
   .settings(commonSettings: _*)
@@ -80,7 +92,7 @@ lazy val dockerUtil = project.in(file("common/docker-util"))
     libraryDependencies += "org.glassfish.hk2" % "hk2-api" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2.external" % "javax.inject" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2" % "hk2-locator" % "2.4.0-b32"
-  ).enablePlugins(UniversalPlugin)
+  ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
 lazy val fileUtil = project.in(file("common/file-util"))
   .settings(commonSettings: _*)
@@ -88,7 +100,15 @@ lazy val fileUtil = project.in(file("common/file-util"))
     name := "file-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
-  ).enablePlugins(UniversalPlugin)
+  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+
+lazy val rest = project.in(file("rest"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "rest",
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
+    libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2"
+  ).dependsOn(dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
   .settings(commonSettings: _*)
@@ -115,23 +135,26 @@ lazy val deployer = project
     version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
-  ).dependsOn(runtime).enablePlugins(PlayScala, DockerPlugin)
+  ).dependsOn(runtime, rest).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val proxy = project
   .settings(commonSettings: _*)
   .settings(
     name := "proxy",
     packageName in Docker := "toscaruntime/proxy",
+    libraryDependencies += ws,
+    routesGenerator := InjectedRoutesGenerator,
+    libraryDependencies += cache,
     version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
-  ).dependsOn(dockerUtil).enablePlugins(PlayScala, DockerPlugin)
+  ).dependsOn(dockerUtil, rest).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val test = project
   .settings(commonSettings: _*)
   .settings(
     name := "test"
-  ).dependsOn(compiler, runtime, docker, openstack).enablePlugins(UniversalPlugin)
+  ).dependsOn(compiler, runtime, docker, openstack).enablePlugins(JavaAppPackaging)
 
 val providerSettings: Seq[Setting[_]] = commonSettings ++ Seq(
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
@@ -167,7 +190,7 @@ lazy val sdk = project
     name := "sdk",
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
-  ).dependsOn(miscUtil).enablePlugins(UniversalPlugin)
+  ).dependsOn(miscUtil, constant, exception).enablePlugins(JavaAppPackaging)
 
 lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
 
@@ -226,4 +249,4 @@ lazy val cli = project
     downloadSbtLauncher <<= downloadSbtLauncher dependsOn publishLocal,
     stage <<= (stage in Universal) dependsOn downloadSbtLauncher,
     dist <<= (packageZipTarball in Universal) dependsOn stage
-  ).dependsOn(compiler, runtime).enablePlugins(UniversalPlugin)
+  ).dependsOn(compiler, runtime, rest).enablePlugins(UniversalPlugin)

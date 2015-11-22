@@ -251,7 +251,7 @@ public class Compute extends tosca.nodes.Compute {
             log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
         }
         getAttributes().put("ip_address", this.ipAddress);
-        getAttributes().put("tosca_id", server.getUuid());
+        getAttributes().put("tosca_id", server.getId());
         getAttributes().put("tosca_name", server.getName());
         if (!this.config.isBootstrap()) {
             // If it's not in bootstrap mode initialize immediately ssh session
