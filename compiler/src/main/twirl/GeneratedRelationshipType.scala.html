@@ -1,5 +1,6 @@
 @import com.toscaruntime.compiler.runtime.RelationshipType
 @import com.toscaruntime.compiler.CompilerUtil
+
 @(relationshipType: RelationshipType)
 package @relationshipType.packageName;
 
@@ -7,11 +8,8 @@ public @if(relationshipType.isAbstract){abstract }class @relationshipType.classN
 @relationshipType.methods.map { method =>
   public void @CompilerUtil.toCamelCase(method.name)@Html("() {")
     @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
-  @method.scalarInputs.map { scalarInput =>
-    inputs.put("@scalarInput._1", "@scalarInput._2");
-  }
-  @method.functionInputs.map{ functionInput =>
-    inputs.put("@functionInput._1", evaluateFunction("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
+  @method.inputs.map { input =>
+    @base.html.generateInput(input)
   }
   @method.implementation.map { implementation =>
     executeOperation("@method.name", "@relationshipType.csarName/@implementation", inputs);

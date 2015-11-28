@@ -1,0 +1,9 @@
+@import com.toscaruntime.compiler.runtime.CompositeFunction
+@import com.toscaruntime.compiler.runtime.Function
+
+@(function: CompositeFunction)
+  evaluateCompositeFunction("@function.name",
+  @for((item, index) <- function.members.zipWithIndex) {
+    @if(item.isInstanceOf[String]) {@Html("\"" + item.asInstanceOf[String] + "\"")} else {@base.html.evaluateFunction(item.asInstanceOf[Function])}@if(index < function.members.size - 1) {@Html(",")}
+  }
+  )

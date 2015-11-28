@@ -19,6 +19,7 @@ import com.toscaruntime.sdk.workflow.Parallel;
 import com.toscaruntime.sdk.workflow.Sequence;
 import com.toscaruntime.sdk.workflow.Task;
 import com.toscaruntime.sdk.workflow.TaskExecutorFactory;
+import com.toscaruntime.util.FunctionUtil;
 
 import tosca.nodes.Root;
 
@@ -325,16 +326,28 @@ public abstract class Deployment {
                     stopParallel.getActionList().add(new Task() {
                         @Override
                         public void run() {
-                            nodeInstance.stop();
+                            try {
+                                nodeInstance.stop();
+                            } catch (Exception e) {
+                                log.warn(nodeInstance + " stop failed", e);
+                            }
                             nodeInstance.setState("stopped");
                             Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                                relationship.removeTarget();
+                                try {
+                                    relationship.removeTarget();
+                                } catch (Exception e) {
+                                    log.warn(relationship + " removeTarget failed", e);
+                                }
                                 relationship.setState("removedTarget");
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                                relationship.removeSource();
+                                try {
+                                    relationship.removeSource();
+                                } catch (Exception e) {
+                                    log.warn(relationship + " removeSource failed", e);
+                                }
                                 relationship.setState("removedSource");
                             }
                         }
@@ -353,7 +366,11 @@ public abstract class Deployment {
                 deleteParallel.getActionList().add(new Task() {
                     @Override
                     public void run() {
-                        nodeInstance.delete();
+                        try {
+                            nodeInstance.delete();
+                        } catch (Exception e) {
+                            log.warn(nodeInstance + " delete failed", e);
+                        }
                         nodeInstance.setState("deleted");
                     }
                 });
@@ -386,13 +403,9 @@ public abstract class Deployment {
 
     public Object evaluateCompositeFunction(String functionName, Object... memberValue) {
         if ("concat".equals(functionName)) {
-            StringBuilder buffer = new StringBuilder();
-            for (Object member : memberValue) {
-                buffer.append(member);
-            }
-            return buffer.toString();
+            return FunctionUtil.concat(memberValue);
         } else {
-            throw new IllegalFunctionException("Function " + functionName + " is not supported");
+            throw new IllegalFunctionException("Function " + functionName + " is not supported on deployment");
         }
     }
 }

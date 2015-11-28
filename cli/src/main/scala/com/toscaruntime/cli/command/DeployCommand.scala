@@ -37,7 +37,7 @@ object DeployCommand {
       val deploymentId = argsMap(deploymentIdOpt)
       containerId = client.createDeploymentAgent(deploymentId).getId
       DeployUtil.waitForDeploymentAgent(client, deploymentId)
-      DeployUtil.deploy(client, deploymentId)
+      client.deploy(deploymentId)
     }
     if (fail) {
       state.fail

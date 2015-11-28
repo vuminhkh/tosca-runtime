@@ -23,10 +23,21 @@ topology_template:
       type: string
     external_network_id:
       type: string
+    dns_name_servers:
+      type: string
   outputs:
     daemon_url:
       description: The URL to access the docker daemon
-      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":", "2376" ] }
+      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":", get_property: [dockerDaemon, port] ] }
+    proxy_url:
+      description: The URL to access the proxy
+      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":9000" ] }
+    openstack_network:
+      description: The id of the network the docker daemon connected to
+      value: { get_attribute: [privateNetwork, tosca_id] }
+    openstack_external_network:
+      description: The id of the external network the docker daemon connected to
+      value: { get_attribute: [publicNetwork, tosca_id] }
 
   node_templates:
     publicNetwork:
@@ -38,21 +49,23 @@ topology_template:
       properties:
         network_name: "dockerDaemonNetwork"
         cidr: "192.168.1.0/24"
-        dns_name_servers: "8.8.8.8,129.185.67.10"
+        dns_name_servers: { get_input: dns_name_servers }
     dockerMachine:
       type: com.toscaruntime.openstack.nodes.Compute
       properties:
-        image: { get_input: image}
-        flavor: { get_input: flavor}
-        login: { get_input: login}
-        key_pair_name: { get_input: key_pair_name}
-        key_path: { get_input: key_path}
-        security_group_names: { get_input: security_group_names}
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
       requirements:
         - network: privateNetwork
         - network: publicNetwork
     dockerDaemon:
       type: com.toscaruntime.docker.nodes.DockerDaemon
+      properties:
+        port: 2376
       requirements:
         - host: dockerMachine
     proxy:
@@ -61,4 +74,5 @@ topology_template:
         docker_image: toscaruntime/proxy
         port_mapping: 9000:9000
       requirements:
-        - host: dockerMachine
+        - host: dockerDaemon
+

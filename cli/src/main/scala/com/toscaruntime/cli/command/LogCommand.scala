@@ -20,7 +20,7 @@ object LogCommand {
 
   private lazy val containerIdArg = token(containerIdOpt) ~ (Space ~> token(StringBasic))
 
-  private lazy val containerIdArgsParser = Space ~> containerIdArg +
+  private lazy val containerIdArgsParser = (Space ?) ~> containerIdArg *
 
   private lazy val logHelp = Help("log", ("log", "Show log of a running container, execute 'help log' for more details"),
     """

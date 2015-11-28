@@ -54,13 +54,10 @@ object AgentsCommand {
         DeployUtil.list(toscaClient)
       case ("info", deploymentId: String) =>
         DeployUtil.printDetails(toscaClient, deploymentId)
-        println("Follow deployment with 'log -c " + deploymentId + "'")
       case ("deploy", deploymentId: String) =>
-        DeployUtil.deploy(toscaClient, deploymentId)
-        println("Follow deployment with 'log -c " + deploymentId + "'")
+        toscaClient.deploy(deploymentId)
       case ("undeploy", deploymentId: String) =>
-        DeployUtil.undeploy(toscaClient, deploymentId)
-        println("Follow undeployment with 'log -c " + deploymentId + "'")
+        toscaClient.undeploy(deploymentId)
       case ("start", deploymentId: String) =>
         toscaClient.start(deploymentId)
         println("Started " + deploymentId)

@@ -30,7 +30,7 @@ class DockerDaemonClient(url: String, certPath: String) {
   }
 
   def getProxyURL = {
-    dockerClient.infoCmd().exec().getLabels.map { label =>
+    dockerClient.infoCmd().exec().getLabels.filter(_.nonEmpty).map { label =>
       val keyValue = label.split("=")
       (keyValue(0), keyValue(1))
     }.toMap.get(RuntimeConstant.PROXY_URL_LABEL)

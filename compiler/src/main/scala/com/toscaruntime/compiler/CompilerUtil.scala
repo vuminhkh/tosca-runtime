@@ -3,15 +3,10 @@ package com.toscaruntime.compiler
 import java.nio.file.{Files, Path}
 
 import com.google.common.base.CaseFormat
-import com.toscaruntime.compiler.runtime.Method
 import com.toscaruntime.exception.NotSupportedGenerationException
 import com.toscaruntime.util.FileUtil
 
 object CompilerUtil {
-
-  def methodHasInput(method: Method) = {
-    method.functionInputs.nonEmpty || method.scalarInputs.nonEmpty
-  }
 
   def splitClassNameAndPackageName(typeName: String) = {
     val indexClassName = typeName.lastIndexOf('.')
@@ -43,10 +38,10 @@ object CompilerUtil {
   }
 
   /**
-   * Try to create file system if the path is a zip file
-   * @param paths the path list to create file systems
-   * @return map of path --> file system
-   */
+    * Try to create file system if the path is a zip file
+    * @param paths the path list to create file systems
+    * @return map of path --> file system
+    */
   def createZipFileSystems(paths: List[Path]) = {
     paths.map { path =>
       if (!Files.isDirectory(path)) {

@@ -18,16 +18,6 @@
     initializeInstance(@node.name);
 }
 
-@evaluateFunction(function: Function) = {evaluateFunction("@function.name", "@function.entity", "@function.path")}
-
-@evaluateCompositeFunction(function: CompositeFunction) = {
-      evaluateCompositeFunction("@function.name",
-  @for((item, index) <- function.members.zipWithIndex) {
-    @if(item.isInstanceOf[String]) {@Html("\"" + item.asInstanceOf[String] + "\"")} else {@evaluateFunction(item.asInstanceOf[Function])}@if(index < function.members.size - 1) {@Html(",")}
-  }
-  )
-}
-
 @instantiateNode(node: Node) = {
     @Html("java.util.Map<String, Object> properties")@node.name@Html(" = new java.util.HashMap();")
   @node.scalarProperties.map { scalaProperty =>
@@ -67,9 +57,9 @@ public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
     case (name: String, value: String) =>
       Html("outputs.put(\"" + name + "\", \"" + value + "\");")
     case (name: String, function: Function) =>
-      Html("outputs.put(\"" + name + "\", " + evaluateFunction(function) + ");")
+      Html("outputs.put(\"" + name + "\", " + base.html.evaluateFunction(function) + ");")
     case (name: String, function: CompositeFunction) =>
-      Html("outputs.put(\"" + name + "\", " + evaluateCompositeFunction(function) + ");")
+      Html("outputs.put(\"" + name + "\", " + base.html.evaluateCompositeFunction(function) + ");")
   }}
 }
     return outputs;

@@ -7,11 +7,8 @@ public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nod
 @nodeType.methods.map { method =>
   public void @CompilerUtil.toCamelCase(method.name)@Html("() {")
       @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
-    @method.scalarInputs.map { scalarInput =>
-      inputs.put("@scalarInput._1", "@scalarInput._2");
-    }
-    @method.functionInputs.map{ functionInput =>
-      inputs.put("@functionInput._1", evaluateFunction("@functionInput._2.name", "@functionInput._2.entity", "@functionInput._2.path"));
+    @method.inputs.map { input =>
+      @base.html.generateInput(input)
     }
     @method.implementation.map { implementation =>
       getHost().execute("@nodeType.csarName/@implementation", inputs);

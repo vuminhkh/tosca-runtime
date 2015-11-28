@@ -54,7 +54,7 @@ object Application extends Controller with Logging {
   def deploy() = Action { implicit request =>
     log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)
     deployment.install()
-    Ok
+    Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
   }
 
   def undeploy() = Action { implicit request =>

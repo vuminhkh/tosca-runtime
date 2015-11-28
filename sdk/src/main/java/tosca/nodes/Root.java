@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.NonRecoverableException;
 import com.toscaruntime.sdk.AbstractRuntimeType;
+import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -120,6 +121,14 @@ public abstract class Root extends AbstractRuntimeType {
         getAttributes().clear();
     }
 
+    public Object evaluateCompositeFunction(String functionName, Object... memberValue) {
+        if ("concat".equals(functionName)) {
+            return FunctionUtil.concat(memberValue);
+        } else {
+            throw new IllegalFunctionException("Function " + functionName + " is not supported on node");
+        }
+    }
+
     public String evaluateFunction(String functionName, String entity, String path) {
         String value;
         switch (entity) {
@@ -169,5 +178,13 @@ public abstract class Root extends AbstractRuntimeType {
     @Override
     public int hashCode() {
         return id.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "NodeInstance{" +
+                "name='" + name + '\'' +
+                ", id='" + id + '\'' +
+                '}';
     }
 }

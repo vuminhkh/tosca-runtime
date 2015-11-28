@@ -1,2 +1,3 @@
-- image: { get_input: "image" } not working
-  image: { get_input: image } taking also into account space
+- support of attribute definition as function
+- support of get_operation_output
+- support of template override type

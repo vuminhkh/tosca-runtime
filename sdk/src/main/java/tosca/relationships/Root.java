@@ -123,4 +123,12 @@ public abstract class Root extends AbstractRuntimeType {
         result = 31 * result + (target != null ? target.hashCode() : 0);
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Relationship{" +
+                "source=" + source +
+                ", target=" + target +
+                '}';
+    }
 }

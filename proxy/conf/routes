@@ -1,6 +1,8 @@
 # Routes
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
+GET           /context                          controllers.Application.getBootstrapContext
+POST          /context                          controllers.Application.saveBootstrapContext()
 GET           /deployments                      controllers.Application.list
 GET           /deployments/:deploymentId        controllers.Application.get(deploymentId: String)
 POST          /deployments/:deploymentId        controllers.Application.deploy(deploymentId: String)

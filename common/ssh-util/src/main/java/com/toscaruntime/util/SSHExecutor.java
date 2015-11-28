@@ -42,11 +42,15 @@ public class SSHExecutor implements Closeable {
     }
 
     private void checkConnection() throws IOException, InterruptedException {
-        if (clientSession.isClosed() || clientSession.isClosing()) {
+        if (clientSession == null) {
+            log.info("Recreating the session for " + user + "@" + ip);
+            this.clientSession = SSHUtil.connect(this.sshClient, user, pemPath, ip, port);
+            log.info("Recreated the session for " + user + "@" + ip);
+        } else if (clientSession.isClosed() || clientSession.isClosing()) {
             log.info("Reconnecting the session for " + user + "@" + ip);
             this.clientSession.close(false).await();
             this.clientSession = SSHUtil.connect(this.sshClient, user, pemPath, ip, port);
-            log.info("Session for " + user + "@" + ip);
+            log.info("Reconnected the session for " + user + "@" + ip);
         }
     }
 

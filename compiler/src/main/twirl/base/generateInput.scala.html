@@ -1,0 +1,12 @@
+@import com.toscaruntime.compiler.runtime.CompositeFunction
+@import com.toscaruntime.compiler.runtime.Function
+
+@(input: (String, Any))
+@{input match {
+  case (name: String, value: String) =>
+    Html("inputs.put(\"" + name + "\", \"" + value + "\");")
+  case (name: String, function: Function) =>
+    Html("inputs.put(\"" + name + "\", " + base.html.evaluateFunction(function) + ");")
+  case (name: String, function: CompositeFunction) =>
+    Html("inputs.put(\"" + name + "\", " + base.html.evaluateCompositeFunction(function) + ");")
+}}

@@ -33,11 +33,12 @@ case class Function(name: String,
                     path: String)
 
 case class CompositeFunction(name: String,
+                             // One of String, Function or CompositeFunction
                              members: Seq[Any])
 
 case class Method(name: String,
-                  scalarInputs: Map[String, String],
-                  functionInputs: Map[String, Function],
+                  // One of String, Function or CompositeFunction
+                  inputs: Map[String, Any],
                   implementation: Option[String])
 
 case class Deployment(nodes: Seq[Node],

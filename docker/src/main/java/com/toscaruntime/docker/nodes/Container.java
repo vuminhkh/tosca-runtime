@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Ports;
@@ -146,8 +147,11 @@ public class Container extends Compute {
         }
         log.info("Node [" + getName() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
-        ipAddress = dockerClient.inspectContainerCmd(containerId).exec().getNetworkSettings().getIpAddress();
+        InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
+        ipAddress = response.getNetworkSettings().getIpAddress();
         getAttributes().put("ip_address", ipAddress);
+        getAttributes().put("tosca_id", containerId);
+        getAttributes().put("tosca_name", response.getName());
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
         DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
         dockerClient.copyFileToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();

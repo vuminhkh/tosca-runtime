@@ -6,7 +6,7 @@ import com.google.common.io.Closeables
 import com.toscaruntime.compiler.runtime.Method
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
+import com.toscaruntime.exception.{NotSupportedGenerationException, InvalidTopologyException, NonRecoverableException}
 import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -17,21 +17,15 @@ import com.typesafe.scalalogging.LazyLogging
   */
 object CodeGenerator extends LazyLogging {
 
-  def getScalarInputs(operation: Operation) = {
-    operation.inputs.map(_.filter(_._2.isInstanceOf[ParsedValue[String]]).map {
-      case (inputName: ParsedValue[String], inputValue: ParsedValue[String]) => (inputName.value, inputValue.value)
-    }).getOrElse(Map.empty)
-  }
-
-  def getFunctionInputs(operation: Operation) = {
-    operation.inputs.map(_.filter(_._2.isInstanceOf[tosca.Function]).map {
-      case (inputName: ParsedValue[String], inputFunction: tosca.Function) => (inputName.value, runtime.Function(inputFunction.function.value, inputFunction.entity.value, inputFunction.path.value))
+  def getInputs(operation: Operation) = {
+    operation.inputs.map(_.map {
+      case (inputName: ParsedValue[String], inputValue: Any) => (inputName.value, parseFunction(inputValue))
     }).getOrElse(Map.empty)
   }
 
   def parseMethod(interfaceName: String, operationName: String, operation: Operation) = {
     val methodName = CompilerUtil.getGeneratedMethodName(interfaceName, operationName)
-    Method(methodName, getScalarInputs(operation), getFunctionInputs(operation), operation.implementation.map(_.value))
+    Method(methodName, getInputs(operation), operation.implementation.map(_.value))
   }
 
   def parseInterface(interfaceName: String, interface: Interface) = {
@@ -152,18 +146,7 @@ object CodeGenerator extends LazyLogging {
       }.getOrElse(Seq.empty)
     }
     val topologyOutputs = topology.outputs.getOrElse(Map.empty).map {
-      case (outputName: ParsedValue[String], output: Output) =>
-        output.value.get match {
-          case value: ParsedValue[String] =>
-            (outputName.value, value.value)
-          case outputFunction: Function =>
-            (outputName.value, runtime.Function(outputFunction.function.value, outputFunction.entity.value, outputFunction.path.value))
-          case compositeOutputFunction: CompositeFunction =>
-            (outputName.value, runtime.CompositeFunction(compositeOutputFunction.function.value, compositeOutputFunction.members.map {
-              case value: ParsedValue[String] => value.value
-              case function: Function => runtime.Function(function.function.value, function.entity.value, function.path.value)
-            }))
-        }
+      case (outputName: ParsedValue[String], output: Output) => (outputName.value, parseFunction(output.value.get))
     }
 
     val topologyRoots = topologyNodes.values.filter(node => node.parent.isEmpty)
@@ -173,6 +156,18 @@ object CodeGenerator extends LazyLogging {
       topologyRoots.toSeq,
       topologyOutputs,
       topologyCsarName)
+  }
+
+  def parseFunction(value: Any) = {
+    value match {
+      case value: ParsedValue[String] => value.value
+      case outputFunction: Function => runtime.Function(outputFunction.function.value, outputFunction.entity.value, outputFunction.path.value)
+      case compositeOutputFunction: CompositeFunction =>
+        runtime.CompositeFunction(compositeOutputFunction.function.value, compositeOutputFunction.members.map {
+          case value: ParsedValue[String] => value.value
+          case function: Function => runtime.Function(function.function.value, function.entity.value, function.path.value)
+        })
+    }
   }
 
   def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {

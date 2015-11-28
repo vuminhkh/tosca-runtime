@@ -107,7 +107,8 @@ lazy val rest = project.in(file("rest"))
   .settings(
     name := "rest",
     libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
-    libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2"
+    libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
+    libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ).dependsOn(dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
