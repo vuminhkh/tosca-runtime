@@ -18,8 +18,9 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.channel.ClientChannel;
-import org.apache.sshd.client.scp.ScpClient;
+import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.RuntimeSshException;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -47,72 +48,28 @@ public class SSHUtil {
         }
     }
 
-    public static ClientSession connect(SshClient client, final String user, String pemPath, final String ip, final int port) throws IOException,
+    public static ClientSession connect(SshClient client, final String user, String pemPath, final String ip, final int port, long timeout, TimeUnit timeUnit) throws IOException,
             InterruptedException {
-        ClientSession session = client.connect(user, ip, port).await().getSession();
+        ConnectFuture connectFuture = client.connect(user, ip, port);
+        boolean connected = connectFuture.await(timeout, timeUnit);
+        if (!connected) {
+            throw new RuntimeSshException("Connection timed out");
+        }
+        ClientSession session = connectFuture.getSession();
         KeyPair keyPair = SSHUtil.loadKeyPair(pemPath);
         if (keyPair != null) {
             session.addPublicKeyIdentity(keyPair);
         }
-        session.auth().verify(5, TimeUnit.MINUTES);
+        session.auth().verify(timeout, timeUnit);
         return session;
     }
 
-    public static void executeCommand(String user, String ip, int port, String pemPath, final String command, final Map<String, String> env)
-            throws IOException, InterruptedException {
-        runShellActionWithoutSession(user, ip, port, pemPath, new ExecuteCommandWithShellAction(command), env);
+    public static void executeCommand(final ClientSession session, final String command, final Map<String, String> env, long timeout, TimeUnit timeUnit) throws IOException {
+        runShellActionWithSession(session, new ExecuteCommandWithShellAction(command), env, timeout, timeUnit);
     }
 
-    public static void executeCommand(final ClientSession session, final String command, final Map<String, String> env) throws IOException {
-        runShellActionWithSession(session, new ExecuteCommandWithShellAction(command), env);
-    }
-
-    public static void executeScript(String user, String ip, int port, String pemPath, final String scriptPath, final Map<String, String> env) throws IOException, InterruptedException {
-        runShellActionWithoutSession(user, ip, port, pemPath, new ExecuteScriptWithShellAction(scriptPath), env);
-    }
-
-    public static void executeScript(ClientSession clientSession, final String scriptPath, final Map<String, String> env) throws IOException, InterruptedException {
-        runShellActionWithSession(clientSession, new ExecuteScriptWithShellAction(scriptPath), env);
-    }
-
-    private interface DoWithSshSessionAction {
-        void doSshAction(ClientSession session) throws IOException;
-    }
-
-    private static void doWithSshSession(String user, String ip, int port, String pemPath, DoWithSshSessionAction doWithSshAction) throws IOException,
-            InterruptedException {
-        SshClient client = SshClient.setUpDefaultClient();
-        ClientSession session = null;
-        try {
-            client.start();
-            session = connect(client, user, pemPath, ip, port);
-            doWithSshAction.doSshAction(session);
-        } finally {
-            if (session != null) {
-                session.close(false).await();
-            }
-            client.stop();
-        }
-    }
-
-    public static void download(String user, String ip, int port, String pemPath, final String remote, final String local) throws IOException,
-            InterruptedException {
-        doWithSshSession(user, ip, port, pemPath, new DoWithSshSessionAction() {
-            @Override
-            public void doSshAction(ClientSession session) throws IOException {
-                session.createScpClient().download(remote, local, ScpClient.Option.Recursive);
-            }
-        });
-    }
-
-    public static void upload(String user, String ip, int port, String pemPath, final String remote, final String local) throws IOException,
-            InterruptedException {
-        doWithSshSession(user, ip, port, pemPath, new DoWithSshSessionAction() {
-            @Override
-            public void doSshAction(ClientSession session) throws IOException {
-                session.createScpClient().upload(local, remote, ScpClient.Option.Recursive);
-            }
-        });
+    public static void executeScript(ClientSession clientSession, final String scriptPath, final Map<String, String> env, long timeout, TimeUnit timeUnit) throws IOException, InterruptedException {
+        runShellActionWithSession(clientSession, new ExecuteScriptWithShellAction(scriptPath), env, timeout, timeUnit);
     }
 
     private static class ScriptOutputLogger extends OutputStream {
@@ -151,12 +108,8 @@ public class SSHUtil {
                     currentLine.setLength(0);
                 }
                 for (String newLine : newLines) {
-                    String logLine = "[" + scriptName + "]: " + newLine;
-                    if (isError) {
-                        log.error(logLine);
-                    } else {
-                        log.info(logLine);
-                    }
+                    String logLine = "[" + scriptName + "][" + (isError ? "stderr" : "stdout") + "] " + newLine;
+                    log.info(logLine);
                 }
             } else {
                 currentLine.append(newData);
@@ -226,18 +179,7 @@ public class SSHUtil {
         commandWriter.flush();
     }
 
-    private static void runShellActionWithoutSession(String user, String ip, final int port, String pemPath, final DoWithShellAction doWithShellAction, final Map<String, String> env)
-            throws IOException,
-            InterruptedException {
-        doWithSshSession(user, ip, port, pemPath, new DoWithSshSessionAction() {
-            @Override
-            public void doSshAction(ClientSession session) throws IOException {
-                runShellActionWithSession(session, doWithShellAction, env);
-            }
-        });
-    }
-
-    private static void runShellActionWithSession(ClientSession session, final DoWithShellAction doWithShellAction, final Map<String, String> env) throws IOException {
+    private static void runShellActionWithSession(ClientSession session, final DoWithShellAction doWithShellAction, final Map<String, String> env, final long timeout, final TimeUnit timeUnit) throws IOException {
         ChannelShell channel = session.createShellChannel();
         try {
             PipedOutputStream pipedIn = new PipedOutputStream();
@@ -247,23 +189,31 @@ public class SSHUtil {
             channel.setIn(channelInStream);
             channel.setOut(new ScriptOutputLogger(doWithShellAction.getCommandName(), false));
             channel.setErr(new ScriptOutputLogger(doWithShellAction.getCommandName(), true));
-            channel.open().await();
+            log.info("[{}] Channel is going to be opened", doWithShellAction.getCommandName());
+            boolean channelOpened = channel.open().await(timeout, timeUnit);
+            if (!channelOpened) {
+                throw new RuntimeSshException("Timed out when trying to open channel");
+            }
+            log.info("[{}] Channel opened", doWithShellAction.getCommandName());
             setEnv(commandWriter, env);
             doWithShellAction.doWithShell(session, commandWriter);
             doExecuteCommand(commandWriter, "exit");
-        } catch (Exception e) {
-            log.error("Error while executing on channel", e);
-        } finally {
-            while (channel.getExitStatus() == null) {
-                channel.waitFor(ClientChannel.CLOSED, 1000L);
-            }
+            log.info("[{}] Waiting for channel closed", doWithShellAction.getCommandName());
+            channel.waitFor(ClientChannel.CLOSED, timeUnit.toMillis(timeout));
+            log.info("[{}] Received channel closed", doWithShellAction.getCommandName());
             Integer exitStatus = channel.getExitStatus();
             if (exitStatus != null && exitStatus == 0) {
                 log.info("[{}] exited normally", doWithShellAction.getCommandName());
             } else {
                 log.error("[{}] exited with error status {}", doWithShellAction.getCommandName(), exitStatus);
+                throw new RuntimeSshException("[" + doWithShellAction.getCommandName() + "] exited with error status " + exitStatus);
             }
-            channel.close(false).await();
+        } catch (IOException e) {
+            log.error("Error while executing on channel", e);
+            throw e;
+        } finally {
+            channel.close(false).await(timeout, timeUnit);
+            log.info("[{}] Channel closed", doWithShellAction.getCommandName());
         }
     }
 }

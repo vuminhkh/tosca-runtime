@@ -1,6 +1,7 @@
 package com.toscaruntime.test.openstack
 
 import java.nio.file.{Files, Paths}
+
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.test.util.NormativeTypesLoader
@@ -34,7 +35,7 @@ object CompileOSApacheTest {
         "security_group_names" -> "openbar",
         "external_network_id" -> "0e43db46-8fd9-4ef1-8826-4cf9e809aede"
       )
-      Deployer.createDeployment(outputDeployment, inputs, providerProperties, false)
+      Deployer.createDeployment(outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], false)
     }
   }
 }

@@ -5,14 +5,15 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
+import com.toscaruntime.exception.BadConfigurationException
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsObject, JsString}
+import play.api.libs.json.{JsObject, JsString, JsValue}
 import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
   * A holder for tosca runtime client
@@ -69,22 +70,44 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
     wsClient.url(url).delete()
   }
 
+  private def toJson(map: Map[String, String]) = {
+    JsObject(map.map {
+      case (key: String, value: String) => (key, JsString(value))
+    })
+  }
+
+  private def fromJson(jsObject: JsObject) = {
+    jsObject.fields.map {
+      case (key: String, value: JsValue) => (key, value.as[JsString].value)
+    }.toMap
+  }
+
   def bootstrap(provider: String, target: String = "default") = {
     deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap {
       case response =>
-        val context = JsObject(response.outputs.map {
-          case (key: String, value: String) => (key, JsString(value))
-        })
-        saveBootstrapContext(response, context)
+        val proxyUrl = response.outputs.get("proxy_url").get + "/context"
+        saveBootstrapContext(proxyUrl, toJson(response.outputs), response)
     }
   }
 
-  private def saveBootstrapContext(details: DeploymentDetails, context: JsObject): Future[DeploymentDetails] = {
-    val proxyUrl = details.outputs.get("proxy_url").get + "/context"
-    wsClient.url(proxyUrl).post(context).map(_ => details).recoverWith {
+  def getBootstrapContext: Future[Map[String, String]] = {
+    proxyURLOpt.map { proxyUrl =>
+      wsClient.url(proxyUrl + "/context").get().map { response =>
+        fromJson(response.json.as[RestResponse[JsObject]].data.get)
+      }
+    }.getOrElse(Future(Map.empty))
+  }
+
+  def updateBootstrapContext(context: Map[String, String]) = {
+    val proxyUrl = proxyURLOpt.getOrElse(throw new BadConfigurationException("Try to update bootstrap context but proxy url not configured"))
+    wsClient.url(proxyUrl + "/context").post(toJson(context))
+  }
+
+  private def saveBootstrapContext[T](proxyUrl: String, context: JsObject, result: T): Future[T] = {
+    wsClient.url(proxyUrl).post(context).map(_ => result).recoverWith {
       case e: ConnectException =>
         logger.info("Proxy is not yet up at " + proxyUrl + " retry in 2 seconds")
-        after(2 seconds, system.scheduler)(saveBootstrapContext(details, context))
+        after(2 seconds, system.scheduler)(saveBootstrapContext(proxyUrl, context, result))
     }
   }
 
@@ -93,15 +116,19 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
   }
 
   def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path) = {
-    daemonClient.createAgentImage(deploymentId, bootstrap = false, recipePath, inputsPath, providerConfigPath)
+    // TODO asynchronous
+    val bootstrapContext = Await.result(getBootstrapContext, 365 days)
+    daemonClient.createAgentImage(deploymentId, bootstrap = false, recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
   def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String = "default") = {
-    daemonClient.createAgentImage(daemonClient.generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath)
+    val bootstrapContext = Await.result(getBootstrapContext, 365 days)
+    daemonClient.createAgentImage(daemonClient.generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
   def createImage(deploymentPath: Path) = {
-    daemonClient.createAgentImage(deploymentPath)
+    val bootstrapContext = Await.result(getBootstrapContext, 365 days)
+    daemonClient.createAgentImage(deploymentPath, bootstrapContext)
   }
 
   def listImages() = {

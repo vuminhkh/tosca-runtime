@@ -9,15 +9,10 @@ import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.DockerUtil;
 
-/**
- * This represents a docker deployment which must hold a docker client and inject this instance in all container in order to process the execution of workflows
- * 
- * @author Minh Khang VU
- */
 public class DockerDeploymentPostConstructor implements DeploymentPostConstructor {
 
     @Override
-    public void postConstruct(Deployment deployment, Map<String, String> providerProperties) {
+    public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
         DockerClient dockerClient = DockerUtil.buildDockerClient(providerProperties);
         Set<Container> containers = deployment.getNodeInstancesByType(Container.class);
         for (Container container : containers) {

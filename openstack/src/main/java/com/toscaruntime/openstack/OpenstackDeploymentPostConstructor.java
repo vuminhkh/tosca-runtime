@@ -29,14 +29,15 @@ import com.toscaruntime.util.PropertyUtil;
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
 
     @Override
-    public void postConstruct(Deployment deployment, Map<String, String> providerProperties) {
+    public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
         Iterable<Module> modules = ImmutableSet.<Module>of(new SLF4JLoggingModule());
         String keystoneUrl = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "keystone_url");
         String tenant = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "tenant");
         String user = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "user");
         String password = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "password");
         String region = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "region");
-        String externalNetworkId = PropertyUtil.getPropertyAsString(providerProperties, "external_network_id");
+        String networkId = PropertyUtil.getPropertyAsString(providerProperties, "network_id", PropertyUtil.getPropertyAsString(bootstrapContext, "openstack_network"));
+        String externalNetworkId = PropertyUtil.getPropertyAsString(providerProperties, "external_network_id", PropertyUtil.getPropertyAsString(bootstrapContext, "openstack_external_network"));
         Properties overrideProperties = PropertyUtil.toProperties(providerProperties, "keystone_url", "tenant", "user", "password", "region");
         NovaApi novaApi = ContextBuilder
                 .newBuilder(new NovaApiMetadata())
@@ -69,6 +70,7 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         for (Compute compute : computes) {
             compute.setServerApi(serverApi);
             compute.setExternalNetworkId(externalNetworkId);
+            compute.setNetworkId(networkId);
             compute.setFloatingIPApi(floatingIPApi);
             Set<ExternalNetwork> connectedExternalNetworks = deployment.getNodeInstancesByRelationship(compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
             Set<Network> connectedInternalNetworks = deployment.getNodeInstancesByRelationship(compute.getId(), tosca.relationships.Network.class, Network.class);

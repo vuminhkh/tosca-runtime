@@ -1,5 +1,6 @@
 package com.toscaruntime.rest.client
 
+import java.io.FileWriter
 import java.net.URL
 import java.nio.file.{Files, Path, StandardOpenOption}
 
@@ -12,6 +13,7 @@ import com.toscaruntime.rest.model.DeploymentInfo
 import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.impl.ConfigImpl
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import org.yaml.snakeyaml.Yaml
 
 import scala.collection.JavaConverters._
 
@@ -75,13 +77,15 @@ class DockerDaemonClient(url: String, certPath: String) {
     Files.write(outputPath, ("LABEL " + RuntimeConstant.DEPLOYMENT_ID_LABEL + "=" + deploymentId + "\n").getBytes("UTF-8"), StandardOpenOption.APPEND)
   }
 
+  val yaml = new Yaml()
+
   /**
     * Create a deployment agent's docker image. This method suppose that the deployment has been constructed following the tosca-runtime format.
     *
     * @param deploymentPath the path to the deployment
     * @return id of the created docker image
     */
-  def createAgentImage(deploymentPath: Path) = {
+  def createAgentImage(deploymentPath: Path, bootstrapContext: Map[String, String]) = {
     var realDeploymentPath = deploymentPath
     val deploymentIsZipped = Files.isRegularFile(deploymentPath)
     if (deploymentIsZipped) {
@@ -94,6 +98,9 @@ class DockerDaemonClient(url: String, certPath: String) {
       .getString(DeployerConstant.DEPLOYMENT_NAME_KEY)
     FileUtil.copy(realDeploymentPath, tempDockerImageBuildDir)
     copyDockerFile(tempDockerImageBuildDir.resolve("Dockerfile"), deploymentId)
+    if (bootstrapContext.nonEmpty) {
+      yaml.dump(bootstrapContext.asJava, new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
+    }
     (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag("toscaruntime/deployment_" + deploymentId).withNoCache(true).exec(new BuildImageResultCallback).awaitImageId, deploymentId)
   }
 
@@ -106,7 +113,7 @@ class DockerDaemonClient(url: String, certPath: String) {
     * @param inputsPath inputs for the deployment
     * @return id of the created docker image
     */
-  def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path) = {
+  def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrapContext: Map[String, String]) = {
     val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
     val tempRecipePath = tempDockerImageBuildDir.resolve("deployment").resolve("recipe")
     val recipeIsZipped = Files.isRegularFile(recipePath)
@@ -129,6 +136,9 @@ class DockerDaemonClient(url: String, certPath: String) {
     FileUtil.copy(providerConfigPath, tempDockerImageBuildDir.resolve("provider"))
     if (inputsPath.nonEmpty) {
       FileUtil.copy(inputsPath.get, tempDockerImageBuildDir.resolve("deployment").resolve("inputs.yaml"))
+    }
+    if (bootstrapContext.nonEmpty) {
+      yaml.dump(bootstrapContext.asJava, new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
     }
     dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag("toscaruntime/deployment_" + deploymentId).withNoCache(true).exec(new BuildImageResultCallback)
   }

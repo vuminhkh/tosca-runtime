@@ -7,6 +7,7 @@ import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.common.RuntimeSshException;
+import org.apache.sshd.common.SshException;
 import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
@@ -22,8 +23,6 @@ import com.toscaruntime.exception.NonRecoverableException;
 import com.toscaruntime.util.RetryUtil;
 import com.toscaruntime.util.SSHExecutor;
 
-import net.schmizz.sshj.common.SSHException;
-
 public class Compute extends tosca.nodes.Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
@@ -33,6 +32,8 @@ public class Compute extends tosca.nodes.Compute {
     private ServerApi serverApi;
 
     private FloatingIPApi floatingIPApi;
+
+    private String networkId;
 
     private String externalNetworkId;
 
@@ -45,6 +46,10 @@ public class Compute extends tosca.nodes.Compute {
     private String serverId;
 
     private String ipAddress;
+
+    public void setNetworkId(String networkId) {
+        this.networkId = networkId;
+    }
 
     public void setServerApi(ServerApi serverApi) {
         this.serverApi = serverApi;
@@ -83,7 +88,7 @@ public class Compute extends tosca.nodes.Compute {
                     sshExecutor.executeScript(config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
                     return null;
                 }
-            }, 12, 30000L, RuntimeSshException.class, SSHException.class);
+            }, 12, 30000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
             throw new NonRecoverableException("Unable to execute operation " + operationArtifactPath, e);
         }
@@ -168,6 +173,9 @@ public class Compute extends tosca.nodes.Compute {
         for (Network internalNetwork : networks) {
             internalNetworks.add(internalNetwork.getNetworkId());
         }
+        if (StringUtils.isNotEmpty(this.networkId)) {
+            internalNetworks.add(this.networkId);
+        }
         if (!internalNetworks.isEmpty()) {
             createServerOptions.networks(internalNetworks);
         }
@@ -208,7 +216,7 @@ public class Compute extends tosca.nodes.Compute {
                     sshExecutor.init();
                     return null;
                 }
-            }, 240, 5000L, RuntimeSshException.class, SSHException.class);
+            }, 240, 5000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
             log.error("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
             throw new NonRecoverableException("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);

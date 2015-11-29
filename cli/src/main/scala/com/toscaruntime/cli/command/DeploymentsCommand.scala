@@ -25,7 +25,7 @@ object DeploymentsCommand {
       |deployments [list | delete <deployment name> | clean]
       |list   : list all deployments
       |delete : delete created deployment
-      |clean  : clean up dangling deployments (for administrator purpose)
+      |clean  : clean up dangling deployments docker image (for administration purpose, to free disk space)
     """.stripMargin
   )
 

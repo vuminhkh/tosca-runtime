@@ -108,7 +108,8 @@ lazy val rest = project.in(file("rest"))
     name := "rest",
     libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
-    libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
+    libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
+    libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
   ).dependsOn(dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
@@ -135,6 +136,7 @@ lazy val deployer = project
     packageName in Docker := "toscaruntime/deployer",
     version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
+    javaOptions in Universal ++= Seq("-Djava.security.egd=file:/dev/./urandom"),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(runtime, rest).enablePlugins(PlayScala, DockerPlugin)
 

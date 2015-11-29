@@ -32,6 +32,16 @@ object Application extends Controller with Logging {
     }
   }
 
+  val bootstrapContextPath = {
+    val bootstrapContextPath = Paths.get(play.Play.application().configuration().getString("com.toscaruntime.bootstrapContext"))
+    if (Files.isRegularFile(bootstrapContextPath)) {
+      Some(bootstrapContextPath)
+    } else {
+      None
+    }
+  }
+
+
   val deploymentConfiguration = ConfigFactory.parseFile(
     new File(play.Play.application().configuration().getString("com.toscaruntime.deployment.confFile"))
   ).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
@@ -49,7 +59,7 @@ object Application extends Controller with Logging {
     }.toMap
   }
 
-  val deployment: Deployment = Deployer.createDeployment(recipePath, deploymentInputsPath, providerConfiguration, bootstrap)
+  val deployment: Deployment = Deployer.createDeployment(recipePath, deploymentInputsPath, providerConfiguration, bootstrapContextPath, bootstrap)
 
   def deploy() = Action { implicit request =>
     log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)

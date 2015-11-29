@@ -1,6 +1,7 @@
 package com.toscaruntime.test.openstack
 
 import java.nio.file.{Files, Paths}
+
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.test.util.NormativeTypesLoader
@@ -35,7 +36,7 @@ object CompileOSTest {
         "key_pair_name" -> "toscaruntime",
         "security_group_names" -> "openbar"
       )
-      Deployer.createDeployment(outputDeployment, inputs, providerProperties, true)
+      Deployer.createDeployment(outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], true)
     }
   }
 }

@@ -154,7 +154,7 @@ public class Container extends Compute {
         getAttributes().put("tosca_name", response.getName());
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
         DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
-        dockerClient.copyFileToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
+        dockerClient.copyArchiveToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
     @Override
@@ -205,7 +205,7 @@ public class Container extends Compute {
             localGeneratedScriptWriter.write(containerScriptPath + "\n");
             localGeneratedScriptWriter.flush();
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
-            dockerClient.copyFileToContainerCmd(containerId, localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
+            dockerClient.copyArchiveToContainerCmd(containerId, localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
             String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("chmod", "+x", copiedScript), log);
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), log);
