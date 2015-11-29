@@ -38,14 +38,13 @@ object UseCommand {
       println(dockerUrlOpt + " is mandatory")
       fail = true
     } else {
-      client.setDaemonClient(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
-      println(argsMap(dockerUrlOpt) + " is using api version " + client.daemonClient.dockerClient.versionCmd().exec().getApiVersion)
-
+      client.switchConnection(argsMap(dockerUrlOpt), argsMap.getOrElse(dockerCertOpt, null))
+      println(argsMap(dockerUrlOpt) + " is using api version " + client.dockerVersion)
     }
     if (fail) {
       state.fail
     } else {
-      println("Begin to use docker daemon at <" + argsMap(dockerUrlOpt) + ">" + " with api version <" + client.daemonClient.dockerClient.versionCmd().exec().getApiVersion + ">")
+      println("Begin to use docker daemon at <" + argsMap(dockerUrlOpt) + ">" + " with api version <" + client.dockerVersion + ">")
       state
     }
   }

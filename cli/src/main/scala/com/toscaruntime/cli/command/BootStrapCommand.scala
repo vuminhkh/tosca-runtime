@@ -2,12 +2,9 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Files
 
-import com.github.dockerjava.api.model.Frame
-import com.github.dockerjava.core.command.LogContainerResultCallback
 import com.toscaruntime.cli.util.DeployUtil
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
-import com.toscaruntime.util.DockerUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -57,20 +54,13 @@ object BootStrapCommand {
           providerConfigurationPath).awaitImageId()
         println("Packaged bootstrap configuration as docker image <" + image + ">")
         val containerId = client.createBootstrapAgent(providerName).getId
-        val generatedDeploymentId = client.generateDeploymentIdForBootstrap(providerName)
-        val logCallBack = new LogContainerResultCallback() {
-          override def onNext(item: Frame): Unit = {
-            print(new String(item.getPayload, "UTF-8"))
-            super.onNext(item)
-          }
-        }
+        val logCallback = client.tailContainerLog(containerId, System.out)
         try {
-          DockerUtil.showLog(client.daemonClient.dockerClient, containerId, true, 200, logCallBack)
-          DeployUtil.waitForDeploymentAgent(client, generatedDeploymentId)
+          DeployUtil.waitForBootstrapAgent(client, providerName)
           val details = DeployUtil.bootstrap(client, providerName)
           DeployUtil.printDetails("Bootstrap " + providerName, details)
         } finally {
-          logCallBack.close()
+          logCallback.close()
         }
       } else {
         println("Failed to compile bootstrap topology")

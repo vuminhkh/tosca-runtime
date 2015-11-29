@@ -41,7 +41,7 @@ object AgentsCommand {
       |start    : start agent, agent will begin to manage deployment
       |stop     : stop agent, agent will not manage deployment anymore
       |deploy   : launch default deployment workflow
-      |undeploy : launch default undeployment workflow
+      |undeploy : launch default un-deployment workflow
       |delete   : delete agent
     """.stripMargin
   )
@@ -51,7 +51,7 @@ object AgentsCommand {
     val toscaClient = state.attributes.get(Attributes.clientAttribute).get
     args.head match {
       case "list" =>
-        DeployUtil.list(toscaClient)
+        DeployUtil.listDeploymentAgents(toscaClient)
       case ("info", deploymentId: String) =>
         DeployUtil.printDetails(toscaClient, deploymentId)
       case ("deploy", deploymentId: String) =>
@@ -59,13 +59,13 @@ object AgentsCommand {
       case ("undeploy", deploymentId: String) =>
         toscaClient.undeploy(deploymentId)
       case ("start", deploymentId: String) =>
-        toscaClient.start(deploymentId)
+        toscaClient.startDeploymentAgent(deploymentId)
         println("Started " + deploymentId)
       case ("stop", deploymentId: String) =>
-        toscaClient.stop(deploymentId)
+        toscaClient.stopDeploymentAgent(deploymentId)
         println("Stopped " + deploymentId)
       case ("delete", deploymentId: String) =>
-        toscaClient.delete(deploymentId)
+        toscaClient.deleteDeploymentAgent(deploymentId)
         println("Deleted " + deploymentId)
     }
     state

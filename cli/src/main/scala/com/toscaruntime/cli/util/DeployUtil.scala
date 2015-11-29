@@ -18,12 +18,18 @@ object DeployUtil extends LazyLogging {
 
   private val waitForEver = 365 day
 
-  def list(client: ToscaRuntimeClient) = {
-    val deployments = Await.result(client.listDeployments(), waitForEver)
-    println("Daemon has " + deployments.length + " deployment agents : ")
-    deployments.foreach { deployment =>
-      println(deployment.name + "\t\t" + deployment.agentStatus + "\t\t" + deployment.agentCreated + "\t\t" + deployment.agentIP + "\t\t" + deployment.agentId)
+  def listDeploymentAgents(client: ToscaRuntimeClient) = {
+    val deployments = Await.result(client.listDeploymentAgents(), waitForEver)
+    println("Daemon has " + deployments.length + " deployment agent(s) : ")
+    val headers = List("Deployment Id", "Status", "Created", "IP", "Container Id")
+    val deploymentsData = deployments.map { deployment =>
+      List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIP, deployment.agentId)
     }
+    println(TabulatorUtil.format(headers :: deploymentsData))
+  }
+
+  def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.deploy(deploymentId), waitForEver)
   }
 
   def bootstrap(client: ToscaRuntimeClient, provider: String) = {
@@ -31,7 +37,7 @@ object DeployUtil extends LazyLogging {
   }
 
   def printDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
-    val details = Await.result(client.getDeploymentInformation(deploymentId), waitForEver)
+    val details = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
     printDetails("Deployment " + deploymentId, details)
   }
 
@@ -43,9 +49,13 @@ object DeployUtil extends LazyLogging {
         println(" \t+ " + instance.id + ": " + instance.state)
       }
     }
-    println("Output for " + name + " :")
-    details.outputs.foreach { output =>
-      println(" - " + output._1 + " = " + output._2)
+    if (details.outputs.nonEmpty) {
+      println("Output for " + name + " :")
+      details.outputs.foreach { output =>
+        println(" - " + output._1 + " = " + output._2)
+      }
+    } else {
+      println(name + " does not have any output")
     }
   }
 
@@ -53,7 +63,15 @@ object DeployUtil extends LazyLogging {
     RetryUtil.doActionWithRetry(new Action[Any] {
       override def getName: String = "Wait for deployment " + deploymentId
 
-      override def doAction(): Any = Await.result(client.getDeploymentInformation(deploymentId), waitForEver)
+      override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
+    }, Integer.MAX_VALUE, 2000L, classOf[Throwable])
+  }
+
+  def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String) = {
+    RetryUtil.doActionWithRetry(new Action[Any] {
+      override def getName: String = "Wait for bootstrap " + provider
+
+      override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider), waitForEver)
     }, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }
 }

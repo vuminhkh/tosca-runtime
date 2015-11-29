@@ -4,7 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.cli.command._
-import com.toscaruntime.rest.client.{DockerDaemonClient, ToscaRuntimeClient}
+import com.toscaruntime.rest.client.ToscaRuntimeClient
 import sbt._
 
 /**
@@ -20,17 +20,12 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
   def run(configuration: xsbti.AppConfiguration): xsbti.MainResult =
     MainLoop.runLogged(initialState(configuration))
 
-  def buildDockerClient(url: String, certificatePath: String) = {
-    println("Using docker daemon with url <" + url + "> and certificate at <" + certificatePath + ">")
-    new DockerDaemonClient(url, certificatePath)
-  }
-
-  def buildDockerClient(basedir: Path): DockerDaemonClient = {
+  def buildDockerClient(basedir: Path) = {
     val daemonUrlSystemProperty = "tosca-runtime.docker.daemon.url"
     System.getProperty(daemonUrlSystemProperty) match {
       case url: String =>
         println("Using daemon url configured from system property " + daemonUrlSystemProperty)
-        buildDockerClient(url, System.getProperty("tosca-runtime.docker.daemon.cert"))
+        new ToscaRuntimeClient(url, System.getProperty("tosca-runtime.docker.daemon.cert"))
       case null => System.getProperty("os.name") match {
         case windowsOrMac if windowsOrMac.startsWith("Windows") || windowsOrMac.startsWith("Mac") =>
           val url = "https://192.168.99.100:2376"
@@ -47,11 +42,13 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
             Files.copy(cfp.resolve("cert.pem"), dockerDefaultConfCert.resolve("cert.pem"))
             Files.copy(cfp.resolve("ca.pem"), dockerDefaultConfCert.resolve("ca.pem"))
           }
-          buildDockerClient(url, certificatePath)
+          println("Using docker daemon with url <" + url + "> and certificate at <" + certificatePath + ">")
+          new ToscaRuntimeClient(url, certificatePath)
         case other: String =>
           println("Using default docker daemon configuration for " + other)
           val url = "unix:///var/run/docker.sock"
-          buildDockerClient(url, null)
+          println("Using docker daemon with url <" + url + "> and no certificate")
+          new ToscaRuntimeClient(url, null)
       }
     }
   }
@@ -62,7 +59,6 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val commandDefinitions = Seq(
       CompileCommand.instance,
       PackageCommand.instance,
-      DeployCommand.instance,
       DeploymentsCommand.instance,
       UseCommand.instance,
       BootStrapCommand.instance,
@@ -77,7 +73,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val osName = System.getProperty("os.name")
     println("Starting tosca runtime cli on <" + osName + "> operating system from <" + basedir + ">")
     val attributes = AttributeMap(
-      AttributeEntry(Attributes.clientAttribute, new ToscaRuntimeClient(buildDockerClient(basedir))),
+      AttributeEntry(Attributes.clientAttribute, buildDockerClient(basedir)),
       AttributeEntry(Attributes.basedirAttribute, basedir)
     )
     State(configuration, commandDefinitions, Set.empty, None, Seq("shell"), State.newHistory, attributes, initialGlobalLogging, State.Continue)

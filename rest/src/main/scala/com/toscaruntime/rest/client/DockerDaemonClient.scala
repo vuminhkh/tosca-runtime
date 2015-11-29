@@ -1,14 +1,15 @@
 package com.toscaruntime.rest.client
 
-import java.io.FileWriter
+import java.io.{FileWriter, PrintStream}
 import java.net.URL
 import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.github.dockerjava.api.DockerClient
-import com.github.dockerjava.api.model.{ExposedPort, Filters, InternetProtocol, Ports}
-import com.github.dockerjava.core.command.BuildImageResultCallback
+import com.github.dockerjava.api.model._
+import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContainerResultCallback}
 import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
+import com.toscaruntime.exception.ResourcesNotFoundException
 import com.toscaruntime.rest.model.DeploymentInfo
 import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.impl.ConfigImpl
@@ -60,7 +61,7 @@ class DockerDaemonClient(url: String, certPath: String) {
     }
   }
 
-  def listDeployments() = {
+  def listDeploymentAgents() = {
     val filters = new Filters().withLabels(RuntimeConstant.ORGANIZATION_LABEL + "=" + RuntimeConstant.ORGANIZATION_VALUE)
     // TODO container that has been stopped, must be filtered out or status should be sent back
     val containers = dockerClient.listContainersCmd().withShowAll(true).withFilters(filters).exec().asScala
@@ -149,7 +150,7 @@ class DockerDaemonClient(url: String, certPath: String) {
     images.headOption
   }
 
-  def listImages() = {
+  def listDeploymentImages() = {
     val images = dockerClient.listImagesCmd()
       .withFilters("{\"label\":[\"" + RuntimeConstant.ORGANIZATION_LABEL + "=" + RuntimeConstant.ORGANIZATION_VALUE + "\"]}").exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
@@ -158,7 +159,7 @@ class DockerDaemonClient(url: String, certPath: String) {
     }
   }
 
-  def deleteImage(deploymentId: String) = {
+  def deleteDeploymentImage(deploymentId: String) = {
     dockerClient.removeImageCmd(getAgentImage(deploymentId).get.getId).exec()
   }
 
@@ -215,5 +216,25 @@ class DockerDaemonClient(url: String, certPath: String) {
 
   def delete(deploymentId: String) = {
     dockerClient.removeContainerCmd(getAgent(deploymentId).get.getId).withForce(true).exec()
+  }
+
+  def tailContainerLog(containerId: String, output: PrintStream) = {
+    val logCallBack = new LogContainerResultCallback() {
+      override def onNext(item: Frame): Unit = {
+        output.print(new String(item.getPayload, "UTF-8"))
+        super.onNext(item)
+      }
+    }
+    DockerUtil.showLog(dockerClient, containerId, true, 200, logCallBack)
+    logCallBack
+  }
+
+  def tailLog(deploymentId: String, output: PrintStream) = {
+    val containerId = getAgent(deploymentId).getOrElse(throw new ResourcesNotFoundException("Deployment " + deploymentId + " not found")).getId
+    tailContainerLog(containerId, output)
+  }
+
+  def version = {
+    dockerClient.versionCmd().exec().getApiVersion
   }
 }

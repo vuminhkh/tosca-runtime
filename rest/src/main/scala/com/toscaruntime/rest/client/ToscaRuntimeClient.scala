@@ -1,11 +1,12 @@
 package com.toscaruntime.rest.client
 
+import java.io.PrintStream
 import java.net.ConnectException
 import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.BadConfigurationException
+import com.toscaruntime.exception.{BadConfigurationException, ResourcesNotFoundException}
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.{JsObject, JsString, JsValue}
@@ -16,19 +17,22 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 /**
-  * A holder for tosca runtime client
+  * Entry point to use toscaruntime service. Offer all available toscaruntime command.
   *
   * @author Minh Khang VU
   */
-class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLogging {
+class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   private val system = akka.actor.ActorSystem("system")
+
+  private val daemonClient: DockerDaemonClient = new DockerDaemonClient(url, certPath)
+
   /**
     * When proxy url is not defined, we are in bootstrap mode on a non toscaruntime docker daemon
     */
   private var proxyURLOpt = daemonClient.getProxyURL
 
-  def setDaemonClient(url: String, certPath: String) = {
+  def switchConnection(url: String, certPath: String) = {
     daemonClient.setDockerClient(url, certPath)
     proxyURLOpt = daemonClient.getProxyURL
   }
@@ -41,32 +45,32 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
     new NingWSClient(builder.build)
   }
 
-  private def getURL(deploymentId: String) = {
-    proxyURLOpt.map(_ + "/deployments/" + deploymentId).getOrElse(daemonClient.getBootstrapAgentURL(deploymentId).getOrElse(throw new RuntimeException("Deployment agent " + deploymentId + " is not running")))
+  private def getDeploymentAgentURL(deploymentId: String) = {
+    proxyURLOpt.map(_ + "/deployments/" + deploymentId).getOrElse(daemonClient.getBootstrapAgentURL(deploymentId).getOrElse(throw new ResourcesNotFoundException("Deployment agent " + deploymentId + " is not running")))
   }
 
-  def listDeployments() = {
+  def listDeploymentAgents() = {
     proxyURLOpt.map { proxyURL =>
       wsClient.url(proxyURL + "/deployments").get().map(_.json.as[RestResponse[List[DeploymentInfo]]].data.get)
-    }.getOrElse(Future(daemonClient.listDeployments().values.toList))
+    }.getOrElse(Future(daemonClient.listDeploymentAgents().values.toList))
   }
 
-  def getDeploymentInformation(deploymentId: String) = {
-    val url = getURL(deploymentId)
+  def getDeploymentAgentInfo(deploymentId: String) = {
+    val url = getDeploymentAgentURL(deploymentId)
     wsClient.url(url).get().map { response =>
       response.json.as[RestResponse[DeploymentDetails]].data.get
     }
   }
 
   def deploy(deploymentId: String) = {
-    val url = getURL(deploymentId)
+    val url = getDeploymentAgentURL(deploymentId)
     wsClient.url(url).post("").map {
       case response => response.json.as[RestResponse[DeploymentDetails]].data.get
     }
   }
 
   def undeploy(deploymentId: String) = {
-    val url = getURL(deploymentId)
+    val url = getDeploymentAgentURL(deploymentId)
     wsClient.url(url).delete()
   }
 
@@ -96,6 +100,10 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
         fromJson(response.json.as[RestResponse[JsObject]].data.get)
       }
     }.getOrElse(Future(Map.empty))
+  }
+
+  def getBootstrapAgentInfo(provider: String, target: String = "default") = {
+    getDeploymentAgentInfo(generateDeploymentIdForBootstrap(provider, target))
   }
 
   def updateBootstrapContext(context: Map[String, String]) = {
@@ -131,16 +139,16 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
     daemonClient.createAgentImage(deploymentPath, bootstrapContext)
   }
 
-  def listImages() = {
-    daemonClient.listImages()
+  def listDeploymentImages() = {
+    daemonClient.listDeploymentImages()
   }
 
   def cleanDanglingImages() = {
     daemonClient.cleanDanglingImages()
   }
 
-  def deleteImage(deploymentId: String) = {
-    daemonClient.deleteImage(deploymentId)
+  def deleteDeploymentImage(deploymentId: String) = {
+    daemonClient.deleteDeploymentImage(deploymentId)
   }
 
   def createDeploymentAgent(deploymentId: String) = {
@@ -151,19 +159,31 @@ class ToscaRuntimeClient(var daemonClient: DockerDaemonClient) extends LazyLoggi
     daemonClient.createBootstrapAgent(provider, target)
   }
 
-  def generateDeploymentIdForBootstrap(provider: String, target: String = "default") = {
+  private def generateDeploymentIdForBootstrap(provider: String, target: String = "default") = {
     daemonClient.generateDeploymentIdForBootstrap(provider, target)
   }
 
-  def start(deploymentId: String) = {
+  def startDeploymentAgent(deploymentId: String) = {
     daemonClient.start(deploymentId)
   }
 
-  def stop(deploymentId: String) = {
+  def stopDeploymentAgent(deploymentId: String) = {
     daemonClient.stop(deploymentId)
   }
 
-  def delete(deploymentId: String) = {
+  def deleteDeploymentAgent(deploymentId: String) = {
     daemonClient.delete(deploymentId)
+  }
+
+  def tailLog(deploymentId: String, output: PrintStream) = {
+    daemonClient.tailLog(deploymentId, output)
+  }
+
+  def tailContainerLog(containerId: String, output: PrintStream) = {
+    daemonClient.tailContainerLog(containerId, output)
+  }
+
+  def dockerVersion = {
+    daemonClient.version
   }
 }

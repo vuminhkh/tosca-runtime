@@ -1,9 +1,6 @@
 package com.toscaruntime.cli.command
 
-import com.github.dockerjava.api.model.Frame
-import com.github.dockerjava.core.command.LogContainerResultCallback
 import com.toscaruntime.cli.Attributes
-import com.toscaruntime.util.DockerUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -36,17 +33,14 @@ object LogCommand {
         println(line)
     } else {
       val containerId = argsMap(containerIdOpt)
-      val dockerClient = state.attributes.get(Attributes.clientAttribute).get.daemonClient.dockerClient
-      val logCallBack = new LogContainerResultCallback() {
-        override def onNext(item: Frame): Unit = {
-          print(new String(item.getPayload, "UTF-8"))
-          super.onNext(item)
-        }
-      }
+      val client = state.attributes.get(Attributes.clientAttribute).get
       println("***Press enter to stop following logs***")
-      DockerUtil.showLog(dockerClient, containerId, true, 200, logCallBack)
-      StdIn.readLine()
-      logCallBack.close()
+      val logCallback = client.tailContainerLog(containerId, System.out)
+      try {
+        StdIn.readLine()
+      } finally {
+        logCallback.close()
+      }
     }
     state
   }

@@ -8,7 +8,7 @@ compile -p openstack -o /Users/vuminhkh/Data/worpress-os.zip -cp /Users/vuminhkh
 
 Package a compiled recipe to a docker image:
 
-package -n wordpress-dev -r /Users/vuminhkh/Data/worpress.zip -p docker
+package -n wordpress-dk -r /Users/vuminhkh/Data/worpress.zip -p docker
 
 package -n wordpress-os -r /Users/vuminhkh/Data/worpress-os.zip -p openstack -i /Users/vuminhkh/Projects/tosca-runtime/cli/target/universal/stage/bootstrap/openstack/default/inputs.yml
 

@@ -18,7 +18,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
   val dockerClient = connect(System.getenv("DOCKER_HOST"))
 
   def refreshAgentsURL() = {
-    val allDeployments = dockerClient.listDeployments()
+    val allDeployments = dockerClient.listDeploymentAgents()
     allDeployments.foreach {
       case (deploymentId: String, deploymentInfo: DeploymentInfo) => cache.set(deploymentId, "http://" + deploymentInfo.agentIP + ":9000/deployment")
     }
@@ -62,7 +62,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
   }
 
   def list = Action {
-    Ok(Json.toJson(RestResponse.success[List[DeploymentInfo]](Some(dockerClient.listDeployments().values.toList))))
+    Ok(Json.toJson(RestResponse.success[List[DeploymentInfo]](Some(dockerClient.listDeploymentAgents().values.toList))))
   }
 
   // TODO better error handling
