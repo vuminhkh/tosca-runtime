@@ -18,6 +18,6 @@ deployments
 
 Create deployment agent:
 
-deploy -i wordpress-dev
+deployments run wordpress-dk
 
-deploy -i wordpress-os
+deployments run wordpress-os

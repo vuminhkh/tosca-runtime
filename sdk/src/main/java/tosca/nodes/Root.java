@@ -156,8 +156,6 @@ public abstract class Root extends AbstractRuntimeType {
             if (getParent() != null) {
                 return getParent().evaluateFunction(functionName, entity, path);
             } else {
-                log.warn("Instance " + getId() + " of node " + getName() + ": Evaluate " + functionName + " on " + entity + " and path " + path
-                        + " is returning null");
                 return "";
             }
         } else {

@@ -68,7 +68,7 @@ object PackageCommand {
       state.fail
     } else {
       println("Packaged deployment as docker image <" + imageId + ">")
-      println("To deploy the package 'deploy -d " + argsMap.getOrElse(deploymentNameOpt, "yourDeploymentId") + "'")
+      println("To deploy the package 'deployments run " + argsMap.getOrElse(deploymentNameOpt, "yourDeploymentId") + "'")
       state
     }
   }

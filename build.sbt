@@ -53,7 +53,7 @@ lazy val common = project
   .settings(commonSettings: _*)
   .settings(
     name := "common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, constant, exception).enablePlugins(UniversalPlugin)
+  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, constant, exception, restModel).enablePlugins(UniversalPlugin)
 
 lazy val constant = project.in(file("common/constant"))
   .settings(commonSettings: _*)
@@ -102,15 +102,21 @@ lazy val fileUtil = project.in(file("common/file-util"))
     libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
   ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
+lazy val restModel = project.in(file("common/rest-model"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "rest-model",
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2"
+  ).enablePlugins(UniversalPlugin)
+
 lazy val rest = project.in(file("rest"))
   .settings(commonSettings: _*)
   .settings(
     name := "rest",
-    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
-  ).dependsOn(dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(restModel, dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
   .settings(commonSettings: _*)
@@ -136,9 +142,8 @@ lazy val deployer = project
     packageName in Docker := "toscaruntime/deployer",
     version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
-
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
-  ).dependsOn(runtime, rest).enablePlugins(PlayScala, DockerPlugin)
+  ).dependsOn(runtime, restModel).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val proxy = project
   .settings(commonSettings: _*)

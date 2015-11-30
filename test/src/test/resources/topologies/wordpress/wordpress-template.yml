@@ -6,29 +6,10 @@ template_author: FastConnect
 
 topology_template:
   description: Wordpress deployment template
-  inputs:
-    os_arch:
-      type: string
-      constraints:
-        - valid_values: ["x86_32", "x86_64"]
-      description: The host Operating System (OS) architecture.
-    os_type:
-      type: string
-      constraints:
-        - valid_values: ["linux", "aix", "mac os", "windows"]
-      description: The host Operating System (OS) type.
-    os_distribution:
-      type: string
-      required: false
-      description: The host Operating System (OS) distribution.
-    os_version:
-      type: string
-      required: false
-      description: The host Operating System version.
   outputs:
     wordpress_url:
       description: The URL to access the wordpress
-      value: { concat: ["http://", get_attribute: [computeWww, public_ip_address], ":", get_property: [apache, port], get_property: [wordpress, context_path] ] }
+      value: { concat: ["http://", get_attribute: [computeWww, ip_address], ":", get_property: [apache, port], get_property: [wordpress, context_path] ] }
 
   node_templates:
     wordpress:
@@ -49,26 +30,12 @@ topology_template:
       type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: phusion/baseimage
-        os_type: { get_input: os_type }
-        os_distribution: { get_input: os_distribution }
-        os_version: { get_input: os_version }
-        os_arch: { get_input: os_arch }
-        num_cpus: 1
-        mem_size: 1024 MB
-        disk_size: 1 GB
     computeWww:
       type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: phusion/baseimage
         exposed_ports: 80
         port_mappings: 80 - 51000
-        os_type: { get_input: os_type }
-        os_distribution: { get_input: os_distribution }
-        os_version: { get_input: os_version }
-        os_arch: { get_input: os_arch }
-        num_cpus: 1
-        mem_size: 1024 MB
-        disk_size: 1 GB
     apache:
       type: alien.nodes.Apache
       properties:

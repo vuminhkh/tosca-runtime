@@ -5,10 +5,11 @@ import java.nio.file.{Files, Paths}
 
 import com.toscaruntime.constant.DeployerConstant
 import com.toscaruntime.rest.model._
-import com.toscaruntime.sdk.Deployment
 import com.toscaruntime.runtime.Deployer
+import com.toscaruntime.sdk.Deployment
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
+import org.apache.commons.lang.StringUtils
 import org.yaml.snakeyaml.Yaml
 import play.api.libs.json.Json
 import play.api.mvc.{Action, Controller}
@@ -81,18 +82,18 @@ object Application extends Controller with Logging {
   def fromDeployment(name: String, deployment: Deployment) = {
     val nodes = deployment.getNodes.asScala.map { node =>
       val instances = node.getInstances.asScala.map { instance =>
-        val instanceAttributes = if (instance.getAttributes == null) Map.empty[String, String] else instance.getAttributes.asScala.toMap
+        val instanceAttributes = if (instance.getAttributes == null) Map.empty[String, String] else instance.getAttributes.asScala.toMap.filter { case (key, value) => StringUtils.isNotEmpty(value) && StringUtils.isNotEmpty(key) }
         Instance(instance.getId, instance.getState, instanceAttributes)
       }.toList
-      val nodeProperties = if (node.getProperties == null) Map.empty[String, String] else node.getProperties.asScala.toMap.asInstanceOf[Map[String, String]]
+      val nodeProperties = if (node.getProperties == null) Map.empty[String, String] else node.getProperties.asScala.toMap.asInstanceOf[Map[String, String]].filter { case (key, value) => StringUtils.isNotEmpty(value) && StringUtils.isNotEmpty(key) }
       Node(node.getId, nodeProperties, instances)
     }.toList
     val relationships = deployment.getRelationshipNodes.asScala.map { relationshipNode =>
       val relationshipInstances = relationshipNode.getRelationshipInstances.asScala.map { relationshipInstance =>
-        val relationshipInstanceAttributes = if (relationshipInstance.getAttributes == null) Map.empty[String, String] else relationshipInstance.getAttributes.asScala.toMap
+        val relationshipInstanceAttributes = if (relationshipInstance.getAttributes == null) Map.empty[String, String] else relationshipInstance.getAttributes.asScala.toMap.filter { case (key, value) => StringUtils.isNotEmpty(value) && StringUtils.isNotEmpty(key) }
         RelationshipInstance(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstanceAttributes)
       }.toList
-      val relationshipNodeProperties = if (relationshipNode.getProperties == null) Map.empty[String, String] else relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]]
+      val relationshipNodeProperties = if (relationshipNode.getProperties == null) Map.empty[String, String] else relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]].filter { case (key, value) => StringUtils.isNotEmpty(value) && StringUtils.isNotEmpty(key) }
       RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)
     }.toList
     DeploymentDetails(name, nodes, relationships, deployment.getOutputs.asScala.toMap.map { case (key: String, value: AnyRef) => (key, String.valueOf(value)) })
