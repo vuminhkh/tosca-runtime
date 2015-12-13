@@ -75,18 +75,17 @@ public class Compute extends tosca.nodes.Compute {
         return serverId;
     }
 
-    private void doExecute(String operationArtifactPath, Map<String, String> inputs) {
+    private Map<String, String> doExecute(String operationArtifactPath, Map<String, String> inputs) {
         try {
-            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
+            return RetryUtil.doActionWithRetry(new RetryUtil.Action<Map<String, String>>() {
                 @Override
                 public String getName() {
                     return operationArtifactPath;
                 }
 
                 @Override
-                public Object doAction() throws Throwable {
-                    sshExecutor.executeScript(config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
-                    return null;
+                public Map<String, String> doAction() throws Throwable {
+                    return sshExecutor.executeScript(getId(), config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
                 }
             }, 12, 30000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
@@ -95,7 +94,10 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
-    public void execute(String operationArtifactPath, Map<String, String> inputs) {
+    public Map<String, String> execute(String operationArtifactPath, Map<String, String> inputs) {
+        if (this.serverId == null) {
+            throw new NonRecoverableException("Must create the server before executing operation on it");
+        }
         if (this.config.isBootstrap()) {
             // Synchronize in bootstrap mode to not create multiple floating ip in the same time
             synchronized (this) {
@@ -110,18 +112,20 @@ public class Compute extends tosca.nodes.Compute {
                             floatingIPApi.addToServer(floatingIP.getIp(), this.serverId);
                             destroySshExecutor();
                             initSshExecutor(floatingIP.getIp());
-                            log.info("Created new floating ip {} in bootstrap mode in order to access to the machine", floatingIP.getIp());
+                            log.info("Bootstrap mode : for node {} created new floating ip {} in bootstrap mode in order to access to the machine", getId(), floatingIP.getIp());
                         } else {
+                            log.info("Bootstrap mode : for node {} no external network configured, will establish connection with private IP {}", getId(), this.ipAddress);
                             if (sshExecutor == null) {
                                 initSshExecutor(this.ipAddress);
                             }
                         }
                     } else {
+                        log.info("Bootstrap mode : node {} is connected to external network, will establish connection with public IP {}", getId(), attachedFloatingIP);
                         if (sshExecutor == null) {
                             initSshExecutor(attachedFloatingIP);
                         }
                     }
-                    doExecute(operationArtifactPath, inputs);
+                    return doExecute(operationArtifactPath, inputs);
                 } finally {
                     // Remove the floating ip at the end of the operation
                     if (floatingIP != null) {
@@ -133,7 +137,7 @@ public class Compute extends tosca.nodes.Compute {
                 }
             }
         } else {
-            doExecute(operationArtifactPath, inputs);
+            return doExecute(operationArtifactPath, inputs);
         }
     }
 
@@ -199,6 +203,9 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     private void initSshExecutor(String ipForSSSHSession) {
+        if (StringUtils.isBlank(ipForSSSHSession)) {
+            throw new NonRecoverableException("IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
+        }
         String user = getMandatoryProperty("login");
         String keyPath = getMandatoryProperty("key_path");
         String absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
@@ -254,13 +261,13 @@ public class Compute extends tosca.nodes.Compute {
                 throw new NonRecoverableException("Could not allocate floating ip from pool " + externalNetwork.getNetworkId());
             }
             this.floatingIPApi.addToServer(floatingIP.getIp(), this.serverId);
-            this.getAttributes().put("public_ip_address", floatingIP.getIp());
+            setAttribute("public_ip_address", floatingIP.getIp());
             this.createdFloatingIPs.add(floatingIP);
             log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
         }
-        getAttributes().put("ip_address", this.ipAddress);
-        getAttributes().put("tosca_id", server.getId());
-        getAttributes().put("tosca_name", server.getName());
+        setAttribute("ip_address", this.ipAddress);
+        setAttribute("tosca_id", server.getId());
+        setAttribute("tosca_name", server.getName());
         if (!this.config.isBootstrap()) {
             // If it's not in bootstrap mode initialize immediately ssh session
             initSshExecutor(ipAddress);
@@ -293,5 +300,10 @@ public class Compute extends tosca.nodes.Compute {
         this.createdFloatingIPs.clear();
         this.serverApi.delete(this.serverId);
         log.info("Deleted server with id " + this.serverId);
+        this.serverId = null;
+        this.removeAttribute("ip_address");
+        this.removeAttribute("tosca_id");
+        this.removeAttribute("tosca_name");
+        this.removeAttribute("public_ip_address");
     }
 }

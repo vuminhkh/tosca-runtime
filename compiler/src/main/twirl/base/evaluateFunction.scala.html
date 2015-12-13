@@ -1,4 +1,6 @@
 @import com.toscaruntime.compiler.runtime.Function
 
 @(function: Function)
-evaluateFunction("@function.name", "@function.entity", "@function.path")
+evaluateFunction("@function.name"@{
+  function.paths.map { path => Html(",\"" + path + "\"") }
+})

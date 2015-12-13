@@ -1,0 +1,10 @@
+@import com.toscaruntime.compiler.runtime.{CompositeFunction, Function, ScalarValue, Value}
+@import org.apache.commons.lang.StringEscapeUtils
+@(value: Value)
+@{
+  value match {
+    case scalarValue: ScalarValue => Html("\"" + StringEscapeUtils.escapeJava(scalarValue.value) + "\"")
+    case function: Function => base.html.evaluateFunction(function)
+    case function: CompositeFunction => base.html.evaluateCompositeFunction(function)
+  }
+}

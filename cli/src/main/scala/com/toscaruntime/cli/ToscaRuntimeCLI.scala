@@ -62,6 +62,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       DeploymentsCommand.instance,
       UseCommand.instance,
       BootStrapCommand.instance,
+      TeardownCommand.instance,
       LogCommand.instance,
       AgentsCommand.instance,
       BasicCommands.shell,

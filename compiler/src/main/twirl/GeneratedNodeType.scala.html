@@ -1,18 +1,21 @@
-@import com.toscaruntime.compiler.runtime.NodeType
 @import com.toscaruntime.compiler.CompilerUtil
+@import com.toscaruntime.compiler.runtime.NodeType
 @(nodeType: NodeType)
 package @nodeType.packageName;
 
-public @if(nodeType.isAbstract){abstract }class @nodeType.className extends @nodeType.superClass.getOrElse("tosca.nodes.Root") @Html("{")
+@Html("public ")@if(nodeType.isAbstract) {abstract }class @nodeType.className extends @nodeType.superClass.getOrElse("tosca.nodes.Root") @Html("{")
+
+@Html("public " + nodeType.className + "() {")
+@Html("super();")
+@base.html.generateAttributes(nodeType.attributesDefinitions)
+@Html("}")
+
 @nodeType.methods.map { method =>
-  public void @CompilerUtil.toCamelCase(method.name)@Html("() {")
-      @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
-    @method.inputs.map { input =>
-      @base.html.generateInput(input)
-    }
-    @method.implementation.map { implementation =>
-      getHost().execute("@nodeType.csarName/@implementation", inputs);
-    }
+public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
+  @base.html.generateInputs(method.inputs)
+  @method.implementation.map { implementation =>
+  operationOutputs.put("@method.name", getHost().execute("@nodeType.csarName/@implementation", inputs));
+  }
   @Html("}")
 }
 @Html("}")

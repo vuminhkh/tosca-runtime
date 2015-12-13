@@ -84,7 +84,7 @@ trait YamlParser extends JavaTokenParsers {
   def nestedList[T](listEntryParser: Parser[T]): Parser[List[T]] =
     (nestedListStartPattern ~> repsep(listEntryParser, nestedEntrySeparator) <~ nestedListEndPattern) ^^ (_.toList)
 
-  private def textValueWithSeparator(indentLevel: Int) =
+  def textValueWithSeparator(indentLevel: Int) =
     ((keyLongTextSeparatorPattern ~> longTextValue(indentLevel + 1, withNewLine = false)) |
       (keyLongTextWithNewLineSeparatorPattern ~> longTextValue(indentLevel + 1, withNewLine = true)) |
       (keyValueSeparatorPattern ~> textValue)) <~ lineEndingPattern
@@ -176,8 +176,10 @@ trait YamlParser extends JavaTokenParsers {
   def nestedTextValue: Parser[ParsedValue[String]] =
     positioned(quotedTextValue | nestedNonQuotedTextValuePattern ^^ (scalarText => ParsedValue(scalarText.trim)))
 
+  private def longTextLine = wrapParserWithPosition( """[^\n]+""".r)
+
   def longTextValue(indentLevel: Int, withNewLine: Boolean): Parser[ParsedValue[String]] =
-    positioned((indentAtLeast(indentLevel) into (newIndentLength => textValue ~ opt(lineEndingPattern ~> rep1sep(indent(newIndentLength) ~> textValue, lineEndingPattern)))) ^^ {
+    positioned((indentAtLeast(indentLevel) into (newIndentLength => longTextLine ~ opt(lineEndingPattern ~> rep1sep(indent(newIndentLength) ~> longTextLine, lineEndingPattern)))) ^^ {
       case (firstLine ~ None) => firstLine
       case (firstLine ~ Some(lineList)) => lineList.fold(firstLine)((existingText, nextLine) => ParsedValue(existingText + (if (withNewLine) "\n" else "") + nextLine.value))
     })

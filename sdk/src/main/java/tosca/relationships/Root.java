@@ -5,6 +5,7 @@ import java.util.Map;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.NonRecoverableException;
 import com.toscaruntime.sdk.AbstractRuntimeType;
+import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -20,51 +21,63 @@ public abstract class Root extends AbstractRuntimeType {
         return target;
     }
 
-    protected void executeOperation(String operationName, String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, Map<String, String> inputs) {
         switch (operationName) {
             case "pre_configure_source":
             case "post_configure_source":
             case "add_target":
             case "target_changed":
             case "remove_target":
-                executeSourceOperation(operationArtifactPath, inputs);
-                break;
+                return executeSourceOperation(operationArtifactPath, inputs);
             case "pre_configure_target":
             case "post_configure_target":
             case "add_source":
-                executeTargetOperation(operationArtifactPath, inputs);
-                break;
+                return executeTargetOperation(operationArtifactPath, inputs);
             default:
                 if (operationName.endsWith("_source")) {
-                    executeSourceOperation(operationArtifactPath, inputs);
+                    return executeSourceOperation(operationArtifactPath, inputs);
                 } else if (operationName.endsWith("_target")) {
-                    executeTargetOperation(operationArtifactPath, inputs);
+                    return executeTargetOperation(operationArtifactPath, inputs);
                 } else {
                     throw new NonRecoverableException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
                 }
         }
     }
 
-    protected void executeSourceOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, String> inputs) {
         if (source == null || source.getHost() == null) {
             throw new NonRecoverableException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
-        source.getHost().execute(operationArtifactPath, inputs);
+        return source.getHost().execute(operationArtifactPath, inputs);
     }
 
-    protected void executeTargetOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, String> inputs) {
         if (target == null) {
             throw new NonRecoverableException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
-        target.getHost().execute(operationArtifactPath, inputs);
+        return target.getHost().execute(operationArtifactPath, inputs);
     }
 
-    public String evaluateFunction(String functionName, String entity, String path) {
+    public String evaluateFunction(String functionName, String... paths) {
+        String entity = paths[0];
         switch (entity) {
             case "SOURCE":
-                return source.evaluateFunction(functionName, "SELF", path);
+                return source.evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
             case "TARGET":
-                return target.evaluateFunction(functionName, "SELF", path);
+                return target.evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
+            case "SELF":
+                switch (functionName) {
+                    case "get_property":
+                        return getProperty(paths[1]);
+                    case "get_attribute":
+                        return getAttribute(paths[1]);
+                    case "get_input":
+                        return getInput(paths[1]);
+                    case "get_operation_output":
+                        return getOperationOutput(paths[1], paths[2], paths[3]);
+                    default:
+                        throw new IllegalFunctionException("Function " + functionName + " is not supported");
+                }
             default:
                 throw new IllegalFunctionException("Entity " + entity + " is not supported");
         }
@@ -100,6 +113,21 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public void removeTarget() {
+    }
+
+    @Override
+    public void setAttribute(String key, String value) {
+        super.setAttribute(key, value);
+        // Attribute of the relationship is copied to the node
+        getSource().setAttribute(key, value);
+        getTarget().setAttribute(key, value);
+    }
+
+    @Override
+    public void removeAttribute(String key) {
+        super.removeAttribute(key);
+        getSource().removeAttribute(key);
+        getTarget().removeAttribute(key);
     }
 
     @Override

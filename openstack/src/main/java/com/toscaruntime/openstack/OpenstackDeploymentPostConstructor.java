@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.jclouds.ContextBuilder;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.neutron.v2.NeutronApi;
@@ -36,8 +37,16 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         String user = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "user");
         String password = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "password");
         String region = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "region");
-        String networkId = PropertyUtil.getPropertyAsString(providerProperties, "network_id", PropertyUtil.getPropertyAsString(bootstrapContext, "openstack_network"));
-        String externalNetworkId = PropertyUtil.getPropertyAsString(providerProperties, "external_network_id", PropertyUtil.getPropertyAsString(bootstrapContext, "openstack_external_network"));
+        /**
+         * Network Id and External Network Id here are just default value that will be used in bootstrap mode or when no value is defined for the node
+         * We search first in provider configuration, if not found then we'll look into bootstrap context
+         */
+        String networkId =
+                PropertyUtil.getPropertyAsString(providerProperties, "network_id",
+                        PropertyUtil.getPropertyAsString(bootstrapContext, "network_id"));
+        String externalNetworkId =
+                PropertyUtil.getPropertyAsString(providerProperties, "external_network_id",
+                        PropertyUtil.getPropertyAsString(bootstrapContext, "external_network_id"));
         Properties overrideProperties = PropertyUtil.toProperties(providerProperties, "keystone_url", "tenant", "user", "password", "region");
         NovaApi novaApi = ContextBuilder
                 .newBuilder(new NovaApiMetadata())
@@ -66,10 +75,16 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         SubnetApi subnetApi = neutronApi.getSubnetApi(region);
         FloatingIPApi floatingIPApi = novaApi.getFloatingIPApi(region).get();
         RouterApi routerApi = neutronApi.getRouterApi(region).get();
+        Set<ExternalNetwork> externalNetworks = deployment.getNodeInstancesByType(ExternalNetwork.class);
         Set<Compute> computes = deployment.getNodeInstancesByType(Compute.class);
         for (Compute compute : computes) {
             compute.setServerApi(serverApi);
-            compute.setExternalNetworkId(externalNetworkId);
+            if (StringUtils.isNotBlank(externalNetworkId)) {
+                compute.setExternalNetworkId(externalNetworkId);
+            } else if (!externalNetworks.isEmpty()) {
+                // If no external id configured try to pick one of existing external network in the deployment for bootstrap default
+                compute.setExternalNetworkId(externalNetworks.iterator().next().getNetworkId());
+            }
             compute.setNetworkId(networkId);
             compute.setFloatingIPApi(floatingIPApi);
             Set<ExternalNetwork> connectedExternalNetworks = deployment.getNodeInstancesByRelationship(compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
@@ -77,7 +92,6 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             compute.setNetworks(connectedInternalNetworks);
             compute.setExternalNetworks(connectedExternalNetworks);
         }
-        Set<ExternalNetwork> externalNetworks = deployment.getNodeInstancesByType(ExternalNetwork.class);
         Set<Network> networks = deployment.getNodeInstancesByType(Network.class);
         for (Network network : networks) {
             network.setNetworkApi(networkApi);

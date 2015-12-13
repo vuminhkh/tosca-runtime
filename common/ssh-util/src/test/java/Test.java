@@ -1,3 +1,5 @@
+import java.util.Map;
+
 import com.google.common.collect.Maps;
 import com.toscaruntime.util.SSHExecutor;
 
@@ -7,8 +9,11 @@ import com.toscaruntime.util.SSHExecutor;
 public class Test {
 
     public static void main(String[] args) throws Exception {
-        SSHExecutor executor = new SSHExecutor("ubuntu", "128.136.179.244", 22, "common/ssh-util/src/test/resources/toscaruntime.pem");
+        SSHExecutor executor = new SSHExecutor("ubuntu", "128.136.179.138", 22, "common/ssh-util/src/test/resources/toscaruntime.pem");
         executor.init();
-        executor.executeCommand("ps -ef", Maps.newHashMap());
+        Map<String, String> envVars = executor.executeCommand("test", "export TOTO=TOTO_VALUE", Maps.newHashMap());
+        for (Map.Entry<String, String> envVarEntry : envVars.entrySet()) {
+            System.out.println(envVarEntry.getKey() + " = " + envVarEntry.getValue());
+        }
     }
 }

@@ -5,6 +5,7 @@ import java.net.URL
 import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.github.dockerjava.api.DockerClient
+import com.github.dockerjava.api.command.InspectContainerResponse
 import com.github.dockerjava.api.model._
 import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContainerResultCallback}
 import com.google.common.collect.Maps
@@ -23,20 +24,33 @@ import scala.collection.JavaConverters._
   *
   * @author Minh Khang VU
   */
-class DockerDaemonClient(url: String, certPath: String) {
+class DockerDaemonClient(var url: String, var certPath: String) {
 
   var dockerClient: DockerClient = DockerUtil.buildDockerClient(url, certPath)
 
-  def setDockerClient(url: String, certPath: String) = {
+  def setDockerClient(newUrl: String, newCertPath: String) = {
     dockerClient.close()
-    dockerClient = DockerUtil.buildDockerClient(url, certPath)
+    dockerClient = DockerUtil.buildDockerClient(newUrl, newCertPath)
+    url = newUrl
+    certPath = newCertPath
   }
 
-  def getProxyURL = {
-    dockerClient.infoCmd().exec().getLabels.filter(_.nonEmpty).map { label =>
-      val keyValue = label.split("=")
-      (keyValue(0), keyValue(1))
-    }.toMap.get(RuntimeConstant.PROXY_URL_LABEL)
+  private def findMappedPort(container: InspectContainerResponse, localPort: Int) = {
+    container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == localPort).values.head.head.getHostPort
+  }
+
+  def getProxyURL: Option[String] = {
+    // TODO How to better handle the filter to check that a container is the proxy
+    val filters = new Filters().withLabels(RuntimeConstant.COMPONENT_TYPE_LABEL + "=" + RuntimeConstant.PROXY_TYPE_VALUE)
+    val proxyFound = dockerClient.listContainersCmd().withFilters(filters).withLimit(1).exec()
+    if (proxyFound.isEmpty) {
+      None
+    } else {
+      val proxy = proxyFound.iterator().next()
+      val proxyPort = findMappedPort(dockerClient.inspectContainerCmd(proxy.getId).exec(), 9000)
+      // TODO the public ip to join the container should be discovered more dynamically ?
+      Some("http://" + new URL(url).getHost + ":" + proxyPort)
+    }
   }
 
   def getAgent(deploymentId: String) = {
@@ -53,7 +67,7 @@ class DockerDaemonClient(url: String, certPath: String) {
   }
 
   def getBootstrapAgentURL(deploymentId: String) = {
-    getAgentInfo(deploymentId).filter(_.getState.isRunning).map { container =>
+    getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
       // TODO We dot not manage bootstrap with swarm daemon ?
       val daemonHost = new URL(url).getHost
       val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPort

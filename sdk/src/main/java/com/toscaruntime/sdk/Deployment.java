@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +76,10 @@ public abstract class Deployment {
     protected void initializeInstance(tosca.nodes.Root instance) {
         instance.setConfig(this.config);
         this.nodes.get(instance.getName()).getInstances().add(instance);
+    }
+
+    public DeploymentConfig getConfig() {
+        return config;
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
@@ -173,6 +178,22 @@ public abstract class Deployment {
         return result;
     }
 
+    public void refreshAttributes() {
+        for (Root instance : nodeInstances.values()) {
+            instance.refreshAttributes();
+        }
+        for (tosca.relationships.Root relationship : relationshipInstances) {
+            relationship.refreshAttributes();
+        }
+    }
+
+    public void refreshDeploymentState(AbstractRuntimeType instance, String newState) {
+        if (StringUtils.isNotBlank(newState)) {
+            instance.setState(newState);
+        }
+        refreshAttributes();
+    }
+
     public void install() {
         log.info("Begin to run install workflow");
         Sequence installSequence = new Sequence();
@@ -223,26 +244,26 @@ public abstract class Deployment {
                         @Override
                         public void run() {
                             nodeInstance.create();
-                            nodeInstance.setState("created");
+                            refreshDeploymentState(nodeInstance, "created");
                             Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
                                 relationship.preConfigureSource();
-                                relationship.setState("preConfiguredSource");
+                                refreshDeploymentState(relationship, "preConfiguredSource");
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
                                 relationship.preConfigureTarget();
-                                relationship.setState("preConfiguredTarget");
+                                refreshDeploymentState(relationship, "preConfiguredTarget");
                             }
                             nodeInstance.configure();
                             nodeInstance.setState("configured");
                             for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
                                 relationship.postConfigureSource();
-                                relationship.setState("postConfiguredSource");
+                                refreshDeploymentState(relationship, "postConfiguredSource");
                             }
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
                                 relationship.postConfigureTarget();
-                                relationship.setState("postConfiguredTarget");
+                                refreshDeploymentState(relationship, "postConfiguredTarget");
                             }
                         }
                     });
@@ -265,13 +286,12 @@ public abstract class Deployment {
                         nodeInstance.setState("started");
                         Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
                         for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                            relationship.addTarget();
-                            relationship.setState("addedTarget");
-                        }
-                        Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                            relationship.addSource();
-                            relationship.setState("addedSource");
+                            if (!waitForStartedQueue.contains(relationship.getTarget())) {
+                                relationship.addSource();
+                                refreshDeploymentState(relationship, "addedSource");
+                                relationship.addTarget();
+                                refreshDeploymentState(relationship, "addedTarget");
+                            }
                         }
                     }
                 });
@@ -339,7 +359,7 @@ public abstract class Deployment {
                                 } catch (Exception e) {
                                     log.warn(relationship + " removeTarget failed", e);
                                 }
-                                relationship.setState("removedTarget");
+                                refreshDeploymentState(relationship, "removedTarget");
                             }
                             Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
                             for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
@@ -348,7 +368,7 @@ public abstract class Deployment {
                                 } catch (Exception e) {
                                     log.warn(relationship + " removeSource failed", e);
                                 }
-                                relationship.setState("removedSource");
+                                refreshDeploymentState(relationship, "removedSource");
                             }
                         }
                     });
@@ -371,7 +391,7 @@ public abstract class Deployment {
                         } catch (Exception e) {
                             log.warn(nodeInstance + " delete failed", e);
                         }
-                        nodeInstance.setState("deleted");
+                        refreshDeploymentState(nodeInstance, "deleted");
                     }
                 });
                 processedDeleted.add(nodeInstance);
@@ -386,18 +406,23 @@ public abstract class Deployment {
         return new HashMap<>();
     }
 
-    public Object evaluateFunction(String functionName, String entityName, String path) {
-        Set<Root> instances = getNodeInstancesByNodeName(entityName);
-        if (instances.isEmpty()) {
-            return null;
-        } else if (instances.size() == 1) {
-            return instances.iterator().next().evaluateFunction(functionName, "SELF", path);
-        } else {
-            Map<String, Object> outputResult = new HashMap<>();
-            for (Root instance : instances) {
-                outputResult.put(instance.getId(), instance.evaluateFunction(functionName, "SELF", path));
-            }
-            return outputResult;
+    public Object evaluateFunction(String functionName, String... paths) {
+        switch (functionName) {
+            case "get_input":
+                return config.getInputs().get(paths[0]);
+            default:
+                Set<Root> instances = getNodeInstancesByNodeName(paths[0]);
+                if (instances.isEmpty()) {
+                    return null;
+                } else if (instances.size() == 1) {
+                    return instances.iterator().next().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
+                } else {
+                    Map<String, Object> outputResult = new HashMap<>();
+                    for (Root instance : instances) {
+                        outputResult.put(instance.getId(), instance.evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths)));
+                    }
+                    return outputResult;
+                }
         }
     }
 

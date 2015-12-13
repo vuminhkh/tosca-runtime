@@ -42,6 +42,11 @@ object SyntaxAnalyzer extends YamlParser {
   val node_token: String = "node"
   val capability_token: String = "capability"
   val value_token: String = "value"
+  val get_input_token: String = "get_input"
+  val get_property_token: String = "get_property"
+  val get_attribute_token: String = "get_attribute"
+  val get_operation_output_token: String = "get_operation_output"
+  val concat_token = "concat"
 
   def fileExtension = wrapParserWithPosition( """[\p{Print} && [^:\[\]\{\}>-]]*""".r ^^ (_.toString))
 
@@ -68,6 +73,7 @@ object SyntaxAnalyzer extends YamlParser {
       booleanEntry(abstract_token) |
       textEntry(description_token)(indentLevel) |
       mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
+      mapEntry(attributes_token)(attributeDefinitionsEntry)(indentLevel) |
       nestedListEntry(valid_sources_token)(nestedTextValue) |
       nestedListEntry(valid_targets_token)(nestedTextValue) |
       listEntry(artifacts_token)(textEntry(keyValue))(indentLevel) |
@@ -81,6 +87,7 @@ object SyntaxAnalyzer extends YamlParser {
         get[ParsedValue[String]](map, derived_from_token),
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], PropertyDefinition]](map, properties_token),
+        get[Map[ParsedValue[String], FieldValue]](map, attributes_token),
         get[List[ParsedValue[String]]](map, valid_sources_token),
         get[List[ParsedValue[String]]](map, valid_targets_token),
         get[Map[ParsedValue[String], ParsedValue[String]]](map, artifacts_token),
@@ -133,7 +140,7 @@ object SyntaxAnalyzer extends YamlParser {
   def propertyDefinition(indentLevel: Int): Parser[PropertyDefinition] = positioned(
     map(propertyDefinitionEntry)(indentLevel) ^^ {
       case map => PropertyDefinition(
-        get[ParsedValue[String]](map, type_token).getOrElse(ParsedValue(Field.STRING)),
+        get[ParsedValue[String]](map, type_token).getOrElse(ParsedValue(FieldDefinition.STRING)),
         get[ParsedValue[Boolean]](map, required_token).getOrElse(ParsedValue(true)),
         get[ParsedValue[String]](map, default_token),
         get[List[PropertyConstraint]](map, constraints_token),
@@ -151,13 +158,14 @@ object SyntaxAnalyzer extends YamlParser {
   def attributeDefinition(indentLevel: Int): Parser[AttributeDefinition] = positioned(
     map(attributeDefinitionEntry)(indentLevel) ^^ {
       case map => AttributeDefinition(
-        get[ParsedValue[String]](map, type_token).getOrElse(ParsedValue(Field.STRING)),
+        get[ParsedValue[String]](map, type_token).getOrElse(ParsedValue(FieldDefinition.STRING)),
         get[ParsedValue[String]](map, description_token),
         get[ParsedValue[String]](map, default_token)
       )
     })
 
-  def attributeDefinitionsEntry(indentLevel: Int) = (keyValue ~ (keyComplexSeparatorPattern ~> attributeDefinition(indentLevel))) ^^ entryParseResultHandler
+  def attributeDefinitionsEntry(indentLevel: Int) =
+    (keyValue ~ (keyComplexSeparatorPattern ~> attributeDefinition(indentLevel))) ^^ entryParseResultHandler | nestedComplexEntry(keyValue)(function)
 
   def requirementDefinitionEntry(indentLevel: Int) =
     textEntry(type_token)(indentLevel) |
@@ -199,34 +207,40 @@ object SyntaxAnalyzer extends YamlParser {
   def capabilityDefinitionsEntry(indentLevel: Int) =
     (keyValue ~ ((keyComplexSeparatorPattern ~> capabilityDefinition(indentLevel)) | (keyValueSeparatorPattern ~> simpleCapabilityDefinition(indentLevel) <~ lineEndingPattern))) ^^ entryParseResultHandler
 
-  def simpleFunctionName = wrapParserWithPosition("get_property" | "get_attribute")
+  def simpleFunctionName = wrapParserWithPosition(get_property_token | get_attribute_token | get_operation_output_token)
 
-  def compositeFunctionName = wrapParserWithPosition("concat")
+  def compositeFunctionName = wrapParserWithPosition(concat_token)
 
-  def simpleFunction = positioned(internalNestedListEntry(simpleFunctionName)(nestedTextValue) ^^ {
+  def multipleArgumentsFunction = positioned(internalNestedListEntry(simpleFunctionName)(nestedTextValue) ^^ {
     case (functionName, paths: Seq[ParsedValue[String]]) => Function(functionName, paths)
   })
 
-  def compositeFunction = positioned(internalNestedListEntry(compositeFunctionName)(simpleFunction | nestedTextValue) ^^ {
-    case (functionName, members: Seq[Any]) =>
+  def singleArgumentFunction = positioned(nestedTextEntry(get_input_token) ^^ { case (functionName, path) => Function(functionName, Seq(path)) })
+
+  def compositeFunction = positioned(internalNestedListEntry(compositeFunctionName)(singleArgumentFunction | multipleArgumentsFunction | nestedTextValue ^^ { case textValue => ScalarValue(textValue) }) ^^ {
+    case (functionName, members: Seq[FieldValue]) =>
       CompositeFunction(functionName, members)
   })
 
-  def function = compositeFunction | simpleFunction
+  def function = compositeFunction | singleArgumentFunction | multipleArgumentsFunction
 
-  def toscaValueEntry(indentLevel: Int) =
-    textEntry(keyValue)(indentLevel) | nestedComplexEntry(keyValue)(function)
+  def scalarTextEntry(indentLevel: Int) = textEntry(keyValue)(indentLevel) ^^ { case (key: ParsedValue[String], value: ParsedValue[String]) => (key, ScalarValue(value)) }
+
+  def operationInputEntry(indentLevel: Int) =
+    scalarTextEntry(indentLevel) |
+      nestedComplexEntry(keyValue)(function) |
+      propertyDefinitionsEntry(indentLevel)
 
   def operationEntry(indentLevel: Int) =
     textEntry(description_token)(indentLevel) |
-      mapEntry(inputs_token)(toscaValueEntry)(indentLevel) |
+      mapEntry(inputs_token)(operationInputEntry)(indentLevel) |
       textEntry(implementation_token)(indentLevel)
 
   def operation(indentLevel: Int) = positioned(
     map(operationEntry)(indentLevel) ^^ {
       case map => Operation(
         get[ParsedValue[String]](map, description_token),
-        get[Map[ParsedValue[String], Any]](map, inputs_token),
+        get[Map[ParsedValue[String], FieldValue]](map, inputs_token),
         get[ParsedValue[String]](map, implementation_token))
     })
 
@@ -275,7 +289,7 @@ object SyntaxAnalyzer extends YamlParser {
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], ParsedValue[String]]](map, tags_token),
         get[Map[ParsedValue[String], PropertyDefinition]](map, properties_token),
-        get[Map[ParsedValue[String], AttributeDefinition]](map, attributes_token),
+        get[Map[ParsedValue[String], FieldValue]](map, attributes_token),
         get[Map[ParsedValue[String], RequirementDefinition]](map, requirements_token),
         get[Map[ParsedValue[String], CapabilityDefinition]](map, capabilities_token),
         get[Map[ParsedValue[String], ParsedValue[String]]](map, artifacts_token),
@@ -286,14 +300,7 @@ object SyntaxAnalyzer extends YamlParser {
     case nodeType => (nodeType.name, nodeType)
   }
 
-  def functionGetInput = nestedTextEntry("get_input") ^^ {
-    case (_, inputName) => Input(inputName)
-  }
-
-  def propertyInputEntry(indentLevel: Int) =
-    textEntry(keyValue)(indentLevel) | nestedComplexEntry(keyValue)(functionGetInput)
-
-  def properties(indentLevel: Int) = map(propertyInputEntry)(indentLevel)
+  def properties(indentLevel: Int) = map(operationInputEntry)(indentLevel)
 
   def requirementEntry(indentLevel: Int) =
     textEntry(node_token)(indentLevel) |
@@ -326,7 +333,7 @@ object SyntaxAnalyzer extends YamlParser {
       case map => NodeTemplate(
         nodeTemplateName,
         get[ParsedValue[String]](map, type_token),
-        get[Map[ParsedValue[String], Any]](map, properties_token),
+        get[Map[ParsedValue[String], FieldValue]](map, properties_token),
         get[List[Requirement]](map, requirements_token))
     })
 
@@ -346,7 +353,7 @@ object SyntaxAnalyzer extends YamlParser {
       case map => Output(
         outputName,
         get[ParsedValue[String]](map, description_token),
-        get[Any](map, value_token)
+        get[FieldValue](map, value_token)
       )
     })
 

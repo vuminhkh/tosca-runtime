@@ -4,17 +4,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.NonRecoverableException;
 import com.toscaruntime.sdk.AbstractRuntimeType;
 import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
-
-    private static final Logger log = LoggerFactory.getLogger(Root.class);
 
     private String id;
 
@@ -41,7 +36,6 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public String getName() {
-
         return name;
     }
 
@@ -93,12 +87,12 @@ public abstract class Root extends AbstractRuntimeType {
         this.dependedByNodes = dependedByNodes;
     }
 
-    protected void executeOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, String> inputs) {
         Compute host = getHost();
         if (host == null) {
             throw new NonRecoverableException("Non hosted node cannot have operation");
         }
-        host.execute(operationArtifactPath, inputs);
+        return host.execute(operationArtifactPath, inputs);
     }
 
     public void create() {
@@ -121,29 +115,41 @@ public abstract class Root extends AbstractRuntimeType {
         getAttributes().clear();
     }
 
-    public Object evaluateCompositeFunction(String functionName, Object... memberValue) {
-        if ("concat".equals(functionName)) {
-            return FunctionUtil.concat(memberValue);
-        } else {
-            throw new IllegalFunctionException("Function " + functionName + " is not supported on node");
+    private String functionToString(String functionName, String... paths) {
+        StringBuilder buffer = new StringBuilder(functionName).append("[ ");
+        for (String path : paths) {
+            buffer.append(path).append(",");
         }
+        buffer.setLength(buffer.length() - 1);
+        buffer.append("]");
+        return buffer.toString();
     }
 
-    public String evaluateFunction(String functionName, String entity, String path) {
+    public String evaluateFunction(String functionName, String... paths) {
+        if (paths.length == 0) {
+            throw new IllegalFunctionException("Function " + functionName + " path is empty");
+        }
+        String entity = paths[0];
         String value;
         switch (entity) {
             case "HOST":
                 if (getParent() == null) {
-                    throw new IllegalFunctionException("Cannot access to HOST's <" + path + "> property/attribute as this node do not have a parent");
+                    throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node do not have a parent");
                 }
-                return getParent().evaluateFunction(functionName, "SELF", path);
+                return getParent().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
             case "SELF":
                 switch (functionName) {
                     case "get_property":
-                        value = getProperty(path);
+                        value = getProperty(paths[1]);
+                        break;
+                    case "get_input":
+                        value = getInput(paths[1]);
                         break;
                     case "get_attribute":
-                        value = getAttribute(path);
+                        value = getAttribute(paths[1]);
+                        break;
+                    case "get_operation_output":
+                        value = getOperationOutput(paths[1], paths[2], paths[3]);
                         break;
                     default:
                         throw new IllegalFunctionException("Function " + functionName + " is not supported");
@@ -154,7 +160,7 @@ public abstract class Root extends AbstractRuntimeType {
         }
         if (value == null) {
             if (getParent() != null) {
-                return getParent().evaluateFunction(functionName, entity, path);
+                return getParent().evaluateFunction(functionName, paths);
             } else {
                 return "";
             }

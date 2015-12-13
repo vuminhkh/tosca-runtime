@@ -1,5 +1,9 @@
 package com.toscaruntime.util;
 
+import java.util.List;
+
+import com.google.common.collect.Lists;
+
 /**
  * Utilities to evaluate functions
  *
@@ -13,5 +17,11 @@ public class FunctionUtil {
             buffer.append(member);
         }
         return buffer.toString();
+    }
+
+    public static String[] setEntityToSelf(String[] paths) {
+        List<String> newPaths = Lists.newArrayList(paths);
+        newPaths.set(0, "SELF");
+        return newPaths.toArray(new String[newPaths.size()]);
     }
 }

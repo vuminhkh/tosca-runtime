@@ -149,12 +149,12 @@ public class Container extends Compute {
         dockerClient.startContainerCmd(containerId).exec();
         InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
         ipAddress = response.getNetworkSettings().getIpAddress();
-        getAttributes().put("ip_address", ipAddress);
-        getAttributes().put("tosca_id", containerId);
-        getAttributes().put("tosca_name", response.getName());
+        setAttribute("ip_address", ipAddress);
+        setAttribute("tosca_id", containerId);
+        setAttribute("tosca_name", response.getName());
         log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
         DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
-        dockerClient.copyArchiveToContainerCmd(containerId, this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
+        dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
     @Override
@@ -166,7 +166,7 @@ public class Container extends Compute {
         log.info("Node [" + getName() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
         log.info("Node [" + getName() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
-        getAttributes().remove("ip_address");
+        removeAttribute("ip_address");
         ipAddress = null;
     }
 
@@ -187,7 +187,7 @@ public class Container extends Compute {
      *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public void execute(String operationArtifactPath, Map<String, String> environmentVariables) {
+    public Map<String, String> execute(String operationArtifactPath, Map<String, String> environmentVariables) {
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
@@ -205,7 +205,7 @@ public class Container extends Compute {
             localGeneratedScriptWriter.write(containerScriptPath + "\n");
             localGeneratedScriptWriter.flush();
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
-            dockerClient.copyArchiveToContainerCmd(containerId, localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
+            dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
             String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("chmod", "+x", copiedScript), log);
             DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), log);
@@ -214,6 +214,8 @@ public class Container extends Compute {
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }
+        // TODO Manage get_operation_output
+        return new HashMap<>();
     }
 
     public void setDockerClient(DockerClient dockerClient) {

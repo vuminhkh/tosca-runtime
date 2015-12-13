@@ -71,7 +71,7 @@ object Application extends Controller with Logging {
   def undeploy() = Action { implicit request =>
     log.info("Uninstall deployment with name " + deploymentName)
     deployment.uninstall()
-    Ok
+    Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
   }
 
   /**
@@ -96,7 +96,7 @@ object Application extends Controller with Logging {
       val relationshipNodeProperties = if (relationshipNode.getProperties == null) Map.empty[String, String] else relationshipNode.getProperties.asScala.toMap.asInstanceOf[Map[String, String]].filter { case (key, value) => StringUtils.isNotEmpty(value) && StringUtils.isNotEmpty(key) }
       RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)
     }.toList
-    DeploymentDetails(name, nodes, relationships, deployment.getOutputs.asScala.toMap.map { case (key: String, value: AnyRef) => (key, String.valueOf(value)) })
+    DeploymentDetails(name, nodes, relationships, deployment.getOutputs.asScala.toMap.filter(_._2 != null).map { case (key: String, value: AnyRef) => (key, String.valueOf(value)) })
   }
 
   def getDeploymentInformation = Action { implicit request =>

@@ -1,68 +1,53 @@
-@import com.toscaruntime.compiler.runtime.{Node, Deployment}
-@import com.toscaruntime.compiler.runtime.Function
-@import com.toscaruntime.compiler.runtime.CompositeFunction
+@import com.toscaruntime.compiler.runtime.{Deployment, Node}
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
-    @node.typeName @node.name = new @node.typeName @Html("();")
-    @node.name@Html(".setId(")"@node.name" + @node.name@Html("Index);")
-    @node.name@Html(".setName(\"")@node.name@Html("\");")
-    @node.name@Html(".setProperties(")properties@node.name@Html(");")
-    nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
-  @node.parent.map { parent =>
-    @node.name@Html(".setParent(")@parent.name@Html(");")
-  }
-  @node.children.map { child =>
-    @instantiateNode(child)
-  }
-    initializeInstance(@node.name);
+@node.typeName @node.name = new @node.typeName @Html("();")
+@node.name@Html(".setId(")"@node.name" + @node.name@Html("Index);")
+@node.name@Html(".setName(\"")@node.name@Html("\");")
+@node.name@Html(".setProperties(")properties@node.name@Html(");")
+  nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
+@node.parent.map { parent =>
+  @node.name @Html(".setParent(") @parent.name @Html(");")
+}
+@node.children.map { child =>
+  @instantiateNode(child)
+}
+  initializeInstance(@node.name);
 }
 
 @instantiateNode(node: Node) = {
-    @Html("java.util.Map<String, Object> properties")@node.name@Html(" = new java.util.HashMap();")
-  @node.scalarProperties.map { scalaProperty =>
-    properties@node.name@Html(".put(")"@scalaProperty._1","@scalaProperty._2"@Html(");")
-  }
-  @node.inputProperties.map { inputProperty =>
-    properties@node.name@Html(".put(")"@inputProperty._1", inputs.get@Html("(\"" + inputProperty._2.name + "\"));")
-  }
-    initializeNode("@node.name", properties@node.name);
-    @Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
-      @instantiateInstance(node)
-    @Html("}")
+@base.html.generateProperties(node.name, node.properties)
+  initializeNode("@node.name", properties@node.name);
+@Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
+@instantiateInstance(node)
+@Html("}")
 }
 
-public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
+  public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
 
   public void initializeDeployment@Html("(java.nio.file.Path recipePath, java.util.Map<String, Object> inputs, boolean bootstrap) {")
-    @Html("super.initializeDeployment(recipePath, inputs, bootstrap);")
-    this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve("@deployment.topologyCsarName"));
+@Html("super.initializeDeployment(recipePath, inputs, bootstrap);")
+  this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve("@deployment.topologyCsarName"));
 @deployment.roots.map { node =>
-    @instantiateNode(node)
+  @instantiateNode(node)
 }
 @deployment.nodes.map { node =>
   @if(node.dependencies.nonEmpty) {
-    @Html("setDependencies(")"@node.name", @node.dependencies.zipWithIndex.map{case(dependency, index) => "@dependency.name" @if(index < node.dependencies.size - 1){,}} @Html(");")
+    @Html("setDependencies(")"@node.name", @node.dependencies.zipWithIndex.map { case (dependency, index) => "@dependency.name" @if(index < node.dependencies.size - 1) {,} } @Html(");")
   }
 }
 @deployment.relationships.map { relationship =>
-    @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @relationship.typeName@Html(".class);")
+  @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @relationship.typeName @Html(".class);")
 }
-  @Html("}")
+@Html("}")
 @if(deployment.outputs.nonEmpty) {
   @Html("public java.util.Map<String, Object> getOutputs() {")
-    @Html("java.util.Map<String, Object> outputs = new java.util.HashMap<>();")
+  @Html("java.util.Map<String, Object> outputs = new java.util.HashMap<>();")
   @deployment.outputs.map { output =>
-  @{output match {
-    case (name: String, value: String) =>
-      Html("outputs.put(\"" + name + "\", \"" + value + "\");")
-    case (name: String, function: Function) =>
-      Html("outputs.put(\"" + name + "\", " + base.html.evaluateFunction(function) + ");")
-    case (name: String, function: CompositeFunction) =>
-      Html("outputs.put(\"" + name + "\", " + base.html.evaluateCompositeFunction(function) + ");")
-  }}
-}
-    return outputs;
+    @Html("outputs.put(\"" + output._1 + "\", " + base.html.evaluateValue(output._2) + ");")
+  }
+  return outputs;
   @Html("}")
 }
 @Html("}")

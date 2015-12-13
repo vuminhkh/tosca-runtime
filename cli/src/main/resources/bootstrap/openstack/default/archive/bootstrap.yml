@@ -26,18 +26,24 @@ topology_template:
     dns_name_servers:
       type: string
   outputs:
+    public_daemon_url:
+      description: The URL to access the docker daemon
+      value: { get_attribute: [ managerDaemon, public_docker_url ] }
     daemon_url:
       description: The URL to access the docker daemon
-      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":", get_property: [dockerDaemon, port] ] }
+      value: { get_attribute: [ managerDaemon, docker_url ] }
+    public_proxy_url:
+      description: The URL to access the proxy
+      value: { get_attribute: [ proxy, public_proxy_url ] }
     proxy_url:
       description: The URL to access the proxy
-      value: { concat: ["http://", get_attribute: [dockerMachine, public_ip_address], ":9000" ] }
-    openstack_network:
+      value: { get_attribute: [ proxy, proxy_url ] }
+    network_id:
       description: The id of the network the docker daemon connected to
-      value: { get_attribute: [privateNetwork, tosca_id] }
-    openstack_external_network:
+      value: { get_attribute: [ privateNetwork, tosca_id ] }
+    external_network_id:
       description: The id of the external network the docker daemon connected to
-      value: { get_attribute: [publicNetwork, tosca_id] }
+      value: { get_attribute: [ publicNetwork, tosca_id ] }
 
   node_templates:
     publicNetwork:
@@ -69,7 +75,7 @@ topology_template:
       requirements:
         - host: dockerMachine
     proxy:
-      type: com.toscaruntime.docker.nodes.DockerComponent
+      type: com.toscaruntime.docker.nodes.ProxyWebApp
       properties:
         docker_image: toscaruntime/proxy
         port_mapping: 9000:9000

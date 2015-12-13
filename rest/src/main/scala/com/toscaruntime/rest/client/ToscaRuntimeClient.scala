@@ -35,6 +35,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def switchConnection(url: String, certPath: String) = {
     daemonClient.setDockerClient(url, certPath)
     proxyURLOpt = daemonClient.getProxyURL
+    logger.info("New proxy url detected " + proxyURLOpt.getOrElse("none"))
   }
 
   private val wsClient = {
@@ -71,7 +72,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def undeploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).delete()
+    wsClient.url(url).delete().map {
+      case response => response.json.as[RestResponse[DeploymentDetails]].data.get
+    }
   }
 
   private def toJson(map: Map[String, String]) = {
@@ -86,10 +89,10 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }.toMap
   }
 
-  def bootstrap(provider: String, target: String = "default") = {
+  def bootstrap(provider: String, target: String) = {
     deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap {
       case response =>
-        val proxyUrl = response.outputs.get("proxy_url").get + "/context"
+        val proxyUrl = response.outputs.get("public_proxy_url").get + "/context"
         saveBootstrapContext(proxyUrl, toJson(response.outputs), response)
     }
   }
@@ -102,7 +105,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }.getOrElse(Future(Map.empty))
   }
 
-  def getBootstrapAgentInfo(provider: String, target: String = "default") = {
+  def getBootstrapAgentInfo(provider: String, target: String) = {
     getDeploymentAgentInfo(generateDeploymentIdForBootstrap(provider, target))
   }
 
@@ -119,7 +122,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  def teardown(provider: String, target: String = "default") = {
+  def teardown(provider: String, target: String) = {
     undeploy(generateDeploymentIdForBootstrap(provider, target))
   }
 
@@ -129,9 +132,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     daemonClient.createAgentImage(deploymentId, bootstrap = false, recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
-  def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String = "default") = {
+  def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String) = {
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(daemonClient.generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
   def createImage(deploymentPath: Path) = {
@@ -151,15 +154,19 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     daemonClient.deleteDeploymentImage(deploymentId)
   }
 
+  def deleteBootstrapImage(provider: String, target: String) = {
+    daemonClient.deleteDeploymentImage(generateDeploymentIdForBootstrap(provider, target))
+  }
+
   def createDeploymentAgent(deploymentId: String) = {
     daemonClient.createDeploymentAgent(deploymentId)
   }
 
-  def createBootstrapAgent(provider: String, target: String = "default") = {
+  def createBootstrapAgent(provider: String, target: String) = {
     daemonClient.createBootstrapAgent(provider, target)
   }
 
-  private def generateDeploymentIdForBootstrap(provider: String, target: String = "default") = {
+  private def generateDeploymentIdForBootstrap(provider: String, target: String) = {
     daemonClient.generateDeploymentIdForBootstrap(provider, target)
   }
 
@@ -175,8 +182,16 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     daemonClient.delete(deploymentId)
   }
 
+  def deleteBootstrapAgent(provider: String, target: String) = {
+    daemonClient.delete(generateDeploymentIdForBootstrap(provider, target))
+  }
+
   def tailLog(deploymentId: String, output: PrintStream) = {
     daemonClient.tailLog(deploymentId, output)
+  }
+
+  def tailBootstrapLog(provider: String, target: String, output: PrintStream) = {
+    daemonClient.tailLog(generateDeploymentIdForBootstrap(provider, target), output)
   }
 
   def tailContainerLog(containerId: String, output: PrintStream) = {

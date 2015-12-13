@@ -68,17 +68,17 @@ public class SSHExecutor implements Closeable {
         log.info("Session has been closed for " + user + "@" + ip);
     }
 
-    public synchronized void executeCommand(String command, Map<String, String> env) throws Exception {
+    public synchronized Map<String, String> executeCommand(String operationName, String command, Map<String, String> env) throws Exception {
         // TODO bug seems to affect multiple channels on the same session
-        log.info("Executing command " + command + " with environments " + env);
+        log.info("[{}] Executing command {} with environments {}", operationName, command, env);
         checkConnection();
-        SSHUtil.executeCommand(clientSession, command, env, TIME_OUT, TIME_UNIT);
+        return SSHUtil.executeCommand(operationName, clientSession, command, env, TIME_OUT, TIME_UNIT);
     }
 
-    public synchronized void executeScript(String scriptPath, Map<String, String> env) throws Exception {
+    public synchronized Map<String, String> executeScript(String operationName, String scriptPath, Map<String, String> env) throws Exception {
         // TODO bug seems to affect multiple channels on the same session
-        log.info("Executing script " + scriptPath + " with environments " + env);
+        log.info("[{}] Executing script {} with environments {}", operationName, scriptPath, env);
         checkConnection();
-        SSHUtil.executeScript(clientSession, scriptPath, env, TIME_OUT, TIME_UNIT);
+        return SSHUtil.executeScript(operationName, clientSession, scriptPath, env, TIME_OUT, TIME_UNIT);
     }
 }

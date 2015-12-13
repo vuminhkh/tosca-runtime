@@ -12,6 +12,8 @@ trait RuntimeType {
   val methods: Seq[Method]
 
   val csarName: String
+
+  val attributesDefinitions: Map[String, Value]
 }
 
 case class NodeType(className: String,
@@ -19,41 +21,46 @@ case class NodeType(className: String,
                     isAbstract: Boolean,
                     superClass: Option[String],
                     methods: Seq[Method],
-                    csarName: String) extends RuntimeType
+                    csarName: String,
+                    // One of ScalarValue, Function or CompositeFunction
+                    attributesDefinitions: Map[String, Value]) extends RuntimeType
 
 case class RelationshipType(className: String,
                             packageName: String,
                             isAbstract: Boolean,
                             superClass: Option[String],
                             methods: Seq[Method],
-                            csarName: String) extends RuntimeType
+                            csarName: String,
+                            attributesDefinitions: Map[String, Value]) extends RuntimeType
+
+trait Value
 
 case class Function(name: String,
-                    entity: String,
-                    path: String)
+                    paths: Seq[String]) extends Value
 
 case class CompositeFunction(name: String,
-                             // One of String, Function or CompositeFunction
-                             members: Seq[Any])
+                             // One of ScalarValue, Function or CompositeFunction
+                             members: Seq[Value]) extends Value
+
+case class ScalarValue(value: String) extends Value
 
 case class Method(name: String,
-                  // One of String, Function or CompositeFunction
-                  inputs: Map[String, Any],
+                  // One of ScalarValue, Function or CompositeFunction
+                  inputs: Map[String, Value],
                   implementation: Option[String])
 
 case class Deployment(nodes: Seq[Node],
                       relationships: Seq[Relationship],
                       roots: Seq[Node],
-                      // One of String, Function or CompositeFunction
-                      outputs: Map[String, Any],
+                      // One of ScalarValue, Function or CompositeFunction
+                      outputs: Map[String, Value],
                       topologyCsarName: String)
 
 case class Input(name: String)
 
 class Node(var name: String,
            var typeName: String,
-           var scalarProperties: Map[String, String],
-           var inputProperties: Map[String, Input],
+           var properties: Map[String, Value],
            var parent: Option[Node] = None,
            var children: Seq[Node] = Seq.empty,
            var dependencies: Seq[Node] = Seq.empty,

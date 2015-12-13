@@ -38,11 +38,10 @@ trait Type {
 }
 
 trait RuntimeType extends Type {
+  val attributes: Option[Map[ParsedValue[String], FieldValue]]
   val artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]]
   val interfaces: Option[Map[ParsedValue[String], Interface]]
 }
-
-case class Input(name: ParsedValue[String]) extends Positional
 
 case class Requirement(name: ParsedValue[String],
                        targetNode: Option[ParsedValue[String]],
@@ -50,12 +49,12 @@ case class Requirement(name: ParsedValue[String],
 
 case class NodeTemplate(name: ParsedValue[String],
                         typeName: Option[ParsedValue[String]],
-                        properties: Option[Map[ParsedValue[String], Any]],
+                        properties: Option[Map[ParsedValue[String], FieldValue]],
                         requirements: Option[List[Requirement]]) extends Positional
 
 case class Output(name: ParsedValue[String],
                   description: Option[ParsedValue[String]],
-                  value: Option[Any]) extends Positional
+                  value: Option[FieldValue]) extends Positional
 
 case class TopologyTemplate(description: Option[ParsedValue[String]],
                             inputs: Option[Map[ParsedValue[String], PropertyDefinition]],
@@ -68,7 +67,7 @@ case class NodeType(name: ParsedValue[String],
                     description: Option[ParsedValue[String]],
                     tags: Option[Map[ParsedValue[String], ParsedValue[String]]],
                     properties: Option[Map[ParsedValue[String], PropertyDefinition]],
-                    attributes: Option[Map[ParsedValue[String], AttributeDefinition]],
+                    attributes: Option[Map[ParsedValue[String], FieldValue]],
                     requirements: Option[Map[ParsedValue[String], RequirementDefinition]],
                     capabilities: Option[Map[ParsedValue[String], CapabilityDefinition]],
                     artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]],
@@ -79,6 +78,7 @@ case class RelationshipType(name: ParsedValue[String],
                             derivedFrom: Option[ParsedValue[String]],
                             description: Option[ParsedValue[String]],
                             properties: Option[Map[ParsedValue[String], PropertyDefinition]],
+                            attributes: Option[Map[ParsedValue[String], FieldValue]],
                             validSources: Option[List[ParsedValue[String]]],
                             validTargets: Option[List[ParsedValue[String]]],
                             artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]],
@@ -90,7 +90,20 @@ case class CapabilityType(name: ParsedValue[String],
                           description: Option[ParsedValue[String]],
                           properties: Option[Map[ParsedValue[String], PropertyDefinition]]) extends Positional with Type
 
-trait Field {
+case class ScalarValue(value: String) extends FieldValue
+
+object ScalarValue {
+
+  def apply(parsedValue: ParsedValue[String]) = {
+    val instance = new ScalarValue(parsedValue.value)
+    instance.setPos(parsedValue.pos)
+    instance
+  }
+}
+
+trait FieldValue extends Positional
+
+trait FieldDefinition extends FieldValue {
   val valueType: ParsedValue[String]
   val description: Option[ParsedValue[String]]
   val default: Option[ParsedValue[String]]
@@ -100,11 +113,11 @@ case class PropertyDefinition(valueType: ParsedValue[String],
                               required: ParsedValue[Boolean],
                               default: Option[ParsedValue[String]],
                               constraints: Option[List[PropertyConstraint]],
-                              description: Option[ParsedValue[String]]) extends Positional with Field
+                              description: Option[ParsedValue[String]]) extends FieldDefinition
 
 case class AttributeDefinition(valueType: ParsedValue[String],
                                description: Option[ParsedValue[String]],
-                               default: Option[ParsedValue[String]]) extends Positional with Field
+                               default: Option[ParsedValue[String]]) extends FieldDefinition
 
 case class RequirementDefinition(capabilityType: Option[ParsedValue[String]],
                                  relationshipType: Option[ParsedValue[String]],
@@ -119,17 +132,12 @@ case class Interface(description: Option[ParsedValue[String]],
                      operations: Map[ParsedValue[String], Operation]) extends Positional
 
 case class Operation(description: Option[ParsedValue[String]],
-                     inputs: Option[Map[ParsedValue[String], Any]],
+                     inputs: Option[Map[ParsedValue[String], FieldValue]],
                      implementation: Option[ParsedValue[String]]) extends Positional
 
-case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends Positional {
+case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends FieldValue
 
-  def entity = paths.head
-
-  def path = paths(1)
-}
-
-case class CompositeFunction(function: ParsedValue[String], members: Seq[Any]) extends Positional
+case class CompositeFunction(function: ParsedValue[String], members: Seq[FieldValue]) extends FieldValue
 
 case class PropertyConstraint(operator: ParsedValue[String], reference: Any) extends Positional
 
@@ -138,17 +146,17 @@ case class Version(version: String)
 object Evaluator {
   def eval[T](value: String, propType: String): T = {
     (propType match {
-      case Field.STRING => value
-      case Field.INTEGER => value.toLong
-      case Field.FLOAT => value.toDouble
-      case Field.BOOLEAN => value.toBoolean
-      case Field.TIMESTAMP => DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.US).parse(value)
-      case Field.VERSION => Version(value)
+      case FieldDefinition.STRING => value
+      case FieldDefinition.INTEGER => value.toLong
+      case FieldDefinition.FLOAT => value.toDouble
+      case FieldDefinition.BOOLEAN => value.toBoolean
+      case FieldDefinition.TIMESTAMP => DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.US).parse(value)
+      case FieldDefinition.VERSION => Version(value)
     }).asInstanceOf[T]
   }
 }
 
-object Field {
+object FieldDefinition {
   val STRING = "string"
   val INTEGER = "integer"
   val FLOAT = "float"

@@ -1,7 +1,6 @@
 package com.toscaruntime.compiler
 
-import com.toscaruntime.compiler.tosca.Type
-import com.toscaruntime.compiler.tosca.{Type, ParsedValue, Csar}
+import com.toscaruntime.compiler.tosca.{Csar, ParsedValue, Type}
 
 object TypeLoader {
 
@@ -88,15 +87,17 @@ object TypeLoader {
     false
   }
 
-  def loadRelationshipType(source: String, capability: String, csarsPath: Seq[Csar]) = {
+  def loadRelationshipType(source: String, target: String, capability: String, csarsPath: Seq[Csar]) = {
     val allRelationshipTypes = loadRelationshipTypes(csarsPath)
     val allCapabilityTypes = loadCapabilityTypes(csarsPath)
     val allNodeTypes = loadNodeTypes(csarsPath)
     allRelationshipTypes.values.find {
       relationshipType =>
+        val validTargets = relationshipType.validTargets.map(_.map(_.value))
+        val validSources = relationshipType.validSources.map(_.map(_.value))
         !relationshipType.isAbstract.value &&
-          (relationshipType.validTargets.isDefined && isInstanceOf(capability, relationshipType.validTargets.get.map(_.value), allCapabilityTypes)) &&
-          (relationshipType.validSources.isEmpty || isInstanceOf(source, relationshipType.validSources.get.map(_.value), allNodeTypes))
+          (validTargets.isDefined && (isInstanceOf(capability, validTargets.get, allCapabilityTypes) || isInstanceOf(target, validTargets.get, allNodeTypes))) &&
+          (validSources.isEmpty || isInstanceOf(source, validSources.get, allNodeTypes))
     }
   }
 }

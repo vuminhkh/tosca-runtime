@@ -1,0 +1,123 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+
+template_name: openstack-bootstrap-template
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+topology_template:
+  description: Wordpress deployment template for openstack
+  inputs:
+    image:
+      type: string
+    flavor:
+      type: string
+    key_path:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: string
+    external_network_id:
+      type: string
+    dns_name_servers:
+      type: string
+  outputs:
+    public_daemon_url:
+      description: The URL to access the docker daemon
+      value: { get_attribute: [ swarmManager, public_docker_url ] }
+    daemon_url:
+      description: The URL to access the docker daemon
+      value: { get_attribute: [ swarmManager, docker_url ] }
+    public_proxy_url:
+      description: The public URL to access the proxy
+      value: { get_attribute: [ proxy, public_proxy_url ] }
+    proxy_url:
+      description: The URL to access the proxy
+      value: { get_attribute: [ proxy, proxy_url ] }
+    network_id:
+      description: The id of the network the docker daemon connected to
+      value: { get_attribute: [ privateNetwork, tosca_id ] }
+    external_network_id:
+      description: The id of the external network the docker daemon connected to
+      value: { get_attribute: [ publicNetwork, tosca_id ] }
+
+  node_templates:
+
+    publicNetwork:
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
+      properties:
+        network_id: { get_input: external_network_id }
+
+    privateNetwork:
+      type: com.toscaruntime.openstack.nodes.Network
+      properties:
+        network_name: "dockerDaemonNetwork"
+        cidr: "192.168.1.0/24"
+        dns_name_servers: { get_input: dns_name_servers }
+
+    managerMachine:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+      requirements:
+        - network: privateNetwork
+        - network: publicNetwork
+
+    managerDaemon:
+      type: com.toscaruntime.docker.nodes.DockerDaemon
+      requirements:
+        - host: managerMachine
+        - discovery_service: consulServer
+
+    proxy:
+      type: com.toscaruntime.docker.nodes.ProxyWebApp
+      requirements:
+        - host: swarmManager
+
+    consulServer:
+      type: com.toscaruntime.consul.nodes.ConsulAgent
+      properties:
+        agent_mode: server
+      requirements:
+        - host: managerMachine
+
+    swarmManager:
+      type: com.toscaruntime.docker.nodes.SwarmManager
+      requirements:
+        - host: managerDaemon
+        - discovery_service: consulServer
+
+    swarmNodeMachine:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+      requirements:
+        - network: privateNetwork
+
+    swarmNodeDaemon:
+      type: com.toscaruntime.docker.nodes.DockerDaemon
+      requirements:
+        - host: swarmNodeMachine
+        - discovery_service: consulClient
+
+    consulClient:
+      type: com.toscaruntime.consul.nodes.ConsulAgent
+      properties:
+        agent_mode: client
+      requirements:
+        - host: swarmNodeMachine
+        - formCluster: consulServer

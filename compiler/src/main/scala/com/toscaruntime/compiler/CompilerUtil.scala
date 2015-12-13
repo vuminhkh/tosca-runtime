@@ -25,14 +25,6 @@ object CompilerUtil {
     outputFile
   }
 
-  def getGeneratedMethodName(interfaceName: String, operationName: String) = {
-    interfaceName match {
-      case "Standard" | "tosca.interfaces.node.lifecycle.Standard" => operationName
-      case "Configure" | "tosca.interfaces.relationship.Configure" => operationName
-      case _ => interfaceName.replaceAll("\\.", "_") + "_" + operationName
-    }
-  }
-
   def toCamelCase(text: String) = {
     CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
   }

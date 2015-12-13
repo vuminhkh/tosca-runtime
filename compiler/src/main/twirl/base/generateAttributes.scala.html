@@ -1,0 +1,5 @@
+@import com.toscaruntime.compiler.runtime.Value
+@(attributes: Map[String, Value])
+@attributes.map { attribute =>
+  @Html("attributeDefinitions.put(\"" + attribute._1 + "\", () -> (" + base.html.evaluateValue(attribute._2) + "));")
+}

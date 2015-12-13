@@ -15,12 +15,13 @@ import sbt.{Command, Help}
   */
 object BootStrapCommand {
 
-  private lazy val bootstrapArgsParser = Space ~> Args.providerArg +
+  private lazy val bootstrapArgsParser = Space ~> (Args.providerArg | Args.targetArg) +
 
   private lazy val bootstrapHelp = Help("bootstrap", ("bootstrap", "Bootstrap docker infrastructure, execute 'help bootstrap' for more details"),
     """
-      |bootstrap -p <provider name>
+      |bootstrap -p <provider name> -t <target>
       |-p   : name of the provider
+      |-t   : target/configuration for the provider
     """.stripMargin
   )
 
@@ -35,9 +36,10 @@ object BootStrapCommand {
       val basedir = state.attributes.get(Attributes.basedirAttribute).get
       val outputPath = Files.createTempDirectory("toscaruntime")
       val providerName = argsMap.get(Args.providerOpt).get
-      val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve("default").resolve("archive")
-      val bootstrapInputPath = basedir.resolve("bootstrap").resolve(providerName).resolve("default").resolve("inputs.yml")
-      val dockerComponentCsar = basedir.resolve("bootstrap").resolve("common").resolve("docker")
+      val target = argsMap.getOrElse(Args.targetOpt, "default")
+      val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
+      val bootstrapInputPath = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("inputs.yml")
+      val dockerComponentCsar = basedir.resolve("bootstrap").resolve("common")
       val compilationSuccessful = Compiler.compile(
         bootstrapTopology,
         List(dockerComponentCsar),
@@ -46,18 +48,18 @@ object BootStrapCommand {
         outputPath
       )
       if (compilationSuccessful) {
-        val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(argsMap(Args.providerOpt)).resolve("default")
+        val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(target)
         val image = client.createBootstrapImage(
           providerName,
           outputPath,
           if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None,
-          providerConfigurationPath).awaitImageId()
+          providerConfigurationPath, target).awaitImageId()
         println("Packaged bootstrap configuration as docker image <" + image + ">")
-        val containerId = client.createBootstrapAgent(providerName).getId
+        val containerId = client.createBootstrapAgent(providerName, target).getId
         val logCallback = client.tailContainerLog(containerId, System.out)
         try {
-          DeployUtil.waitForBootstrapAgent(client, providerName)
-          val details = DeployUtil.bootstrap(client, providerName)
+          DeployUtil.waitForBootstrapAgent(client, providerName, target)
+          val details = DeployUtil.bootstrap(client, providerName, target)
           DeployUtil.printDetails("Bootstrap " + providerName, details)
         } finally {
           logCallback.close()

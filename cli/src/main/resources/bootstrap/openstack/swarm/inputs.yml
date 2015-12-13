@@ -1,0 +1,8 @@
+image : "cb6b7936-d2c5-4901-8678-c88b3a6ed84c"
+flavor : "3"
+key_path : "toscaruntime.pem"
+login : "ubuntu"
+key_pair_name : "toscaruntime"
+security_group_names : "openbar"
+external_network_id: "0e43db46-8fd9-4ef1-8826-4cf9e809aede"
+dns_name_servers: "8.8.8.8"

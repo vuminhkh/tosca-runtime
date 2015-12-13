@@ -1,18 +1,21 @@
-@import com.toscaruntime.compiler.runtime.RelationshipType
 @import com.toscaruntime.compiler.CompilerUtil
+@import com.toscaruntime.compiler.runtime.RelationshipType
 
 @(relationshipType: RelationshipType)
 package @relationshipType.packageName;
 
-public @if(relationshipType.isAbstract){abstract }class @relationshipType.className extends @relationshipType.superClass.getOrElse("tosca.relationships.Root") @Html("{")
+  public @if(relationshipType.isAbstract) {abstract }class @relationshipType.className extends @relationshipType.superClass.getOrElse("tosca.relationships.Root") @Html("{")
+
+@Html("public " + relationshipType.className + "() {")
+@Html("super();")
+@base.html.generateAttributes(relationshipType.attributesDefinitions)
+@Html("}")
+
 @relationshipType.methods.map { method =>
-  public void @CompilerUtil.toCamelCase(method.name)@Html("() {")
-    @Html("java.util.Map inputs = new java.util.HashMap<String, String>();")
-  @method.inputs.map { input =>
-    @base.html.generateInput(input)
-  }
+public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
+  @base.html.generateInputs(method.inputs)
   @method.implementation.map { implementation =>
-    executeOperation("@method.name", "@relationshipType.csarName/@implementation", inputs);
+  operationOutputs.put("@method.name", executeOperation("@method.name", "@relationshipType.csarName/@implementation", inputs));
   }
   @Html("}")
 }

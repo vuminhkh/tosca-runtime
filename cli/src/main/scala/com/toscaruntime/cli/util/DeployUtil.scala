@@ -32,8 +32,12 @@ object DeployUtil extends LazyLogging {
     Await.result(client.deploy(deploymentId), waitForEver)
   }
 
-  def bootstrap(client: ToscaRuntimeClient, provider: String) = {
-    Await.result(client.bootstrap(provider), waitForEver)
+  def bootstrap(client: ToscaRuntimeClient, provider: String, target: String) = {
+    Await.result(client.bootstrap(provider, target), waitForEver)
+  }
+
+  def teardown(client: ToscaRuntimeClient, provider: String, target: String) = {
+    Await.result(client.teardown(provider, target), waitForEver)
   }
 
   def printDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
@@ -67,11 +71,11 @@ object DeployUtil extends LazyLogging {
     }, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }
 
-  def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String) = {
+  def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String, target: String) = {
     RetryUtil.doActionWithRetry(new Action[Any] {
       override def getName: String = "Wait for bootstrap " + provider
 
-      override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider), waitForEver)
+      override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), waitForEver)
     }, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }
 }

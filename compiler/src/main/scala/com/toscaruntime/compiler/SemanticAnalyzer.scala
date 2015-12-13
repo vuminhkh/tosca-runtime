@@ -3,15 +3,14 @@ package com.toscaruntime.compiler
 import java.nio.file.{Files, Path}
 
 import com.toscaruntime.compiler.tosca._
-import com.toscaruntime.compiler.tosca._
 
 import scala.collection.mutable.ListBuffer
 
 object SemanticAnalyzer {
 
-  def analyzeFieldDefinition(field: Field) = {
+  def analyzeFieldDefinition(field: FieldDefinition) = {
     val propertyType = field.valueType
-    if (!Field.isTypeValid(propertyType.value)) {
+    if (!FieldDefinition.isTypeValid(propertyType.value)) {
       Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, propertyType.value))
     } else {
       field.default.flatMap { default =>
@@ -49,13 +48,13 @@ object SemanticAnalyzer {
       constraints.flatMap { constraint =>
         constraint.operator.value match {
           case "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "in_range" =>
-            if (!Field.isTypeComparable(propertyType)) {
+            if (!FieldDefinition.isTypeComparable(propertyType)) {
               Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs comparable type, but incompatible [" + propertyType + "] found", constraint.operator.pos, constraint.operator.value))
             } else {
               None
             }
           case "length" | "min_length" | "max_length" | "pattern" =>
-            if (propertyType != Field.STRING) {
+            if (propertyType != FieldDefinition.STRING) {
               Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs string type , but incompatible [" + propertyType + "] found", constraint.operator.pos, constraint.operator.value))
             } else {
               None
@@ -72,13 +71,16 @@ object SemanticAnalyzer {
   }
 
   def analyzeAttributeDefinitions(nodeType: NodeType) = {
-    nodeType.attributes.map(_.values.map(analyzeFieldDefinition).toList).getOrElse(List.empty).flatten
+    nodeType.attributes.map(_.values.map {
+      case definition: AttributeDefinition => analyzeFieldDefinition(definition)
+      case _ => None
+    }.toList).getOrElse(List.empty).flatten
   }
 
   def analyzeDerivedFrom(typeName: ParsedValue[String], derivedFrom: Option[ParsedValue[String]], csarPath: List[Csar], typeLoader: (String, List[Csar]) => Option[_]): Option[CompilationError] = {
     derivedFrom.flatMap { parentTypeName =>
       val typeFound = typeLoader(parentTypeName.value, csarPath)
-      if (!typeFound.isDefined) {
+      if (typeFound.isEmpty) {
         Some(CompilationError("Type [" + typeName.value + "] derived from unknown type [" + parentTypeName.value + "]", parentTypeName.pos, parentTypeName.value))
       } else {
         None
@@ -99,7 +101,7 @@ object SemanticAnalyzer {
         } else {
           val definedCapabilityType = requirement._2.capabilityType.get
           val capabilityFound = TypeLoader.loadCapabilityType(definedCapabilityType.value, csarPath)
-          if (!capabilityFound.isDefined) {
+          if (capabilityFound.isEmpty) {
             compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] refers to unknown capability " + definedCapabilityType, definedCapabilityType.pos, definedCapabilityType.value)
           }
         }
@@ -126,7 +128,7 @@ object SemanticAnalyzer {
         } else {
           val definedCapabilityType = capability._2.capabilityType.get
           val capabilityFound = TypeLoader.loadCapabilityType(definedCapabilityType.value, csarPath)
-          if (!capabilityFound.isDefined) {
+          if (capabilityFound.isEmpty) {
             compilationErrors += CompilationError("Capability [" + capability._1.value + "] refers to unknown capability [" + definedCapabilityType.value + "]", definedCapabilityType.pos, definedCapabilityType.value)
           }
         }
@@ -188,16 +190,12 @@ object SemanticAnalyzer {
     analyzeDerivedFrom(artifactType.name, artifactType.derivedFrom, csarPath, TypeLoader.loadArtifactType).map(List(_)).getOrElse(List.empty)
   }
 
-  def analyzeProperties(values: Map[ParsedValue[String], Any], definitions: Map[ParsedValue[String], PropertyDefinition]) = {
-
-  }
-
   def analyzeNodeTemplate(nodeTemplate: NodeTemplate, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     if (nodeTemplate.typeName.isDefined) {
       val typeName = nodeTemplate.typeName.get
       val typeFound = TypeLoader.loadNodeType(typeName.value, csarPath)
-      if (!typeFound.isDefined) {
+      if (typeFound.isEmpty) {
         compilationErrors += CompilationError("Node template [" + nodeTemplate.name.value + "] is of unknown type [" + typeName.value + "]", typeName.pos, typeName.value)
       }
     } else {

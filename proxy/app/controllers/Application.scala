@@ -15,7 +15,7 @@ import scala.concurrent.Future
 class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
 
   // TODO better do it properly by performing connect operation in bootstrap recipe's relationship
-  val dockerClient = connect(System.getenv("DOCKER_HOST"))
+  val dockerClient = connect(System.getenv("DOCKER_URL"))
 
   def refreshAgentsURL() = {
     val allDeployments = dockerClient.listDeploymentAgents()

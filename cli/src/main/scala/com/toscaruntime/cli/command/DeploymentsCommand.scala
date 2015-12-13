@@ -53,14 +53,10 @@ object DeploymentsCommand {
         println("Deleted deployment image " + deploymentId)
       case ("run", deploymentId: String) =>
         val containerId = client.createDeploymentAgent(deploymentId).getId
-        val logCallback = client.tailContainerLog(containerId, System.out)
-        try {
-          DeployUtil.waitForDeploymentAgent(client, deploymentId)
-          val details = DeployUtil.deploy(client, deploymentId)
-          DeployUtil.printDetails("Deployment " + deploymentId, details)
-        } finally {
-          logCallback.close()
-        }
+        DeployUtil.waitForDeploymentAgent(client, deploymentId)
+        client.deploy(deploymentId)
+        println(s"Agent with id $containerId has been created for deployment $deploymentId")
+        println("Execute 'agents log " + deploymentId + "' to tail the log of deployment agent")
     }
     state
   }

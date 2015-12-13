@@ -3,9 +3,19 @@ package com.toscaruntime.sdk;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
+
+import com.toscaruntime.exception.IllegalFunctionException;
+import com.toscaruntime.util.CodeGeneratorUtil;
+import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
 
 public abstract class AbstractRuntimeType {
+
+    /**
+     * Hold last operation outputs : operation name to key to value
+     */
+    protected Map<String, Map<String, String>> operationOutputs = new HashMap<>();
 
     protected Map<String, Object> properties = new HashMap<>();
 
@@ -14,6 +24,8 @@ public abstract class AbstractRuntimeType {
     protected DeploymentConfig config;
 
     protected String state = "initial";
+
+    protected Map<String, AttributeDefinition> attributeDefinitions = new HashMap<>();
 
     public String getState() {
         return state;
@@ -52,8 +64,28 @@ public abstract class AbstractRuntimeType {
         return PropertyUtil.getMandatoryPropertyAsString(this.properties, propertyName);
     }
 
-    protected String getAttribute(String attributeName) {
-        return this.attributes.get(attributeName);
+    public String getAttribute(String attributeName) {
+        String attributeValue = this.attributes.get(attributeName);
+        if (StringUtils.isEmpty(attributeValue)) {
+            return getProperty(attributeName);
+        } else {
+            return attributeValue;
+        }
+    }
+
+    protected String getInput(String inputName) {
+        return PropertyUtil.getPropertyAsString(this.config.getInputs(), inputName);
+    }
+
+    protected String getOperationOutput(String interfaceName, String operationName, String outputName) {
+        String methodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName);
+        Map<String, String> outputs = operationOutputs.get(methodName);
+        if (outputs != null) {
+            String output = outputs.get(outputName);
+            return output != null ? output : "";
+        } else {
+            return "";
+        }
     }
 
     public DeploymentConfig getConfig() {
@@ -62,5 +94,27 @@ public abstract class AbstractRuntimeType {
 
     public void setConfig(DeploymentConfig config) {
         this.config = config;
+    }
+
+    public void setAttribute(String key, String value) {
+        getAttributes().put(key, value);
+    }
+
+    public void removeAttribute(String key) {
+        getAttributes().remove(key);
+    }
+
+    public String evaluateCompositeFunction(String functionName, Object... memberValue) {
+        if ("concat".equals(functionName)) {
+            return FunctionUtil.concat(memberValue);
+        } else {
+            throw new IllegalFunctionException("Function " + functionName + " is not supported");
+        }
+    }
+
+    public void refreshAttributes() {
+        for (Map.Entry<String, AttributeDefinition> attributeDefinitionEntry : attributeDefinitions.entrySet()) {
+            setAttribute(attributeDefinitionEntry.getKey(), attributeDefinitionEntry.getValue().evaluateAttribute());
+        }
     }
 }
