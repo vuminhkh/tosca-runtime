@@ -90,13 +90,13 @@ trait YamlParser extends JavaTokenParsers {
       (keyValueSeparatorPattern ~> textValue)) <~ lineEndingPattern) | failure("Expecting text value")
 
   def textEntry(key: String)(indentLevel: Int): Parser[(ParsedValue[String], ParsedValue[String])] =
-    textEntry(wrapTextWithPosition(key))(indentLevel) | failure(s"Expecting text entry with key $key")
+    textEntry(wrapTextWithPosition(key))(indentLevel) | failure(s"Expecting text entry with key '$key'")
 
   def textEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): Parser[(ParsedValue[String], ParsedValue[String])] =
     ((keyParser ~ textValueWithSeparator(indentLevel)) ^^ entryParseResultHandler) | failure("Expecting text entry")
 
   def nestedTextEntry(key: String): Parser[(ParsedValue[String], ParsedValue[String])] =
-    nestedTextEntry(wrapTextWithPosition(key)) | failure(s"Expecting nested text entry with key $key")
+    nestedTextEntry(wrapTextWithPosition(key)) | failure(s"Expecting nested text entry with key '$key'")
 
   def nestedTextEntry(keyParser: Parser[ParsedValue[String]]): Parser[(ParsedValue[String], ParsedValue[String])] =
     ((keyParser ~ (keyValueSeparatorPattern ~> nestedTextValue)) ^^ entryParseResultHandler) | failure("Expecting nested text entry")
@@ -111,13 +111,13 @@ trait YamlParser extends JavaTokenParsers {
     ((keyParser ~ (keyComplexSeparatorPattern ~> map(mapEntryParser)(indentLevel + 1))) ^^ entryParseResultHandler) | failure("Expecting map entry")
 
   def mapEntry[T](key: String)(mapEntryParser: (Int => Parser[(ParsedValue[String], T)]))(indentLevel: Int): Parser[(ParsedValue[String], Map[ParsedValue[String], T])] =
-    mapEntry(wrapTextWithPosition(key))(mapEntryParser)(indentLevel) | failure(s"Expecting map entry with key $key")
+    mapEntry(wrapTextWithPosition(key))(mapEntryParser)(indentLevel) | failure(s"Expecting map entry with key '$key'")
 
   def internalNestedMapEntry[T](keyParser: Parser[ParsedValue[String]])(mapEntryParser: Parser[(ParsedValue[String], T)]): Parser[(ParsedValue[String], Map[ParsedValue[String], T])] =
     (keyParser ~ (keyValueSeparatorPattern ~> nestedMap(mapEntryParser))) ^^ entryParseResultHandler
 
   def nestedMapEntry[T](key: String)(mapEntryParser: Parser[(ParsedValue[String], T)]): Parser[(ParsedValue[String], Map[ParsedValue[String], T])] =
-    nestedMapEntry(wrapTextWithPosition(key))(mapEntryParser) | failure(s"Expecting nested map entry with key $key")
+    nestedMapEntry(wrapTextWithPosition(key))(mapEntryParser) | failure(s"Expecting nested map entry with key '$key'")
 
   def nestedMapEntry[T](keyParser: Parser[ParsedValue[String]])(mapEntryParser: Parser[(ParsedValue[String], T)]): Parser[(ParsedValue[String], Map[ParsedValue[String], T])] =
     (internalNestedMapEntry(keyParser)(mapEntryParser) <~ lineEndingPattern) | failure("Expecting map entry")
@@ -127,13 +127,13 @@ trait YamlParser extends JavaTokenParsers {
   }
 
   def complexEntry[T](key: String)(complexParser: (Int => Parser[T]))(indentLevel: Int): Parser[(ParsedValue[String], T)] =
-    complexEntry(wrapTextWithPosition(key))(complexParser)(indentLevel) | failure(s"Expecting complex entry with key $key")
+    complexEntry(wrapTextWithPosition(key))(complexParser)(indentLevel) | failure(s"Expecting complex entry with key '$key'")
 
   def internalNestedComplexEntry[T](keyParser: Parser[ParsedValue[String]])(complexParser: Parser[T]): Parser[(ParsedValue[String], T)] =
     (keyParser ~ (keyValueSeparatorPattern ~> nestedMapStartPattern ~> complexParser <~ nestedMapEndPattern)) ^^ entryParseResultHandler
 
   def nestedComplexEntry[T](key: String)(complexParser: Parser[T]): Parser[(ParsedValue[String], T)] =
-    nestedComplexEntry(wrapTextWithPosition(key))(complexParser) | failure(s"Expecting nested complex entry with key $key")
+    nestedComplexEntry(wrapTextWithPosition(key))(complexParser) | failure(s"Expecting nested complex entry with key '$key'")
 
   def nestedComplexEntry[T](keyParser: Parser[ParsedValue[String]])(complexParser: Parser[T]): Parser[(ParsedValue[String], T)] =
     (internalNestedComplexEntry(keyParser)(complexParser) <~ lineEndingPattern) | failure("Expecting nested complex entry")
@@ -142,13 +142,13 @@ trait YamlParser extends JavaTokenParsers {
     ((keyParser ~ (keyComplexSeparatorPattern ~> list(listEntryParser)(indentLevel + 1))) ^^ entryParseResultHandler) | failure("Expecting list entry")
 
   def listEntry[T](key: String)(listEntryParser: (Int => Parser[T]))(indentLevel: Int): Parser[(ParsedValue[String], List[T])] =
-    listEntry(wrapTextWithPosition(key))(listEntryParser)(indentLevel) | failure(s"Expecting list entry with key $key")
+    listEntry(wrapTextWithPosition(key))(listEntryParser)(indentLevel) | failure(s"Expecting list entry with key '$key'")
 
   def internalNestedListEntry[T](keyParser: Parser[ParsedValue[String]])(listEntryParser: Parser[T]): Parser[(ParsedValue[String], List[T])] =
     (keyParser ~ (keyValueSeparatorPattern ~> nestedList(listEntryParser))) ^^ entryParseResultHandler
 
   def nestedListEntry[T](key: String)(listEntryParser: Parser[T]): Parser[(ParsedValue[String], List[T])] =
-    nestedListEntry(wrapTextWithPosition(key))(listEntryParser) | failure(s"Expecting nested list entry with key $key")
+    nestedListEntry(wrapTextWithPosition(key))(listEntryParser) | failure(s"Expecting nested list entry with key '$key'")
 
   def nestedListEntry[T](keyParser: Parser[ParsedValue[String]])(listEntryParser: Parser[T]): Parser[(ParsedValue[String], List[T])] =
     (internalNestedListEntry(keyParser)(listEntryParser) <~ lineEndingPattern) | failure("Expecting nested list entry")
@@ -157,8 +157,8 @@ trait YamlParser extends JavaTokenParsers {
 
   def intValue = positioned(decimalNumber ^^ (i => ParsedValue(i.toInt))) | failure("Expecting int value")
 
-  def boundedIntValue = positioned((intValue | "unbounded") ^^ {
-    case "unbounded" => ParsedValue[Int](Int.MaxValue)
+  def boundedIntValue = positioned((intValue | "unbounded" | "UNBOUNDED") ^^ {
+    case "unbounded" | "UNBOUNDED" => ParsedValue[Int](Int.MaxValue)
     case i: ParsedValue[Int] => i
   }) | failure("Expecting int value or unbounded")
 
@@ -199,5 +199,5 @@ trait YamlParser extends JavaTokenParsers {
 
   def wrapParserWithPosition[T](parser: Parser[T]) = positioned(parser ^^ wrapValueWithPosition)
 
-  def wrapTextWithPosition[T](text: String) = positioned(text ^^ wrapValueWithPosition)
+  def wrapTextWithPosition[T](text: String) = positioned(text ^^ wrapValueWithPosition) | failure(s"Expecting token '$text'")
 }

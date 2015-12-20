@@ -20,11 +20,11 @@ class CompilerSpec extends AbstractSpec {
       }
       parseResult.isSuccessful must be(true)
       val definition = parseResult.csars.values.head.definitions.values.head
-      definition.nodeTypes.contains(ParsedValue(classOf[Root].getName)) must be(true)
-      definition.relationshipTypes.contains(ParsedValue(classOf[_root_.tosca.relationships.Root].getName)) must be(true)
-      definition.relationshipTypes.contains(ParsedValue(classOf[_root_.tosca.relationships.HostedOn].getName)) must be(true)
-      definition.relationshipTypes.contains(ParsedValue(classOf[_root_.tosca.relationships.AttachTo].getName)) must be(true)
-      definition.relationshipTypes.contains(ParsedValue(classOf[_root_.tosca.relationships.Network].getName)) must be(true)
+      definition.nodeTypes.get.contains(ParsedValue(classOf[Root].getName)) must be(true)
+      definition.relationshipTypes.get.contains(ParsedValue(classOf[_root_.tosca.relationships.Root].getName)) must be(true)
+      definition.relationshipTypes.get.contains(ParsedValue(classOf[_root_.tosca.relationships.HostedOn].getName)) must be(true)
+      definition.relationshipTypes.get.contains(ParsedValue(classOf[_root_.tosca.relationships.AttachTo].getName)) must be(true)
+      definition.relationshipTypes.get.contains(ParsedValue(classOf[_root_.tosca.relationships.Network].getName)) must be(true)
     }
   }
 }

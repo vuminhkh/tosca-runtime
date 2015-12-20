@@ -64,6 +64,10 @@ object TypeLoader {
 
   def loadArtifactTypes(csarsPath: Seq[Csar]) = csarsPath.flatMap(_.definitions.values.flatMap(_.artifactTypes.getOrElse(Map.empty).map(entry => (entry._1.value, entry._2)))).toMap
 
+  def loadDataType(typeName: String, csarsPath: Seq[Csar]) = loadDataTypes(csarsPath).get(typeName)
+
+  def loadDataTypes(csarsPath: Seq[Csar]) = csarsPath.flatMap(_.definitions.values.flatMap(_.dataTypes.getOrElse(Map.empty).map(entry => (entry._1.value, entry._2)))).toMap
+
   def isInstanceOf[T <: Type](left: String, rights: Seq[String], allTypes: Map[String, T]): Boolean = {
     rights.foreach(right =>
       if (isInstanceOf(left, right, allTypes)) {

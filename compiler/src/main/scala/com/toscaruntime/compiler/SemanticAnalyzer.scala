@@ -8,10 +8,15 @@ import scala.collection.mutable.ListBuffer
 
 object SemanticAnalyzer {
 
-  def analyzeFieldDefinition(field: FieldDefinition) = {
+  def analyzeFieldDefinition(field: FieldDefinition, csarPath: List[Csar]) = {
     val propertyType = field.valueType
-    if (!FieldDefinition.isTypeValid(propertyType.value)) {
-      Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, Some(propertyType.value)))
+    if (!FieldDefinition.isTypePrimitive(propertyType.value)) {
+      // TODO validate default value for data types
+      if (TypeLoader.loadDataType(propertyType.value, csarPath).isEmpty) {
+        Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, Some(propertyType.value)))
+      } else {
+        None
+      }
     } else {
       field.default.flatMap { default =>
         try {
@@ -33,8 +38,8 @@ object SemanticAnalyzer {
     }
   }
 
-  def analyzePropertyDefinition(propertyDefinition: PropertyDefinition) = {
-    val fieldErrors = analyzeFieldDefinition(propertyDefinition)
+  def analyzePropertyDefinition(propertyDefinition: PropertyDefinition, csarPath: List[Csar]) = {
+    val fieldErrors = analyzeFieldDefinition(propertyDefinition, csarPath)
     val propertyType = propertyDefinition.valueType.value
     val constraintReferenceErrors = propertyDefinition.constraints.map { constraints =>
       constraints.flatMap { constraint =>
@@ -47,13 +52,13 @@ object SemanticAnalyzer {
     val constraintTypeErrors = propertyDefinition.constraints.map { constraints =>
       constraints.flatMap { constraint =>
         constraint.operator.value match {
-          case "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "in_range" =>
+          case Tokens.greater_than_token | Tokens.greater_or_equal_token | Tokens.less_than_token | Tokens.less_or_equal_token | Tokens.in_range_token =>
             if (!FieldDefinition.isTypeComparable(propertyType)) {
               Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs comparable type, but incompatible [" + propertyType + "] found", constraint.operator.pos, Some(constraint.operator.value)))
             } else {
               None
             }
-          case "length" | "min_length" | "max_length" | "pattern" =>
+          case Tokens.length_token | Tokens.min_length_token | Tokens.max_length_token | Tokens.pattern_token =>
             if (propertyType != FieldDefinition.STRING) {
               Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs string type , but incompatible [" + propertyType + "] found", constraint.operator.pos, Some(constraint.operator.value)))
             } else {
@@ -66,15 +71,15 @@ object SemanticAnalyzer {
     fieldErrors.map(_ :: constraintReferenceErrors).getOrElse(constraintReferenceErrors) ++ constraintTypeErrors
   }
 
-  def analyzePropertyDefinitions(toscaType: Type) = {
+  def analyzePropertyDefinitions(toscaType: Type, csarPath: List[Csar]) = {
     toscaType.properties.map(_.values.filter(_.isInstanceOf[PropertyDefinition]).map { definition =>
-      analyzePropertyDefinition(definition.asInstanceOf[PropertyDefinition])
+      analyzePropertyDefinition(definition.asInstanceOf[PropertyDefinition], csarPath)
     }.toList).getOrElse(List.empty).flatten
   }
 
-  def analyzeAttributeDefinitions(nodeType: NodeType) = {
+  def analyzeAttributeDefinitions(nodeType: NodeType, csarPath: List[Csar]) = {
     nodeType.attributes.map(_.values.map {
-      case definition: AttributeDefinition => analyzeFieldDefinition(definition)
+      case definition: AttributeDefinition => analyzeFieldDefinition(definition, csarPath)
       case _ => None
     }.toList).getOrElse(List.empty).flatten
   }
@@ -165,8 +170,8 @@ object SemanticAnalyzer {
   def analyzeNodeType(nodeType: NodeType, recipePath: Path, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     compilationErrors ++= analyzeDerivedFrom(nodeType, csarPath, TypeLoader.loadNodeType)
-    compilationErrors ++= analyzePropertyDefinitions(nodeType)
-    compilationErrors ++= analyzeAttributeDefinitions(nodeType)
+    compilationErrors ++= analyzePropertyDefinitions(nodeType, csarPath)
+    compilationErrors ++= analyzeAttributeDefinitions(nodeType, csarPath)
     compilationErrors ++= analyzeRequirementDefinition(nodeType, csarPath)
     compilationErrors ++= analyzeCapabilityDefinition(nodeType, csarPath)
     compilationErrors ++= analyzeInterfaces(nodeType, recipePath)
@@ -176,14 +181,14 @@ object SemanticAnalyzer {
   def analyzeCapabilityType(capabilityType: CapabilityType, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     compilationErrors ++= analyzeDerivedFrom(capabilityType, csarPath, TypeLoader.loadCapabilityType)
-    compilationErrors ++= analyzePropertyDefinitions(capabilityType)
+    compilationErrors ++= analyzePropertyDefinitions(capabilityType, csarPath)
     compilationErrors.toList
   }
 
   def analyzeRelationshipType(relationshipType: RelationshipType, recipePath: Path, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     compilationErrors ++= analyzeDerivedFrom(relationshipType, csarPath, TypeLoader.loadRelationshipType)
-    compilationErrors ++= analyzePropertyDefinitions(relationshipType)
+    compilationErrors ++= analyzePropertyDefinitions(relationshipType, csarPath)
     compilationErrors ++= analyzeInterfaces(relationshipType, recipePath)
     compilationErrors.toList
   }
@@ -193,6 +198,7 @@ object SemanticAnalyzer {
   }
 
   def analyzeNodeTemplate(nodeTemplate: NodeTemplate, csarPath: List[Csar]) = {
+    // TODO complete semantic analyse
     val compilationErrors = ListBuffer[CompilationError]()
     if (nodeTemplate.typeName.isDefined) {
       val typeName = nodeTemplate.typeName.get
@@ -208,7 +214,7 @@ object SemanticAnalyzer {
 
   def analyzeTopology(topologyTemplate: TopologyTemplate, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
-    compilationErrors ++= topologyTemplate.inputs.map(_.values.map(analyzePropertyDefinition).toList).getOrElse(List.empty).flatten
+    compilationErrors ++= topologyTemplate.inputs.map(_.values.map(analyzePropertyDefinition(_, csarPath)).toList).getOrElse(List.empty).flatten
     compilationErrors ++= topologyTemplate.nodeTemplates.map(_.values.map(analyzeNodeTemplate(_, csarPath)).toList).getOrElse(List.empty).flatten
     compilationErrors.toList
   }
