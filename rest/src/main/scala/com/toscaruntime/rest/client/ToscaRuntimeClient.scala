@@ -159,7 +159,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   def createDeploymentAgent(deploymentId: String) = {
-    daemonClient.createDeploymentAgent(deploymentId)
+    daemonClient.createDeploymentAgent(deploymentId, Await.result(getBootstrapContext, 365 days))
   }
 
   def createBootstrapAgent(provider: String, target: String) = {

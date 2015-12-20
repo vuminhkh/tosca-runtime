@@ -1,5 +1,8 @@
 #!/bin/bash -e
 
 echo "Starting docker"
-
-sudo service docker start
+if [ -d "/usr/lib/systemd" ]; then
+  sudo systemctl start docker
+else
+  sudo service docker start
+fi

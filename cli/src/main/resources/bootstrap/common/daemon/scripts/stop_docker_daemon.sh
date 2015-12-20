@@ -2,4 +2,8 @@
 
 echo "Stopping docker"
 
-sudo service docker stop
+if [ -d "/usr/lib/systemd" ]; then
+  sudo systemctl stop docker
+else
+  sudo service docker stop
+fi

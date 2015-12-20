@@ -23,7 +23,7 @@ object DeployUtil extends LazyLogging {
     println("Daemon has " + deployments.length + " deployment agent(s) : ")
     val headers = List("Deployment Id", "Status", "Created", "IP", "Container Id")
     val deploymentsData = deployments.map { deployment =>
-      List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIP, deployment.agentId)
+      List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
     }
     println(TabulatorUtil.format(headers :: deploymentsData))
   }

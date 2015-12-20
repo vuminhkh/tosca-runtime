@@ -1,13 +1,15 @@
 package com.toscaruntime.compiler.tosca
 
+import java.nio.file.Path
 import java.text.DateFormat
 import java.util.Locale
 
 import scala.util.parsing.input.Positional
 
-case class Csar(definitions: Map[String, Definition]) {
+case class Csar(path: Path, definitions: Map[String, Definition]) {
+
   def csarName = {
-    definitions.head._2.name.get.value
+    definitions.values.head.name.get.value
   }
 }
 
@@ -16,6 +18,7 @@ case class ParsedValue[T](value: T) extends Positional
 case class Definition(definitionVersion: Option[ParsedValue[String]],
                       name: Option[ParsedValue[String]],
                       version: Option[ParsedValue[String]],
+                      imports: Option[List[ParsedValue[String]]],
                       author: Option[ParsedValue[String]],
                       description: Option[ParsedValue[String]],
                       nodeTypes: Option[Map[ParsedValue[String], NodeType]],
@@ -34,7 +37,7 @@ trait Type {
   val description: Option[ParsedValue[String]]
   val isAbstract: ParsedValue[Boolean]
   val derivedFrom: Option[ParsedValue[String]]
-  val properties: Option[Map[ParsedValue[String], PropertyDefinition]]
+  val properties: Option[Map[ParsedValue[String], FieldValue]]
 }
 
 trait RuntimeType extends Type {
@@ -66,7 +69,7 @@ case class NodeType(name: ParsedValue[String],
                     derivedFrom: Option[ParsedValue[String]],
                     description: Option[ParsedValue[String]],
                     tags: Option[Map[ParsedValue[String], ParsedValue[String]]],
-                    properties: Option[Map[ParsedValue[String], PropertyDefinition]],
+                    properties: Option[Map[ParsedValue[String], FieldValue]],
                     attributes: Option[Map[ParsedValue[String], FieldValue]],
                     requirements: Option[Map[ParsedValue[String], RequirementDefinition]],
                     capabilities: Option[Map[ParsedValue[String], CapabilityDefinition]],

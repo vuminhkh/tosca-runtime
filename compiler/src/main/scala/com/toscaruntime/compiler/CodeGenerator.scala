@@ -34,7 +34,13 @@ object CodeGenerator extends LazyLogging {
     }
   }
 
-  case class RuntimeTypeParseResult(packageName: String, className: String, isAbstract: Boolean, derivedFrom: Option[String], methods: Seq[runtime.Method], attributes: Map[String, Value])
+  case class RuntimeTypeParseResult(packageName: String,
+                                    className: String,
+                                    isAbstract: Boolean,
+                                    derivedFrom: Option[String],
+                                    methods: Seq[runtime.Method],
+                                    properties: Map[String, Value],
+                                    attributes: Map[String, Value])
 
   def parseRuntimeType(runtimeType: RuntimeType) = {
     val packageNameAndClassName = CompilerUtil.splitClassNameAndPackageName(runtimeType.name.value)
@@ -44,7 +50,10 @@ object CodeGenerator extends LazyLogging {
     val attributes = runtimeType.attributes.map(_.filter(!_._2.isInstanceOf[AttributeDefinition]).map {
       case (name: ParsedValue[String], value: FieldValue) => (name.value, parseValue(value))
     }).getOrElse(Map.empty)
-    RuntimeTypeParseResult(packageNameAndClassName._1, packageNameAndClassName._2, runtimeType.isAbstract.value, runtimeType.derivedFrom.map(_.value), methods, attributes)
+    val properties = runtimeType.properties.map(_.filter(!_._2.isInstanceOf[PropertyDefinition]).map {
+      case (name: ParsedValue[String], value: FieldValue) => (name.value, parseValue(value))
+    }).getOrElse(Map.empty)
+    RuntimeTypeParseResult(packageNameAndClassName._1, packageNameAndClassName._2, runtimeType.isAbstract.value, runtimeType.derivedFrom.map(_.value), methods, properties, attributes)
   }
 
   def generateNodeType(csar: Csar, nodeType: NodeType, outputDir: Path) = {
@@ -53,7 +62,7 @@ object CodeGenerator extends LazyLogging {
     } else {
       logger.info(s"Generating node type class ${nodeType.name.value}")
       val parsedType = parseRuntimeType(nodeType)
-      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.attributes)).body
+      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.properties, parsedType.attributes)).body
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.info(s"Generated node type class ${nodeType.name.value} to $generatedPath")
@@ -66,7 +75,7 @@ object CodeGenerator extends LazyLogging {
     } else {
       logger.info(s"Generating relationship type class ${relationshipType.name.value}")
       val parsedType = parseRuntimeType(relationshipType)
-      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.attributes)).body
+      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.properties, parsedType.attributes)).body
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.info(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
@@ -107,7 +116,9 @@ object CodeGenerator extends LazyLogging {
           }
         }.getOrElse(Map.empty)
         val defaultProperties = nodeType.properties.map {
-          _.filter(_._2.default.isDefined).map {
+          _.filter {
+            case (propertyName, propertyDefinition) => propertyDefinition.isInstanceOf[PropertyDefinition] && propertyDefinition.asInstanceOf[PropertyDefinition].default.isDefined
+          }.map {
             case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, runtime.ScalarValue(propertyDefinition.default.get.value))
           }
         }.getOrElse(Map.empty)

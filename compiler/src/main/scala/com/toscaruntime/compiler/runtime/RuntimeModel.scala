@@ -13,6 +13,8 @@ trait RuntimeType {
 
   val csarName: String
 
+  val propertiesDefinitions: Map[String, Value]
+
   val attributesDefinitions: Map[String, Value]
 }
 
@@ -23,6 +25,8 @@ case class NodeType(className: String,
                     methods: Seq[Method],
                     csarName: String,
                     // One of ScalarValue, Function or CompositeFunction
+                    propertiesDefinitions: Map[String, Value],
+                    // One of ScalarValue, Function or CompositeFunction
                     attributesDefinitions: Map[String, Value]) extends RuntimeType
 
 case class RelationshipType(className: String,
@@ -31,6 +35,9 @@ case class RelationshipType(className: String,
                             superClass: Option[String],
                             methods: Seq[Method],
                             csarName: String,
+                            // One of ScalarValue, Function or CompositeFunction
+                            propertiesDefinitions: Map[String, Value],
+                            // One of ScalarValue, Function or CompositeFunction
                             attributesDefinitions: Map[String, Value]) extends RuntimeType
 
 trait Value

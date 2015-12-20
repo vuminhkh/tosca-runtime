@@ -48,14 +48,14 @@ public abstract class Root extends AbstractRuntimeType {
         if (source == null || source.getHost() == null) {
             throw new NonRecoverableException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
-        return source.getHost().execute(operationArtifactPath, inputs);
+        return source.getHost().execute(source.getId(), operationArtifactPath, inputs);
     }
 
     protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, String> inputs) {
         if (target == null) {
             throw new NonRecoverableException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
-        return target.getHost().execute(operationArtifactPath, inputs);
+        return target.getHost().execute(target.getId(), operationArtifactPath, inputs);
     }
 
     public String evaluateFunction(String functionName, String... paths) {

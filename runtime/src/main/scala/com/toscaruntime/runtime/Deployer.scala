@@ -15,26 +15,28 @@ object Deployer {
   /**
     * Deploy the given recipe from the given recipe folder and the given input file and given provider configuration file
     *
+    * @param deploymentName deployment's name
     * @param deploymentRecipeFolder recipe's path
     * @param inputFile deployment input file
     * @param providerProperties provider's configuration
     * @return the created deployment
     */
-  def createDeployment(deploymentRecipeFolder: Path, inputFile: Option[Path], providerProperties: Map[String, String], bootstrapContextFile: Option[Path], bootstrap: Boolean): Deployment = {
+  def createDeployment(deploymentName: String, deploymentRecipeFolder: Path, inputFile: Option[Path], providerProperties: Map[String, String], bootstrapContextFile: Option[Path], bootstrap: Boolean): Deployment = {
     val inputs = DeployerUtil.loadInputs(inputFile)
     val bootstrapContext = DeployerUtil.loadInputs(bootstrapContextFile)
-    createDeployment(deploymentRecipeFolder, inputs, providerProperties, bootstrapContext, bootstrap)
+    createDeployment(deploymentName, deploymentRecipeFolder, inputs, providerProperties, bootstrapContext, bootstrap)
   }
 
   /**
     * Deploy the given recipe from the given recipe folder and the given input properties and given provider properties
     *
+    * @param deploymentName deployment's name
     * @param deploymentRecipeFolder recipe's path
     * @param inputs deployment input
     * @param providerProperties provider's properties
     * @return the created deployment
     */
-  def createDeployment(deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String], bootstrapContext: Map[String, AnyRef], bootstrap: Boolean): Deployment = {
+  def createDeployment(deploymentName: String, deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String], bootstrapContext: Map[String, AnyRef], bootstrap: Boolean): Deployment = {
     val compiledClasses = DeployerUtil.compileJavaRecipe(
       List(
         deploymentRecipeFolder.resolve(CompilerConstant.TYPES_FOLDER),
@@ -45,7 +47,7 @@ object Deployer {
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(classLoader)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-    deployment.initializeDeployment(deploymentRecipeFolder, inputs.asJava, bootstrap)
+    deployment.initializeDeployment(deploymentName, deploymentRecipeFolder, inputs.asJava, bootstrap)
     val deploymentPostConstructors = DeployerUtil.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
     deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties.asJava, bootstrapContext.asJava))
     Thread.currentThread().setContextClassLoader(currentClassLoader)

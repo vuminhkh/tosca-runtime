@@ -25,7 +25,7 @@ object CompileCommand {
   private lazy val compileArgsParser = Space ~> (topologyPathArg | csarPathArg | Args.providerArg | outputPathArg) +
   private lazy val topologyPathArg = token(topologyOpt) ~ (Space ~> token(Parsers.filePathParser))
   private lazy val csarPathArg = token(csarPathOpt) ~ (Space ~> (token(Parsers.filePathParser) ~ ((token(":") ~> token(Parsers.filePathParser)) *)))
-  // Add more providers options when you add provider to tosca-runtime here
+  // Add more providers options when you add provider to toscaruntime here
   private lazy val outputPathArg = token(outputOpt) ~ (Space ~> token(Parsers.filePathParser))
 
   private lazy val compileHelp = Help("compile", ("compile", "Compile a topology to produce a deployable archive, execute 'help compile' for more details"),

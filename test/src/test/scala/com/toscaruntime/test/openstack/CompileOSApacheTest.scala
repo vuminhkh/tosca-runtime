@@ -35,7 +35,7 @@ object CompileOSApacheTest {
         "security_group_names" -> "openbar",
         "external_network_id" -> "0e43db46-8fd9-4ef1-8826-4cf9e809aede"
       )
-      Deployer.createDeployment(outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], false)
+      Deployer.createDeployment("testWordPress", outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], false)
     }
   }
 }

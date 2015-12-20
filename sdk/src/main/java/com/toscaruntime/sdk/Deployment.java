@@ -57,8 +57,9 @@ public abstract class Deployment {
         return relationshipNodes;
     }
 
-    public void initializeDeployment(Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
+    public void initializeDeployment(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
         this.config = new DeploymentConfig();
+        this.config.setDeploymentName(deploymentName);
         this.config.setInputs(inputs);
         this.config.setRecipePath(recipePath);
         this.config.setBootstrap(bootstrap);

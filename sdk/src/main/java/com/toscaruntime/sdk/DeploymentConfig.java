@@ -11,6 +11,11 @@ import java.util.Map;
 public class DeploymentConfig {
 
     /**
+     * Name of the deployment
+     */
+    private String deploymentName;
+
+    /**
      * Inputs of the deployment
      */
     private Map<String, Object> inputs;
@@ -34,6 +39,14 @@ public class DeploymentConfig {
      * Name of the csar that contains the topology from whom this deployment has been generated
      */
     private Path topologyResourcePath;
+
+    public String getDeploymentName() {
+        return deploymentName;
+    }
+
+    public void setDeploymentName(String deploymentName) {
+        this.deploymentName = deploymentName;
+    }
 
     public Map<String, Object> getInputs() {
         return inputs;

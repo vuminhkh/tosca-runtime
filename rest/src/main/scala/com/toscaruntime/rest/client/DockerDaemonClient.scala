@@ -40,7 +40,6 @@ class DockerDaemonClient(var url: String, var certPath: String) {
   }
 
   def getProxyURL: Option[String] = {
-    // TODO How to better handle the filter to check that a container is the proxy
     val filters = new Filters().withLabels(RuntimeConstant.COMPONENT_TYPE_LABEL + "=" + RuntimeConstant.PROXY_TYPE_VALUE)
     val proxyFound = dockerClient.listContainersCmd().withFilters(filters).withLimit(1).exec()
     if (proxyFound.isEmpty) {
@@ -82,7 +81,10 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     containers.map { container =>
       val containerInfo = dockerClient.inspectContainerCmd(container.getId).exec
       val deploymentId = container.getLabels.get(RuntimeConstant.DEPLOYMENT_ID_LABEL)
-      val deploymentInfo = DeploymentInfo(deploymentId, container.getNames.head, containerInfo.getId, containerInfo.getCreated, container.getStatus, containerInfo.getNetworkSettings.getIpAddress)
+      val ipAddresses = containerInfo.getNetworkSettings.getNetworks.asScala.map {
+        case (networkName: String, network: InspectContainerResponse.Network) => (networkName, network.getIpAddress)
+      }.toMap
+      val deploymentInfo = DeploymentInfo(deploymentId, container.getNames.head, containerInfo.getId, containerInfo.getCreated, container.getStatus, ipAddresses)
       (deploymentId, deploymentInfo)
     }.toMap
   }
@@ -184,7 +186,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     }
   }
 
-  private def createAgent(deploymentId: String, labels: Map[String, String]) = {
+  private def createAgent(deploymentId: String, labels: Map[String, String], bootstrapContext: Map[String, String]) = {
     val labels = Maps.newHashMap[String, String]()
     labels.put(RuntimeConstant.ORGANIZATION_LABEL, RuntimeConstant.ORGANIZATION_VALUE)
     labels.put(RuntimeConstant.DEPLOYMENT_ID_LABEL, deploymentId)
@@ -199,11 +201,15 @@ class DockerDaemonClient(var url: String, var certPath: String) {
       .withName("toscaruntime_" + deploymentId + "_agent")
       .withLabels(labels).exec
     dockerClient.startContainerCmd(createdContainer.getId).exec()
+    bootstrapContext.get("docker_network_id").map { networkId =>
+      // If it's a swarm cluster with a swarm network overly then connect to it
+      dockerClient.connectContainerToNetworkCmd(createdContainer.getId, networkId).exec()
+    }
     createdContainer
   }
 
-  def createDeploymentAgent(deploymentId: String) = {
-    createAgent(deploymentId, Map(RuntimeConstant.AGENT_TYPE_LABEL -> RuntimeConstant.AGENT_TYPE_DEPLOYMENT_VALUE))
+  def createDeploymentAgent(deploymentId: String, bootstrapContext: Map[String, String]) = {
+    createAgent(deploymentId, Map(RuntimeConstant.AGENT_TYPE_LABEL -> RuntimeConstant.AGENT_TYPE_DEPLOYMENT_VALUE), bootstrapContext)
   }
 
   def generateDeploymentIdForBootstrap(provider: String, target: String) = {
@@ -216,7 +222,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
       Map(
         RuntimeConstant.AGENT_TYPE_LABEL -> RuntimeConstant.AGENT_TYPE_BOOTSTRAP_VALUE,
         RuntimeConstant.PROVIDER_TARGET_LABEL -> target
-      )
+      ), Map.empty
     )
   }
 

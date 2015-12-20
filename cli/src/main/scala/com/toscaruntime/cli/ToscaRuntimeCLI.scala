@@ -1,7 +1,7 @@
 package com.toscaruntime.cli
 
 import java.io.File
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 
 import com.toscaruntime.cli.command._
 import com.toscaruntime.rest.client.ToscaRuntimeClient
@@ -21,34 +21,39 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     MainLoop.runLogged(initialState(configuration))
 
   def buildDockerClient(basedir: Path) = {
-    val daemonUrlSystemProperty = "tosca-runtime.docker.daemon.url"
-    System.getProperty(daemonUrlSystemProperty) match {
-      case url: String =>
-        println("Using daemon url configured from system property " + daemonUrlSystemProperty)
-        new ToscaRuntimeClient(url, System.getProperty("tosca-runtime.docker.daemon.cert"))
-      case null => System.getProperty("os.name") match {
-        case windowsOrMac if windowsOrMac.startsWith("Windows") || windowsOrMac.startsWith("Mac") =>
-          val url = "https://192.168.99.100:2376"
-          println("Using default docker daemon configuration for " + windowsOrMac)
-          val certificatePath = System.getProperty("user.home") + "/.docker/machine/machines/default"
-          val cfp = Paths.get(certificatePath)
-          val dockerDefaultConfCert = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default").resolve("cert")
-          if ("true".equals(System.getProperty("tosca-runtime.initConf")) && Files.exists(cfp) && !Files.exists(dockerDefaultConfCert)) {
-            // Just in case the flag tosca-runtime.initConf is set, try to copy certificates for default configuration
-            // For mac and windows, auto configure by copying default machine's certificates to provider default conf
-            println("Copy certificates from <" + cfp + "> to <" + dockerDefaultConfCert + ">")
-            Files.createDirectories(dockerDefaultConfCert)
-            Files.copy(cfp.resolve("key.pem"), dockerDefaultConfCert.resolve("key.pem"))
-            Files.copy(cfp.resolve("cert.pem"), dockerDefaultConfCert.resolve("cert.pem"))
-            Files.copy(cfp.resolve("ca.pem"), dockerDefaultConfCert.resolve("ca.pem"))
-          }
-          println("Using docker daemon with url <" + url + "> and certificate at <" + certificatePath + ">")
-          new ToscaRuntimeClient(url, certificatePath)
-        case other: String =>
-          println("Using default docker daemon configuration for " + other)
-          val url = "unix:///var/run/docker.sock"
-          println("Using docker daemon with url <" + url + "> and no certificate")
-          new ToscaRuntimeClient(url, null)
+    val existingConfiguration = UseCommand.getConfiguration(basedir)
+    if (existingConfiguration.nonEmpty) {
+      val url = existingConfiguration.get("docker.io.url").get
+      val cert = existingConfiguration.getOrElse("docker.io.dockerCertPath", null)
+      new ToscaRuntimeClient(url, cert)
+    } else {
+      val daemonUrlSystemProperty = "toscaruntime.docker.daemon.url"
+      System.getProperty(daemonUrlSystemProperty) match {
+        case url: String =>
+          println("Using daemon url configured from system property " + daemonUrlSystemProperty)
+          val cert = System.getProperty("toscaruntime.docker.daemon.cert")
+          UseCommand.switchConfiguration(url, cert, basedir)
+          new ToscaRuntimeClient(url, cert)
+        case null => System.getProperty("os.name") match {
+          case windowsOrMac if windowsOrMac.startsWith("Windows") || windowsOrMac.startsWith("Mac") =>
+            val url = "https://192.168.99.100:2376"
+            println("Using default docker daemon configuration for " + windowsOrMac)
+            val certificatePath = System.getProperty("user.home") + "/.docker/machine/machines/default"
+            if ("true".equals(System.getProperty("toscaruntime.initConf"))) {
+              // Just in case the flag toscaruntime.initConf is set, try to copy certificates for default configuration
+              // For mac and windows, auto configure by copying default machine's certificates to provider default conf
+              // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
+              UseCommand.switchConfiguration(url, certificatePath, basedir)
+            }
+            println("Using docker daemon with url <" + url + "> and certificate at <" + certificatePath + ">")
+            new ToscaRuntimeClient(url, certificatePath)
+          case other: String =>
+            println("Using default docker daemon configuration for " + other)
+            val url = "unix:///var/run/docker.sock"
+            UseCommand.switchConfiguration(url, null, basedir)
+            println("Using docker daemon with url <" + url + "> and no certificate")
+            new ToscaRuntimeClient(url, null)
+        }
       }
     }
   }
@@ -70,7 +75,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       BasicCommands.nop,
       BasicCommands.help,
       BasicCommands.exit)
-    val basedir = Paths.get(System.getProperty("tosca-runtime.basedir", System.getProperty("user.dir") + "/..")).toAbsolutePath
+    val basedir = Paths.get(System.getProperty("toscaruntime.basedir", System.getProperty("user.dir") + "/..")).toAbsolutePath
     val osName = System.getProperty("os.name")
     println("Starting tosca runtime cli on <" + osName + "> operating system from <" + basedir + ">")
     val attributes = AttributeMap(
@@ -84,5 +89,5 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     * An application would need to do more here to customize the logging level and
     * provide access to the backing file (like sbt's last command and logLevel setting). */
   /** The common interface to standard output, used for all built-in ConsoleLoggers. */
-  def initialGlobalLogging: GlobalLogging = GlobalLogging.initial(MainLogging.globalDefault(ConsoleOut.systemOut), File.createTempFile("tosca-runtime", ".log"), ConsoleOut.systemOut)
+  def initialGlobalLogging: GlobalLogging = GlobalLogging.initial(MainLogging.globalDefault(ConsoleOut.systemOut), File.createTempFile("toscaruntime", ".log"), ConsoleOut.systemOut)
 }

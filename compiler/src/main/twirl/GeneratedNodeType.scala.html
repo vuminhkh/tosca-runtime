@@ -8,13 +8,14 @@ package @nodeType.packageName;
 @Html("public " + nodeType.className + "() {")
 @Html("super();")
 @base.html.generateAttributes(nodeType.attributesDefinitions)
+@base.html.generateTypeProperties(nodeType.propertiesDefinitions)
 @Html("}")
 
 @nodeType.methods.map { method =>
 public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
   @base.html.generateInputs(method.inputs)
   @method.implementation.map { implementation =>
-  operationOutputs.put("@method.name", getHost().execute("@nodeType.csarName/@implementation", inputs));
+  operationOutputs.put("@method.name", executeOperation("@nodeType.csarName/@implementation", inputs));
   }
   @Html("}")
 }

@@ -26,8 +26,8 @@
 
   public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
 
-  public void initializeDeployment@Html("(java.nio.file.Path recipePath, java.util.Map<String, Object> inputs, boolean bootstrap) {")
-@Html("super.initializeDeployment(recipePath, inputs, bootstrap);")
+  public void initializeDeployment@Html("(String deploymentName, java.nio.file.Path recipePath, java.util.Map<String, Object> inputs, boolean bootstrap) {")
+@Html("super.initializeDeployment(deploymentName, recipePath, inputs, bootstrap);")
   this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve("@deployment.topologyCsarName"));
 @deployment.roots.map { node =>
   @instantiateNode(node)

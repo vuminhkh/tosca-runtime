@@ -1,52 +1,10 @@
 package com.toscaruntime.compiler
 
+import com.toscaruntime.compiler.Tokens._
 import com.toscaruntime.compiler.parser.YamlParser
 import com.toscaruntime.compiler.tosca._
 
 object SyntaxAnalyzer extends YamlParser {
-
-  val definitions_version_token: String = "tosca_definitions_version"
-  val template_name_token: String = "template_name"
-  val template_version_token: String = "template_version"
-  val template_author_token: String = "template_author"
-  val description_token: String = "description"
-  val artifact_types_token: String = "artifact_types"
-  val relationship_types_token: String = "relationship_types"
-  val capability_types_token: String = "capability_types"
-  val node_types_token: String = "node_types"
-  val derived_from_token: String = "derived_from"
-  val abstract_token: String = "abstract"
-  val tags_token: String = "tags"
-  val properties_token: String = "properties"
-  val attributes_token: String = "attributes"
-  val requirements_token: String = "requirements"
-  val capabilities_token: String = "capabilities"
-  val artifacts_token: String = "artifacts"
-  val interfaces_token: String = "interfaces"
-  val type_token: String = "type"
-  val required_token: String = "required"
-  val default_token: String = "default"
-  val constraints_token: String = "constraints"
-  val lower_bound_token: String = "lower_bound"
-  val upper_bound_token: String = "upper_bound"
-  val inputs_token: String = "inputs"
-  val outputs_token: String = "outputs"
-  val implementation_token: String = "implementation"
-  val operations_token: String = "operations"
-  val valid_sources_token: String = "valid_sources"
-  val valid_targets_token: String = "valid_targets"
-  val file_ext_token: String = "file_ext"
-  val relationship_type_token: String = "relationship_type"
-  val topology_template_token: String = "topology_template"
-  val node_templates_token: String = "node_templates"
-  val node_token: String = "node"
-  val capability_token: String = "capability"
-  val value_token: String = "value"
-  val get_input_token: String = "get_input"
-  val get_property_token: String = "get_property"
-  val get_attribute_token: String = "get_attribute"
-  val get_operation_output_token: String = "get_operation_output"
-  val concat_token = "concat"
 
   def fileExtension = wrapParserWithPosition( """[\p{Print} && [^:\[\]\{\}>-]]*""".r ^^ (_.toString))
 
@@ -148,7 +106,7 @@ object SyntaxAnalyzer extends YamlParser {
       )
     })
 
-  def propertyDefinitionsEntry(indentLevel: Int) = (keyValue ~ (keyComplexSeparatorPattern ~> propertyDefinition(indentLevel))) ^^ entryParseResultHandler
+  def propertyDefinitionsEntry(indentLevel: Int) = (keyValue ~ (keyComplexSeparatorPattern ~> propertyDefinition(indentLevel))) ^^ entryParseResultHandler | nestedComplexEntry(keyValue)(function)
 
   def attributeDefinitionEntry(indentLevel: Int) =
     textEntry(type_token)(indentLevel) |
@@ -382,6 +340,7 @@ object SyntaxAnalyzer extends YamlParser {
       textEntry(template_version_token)(indentLevel) |
       textEntry(template_author_token)(indentLevel) |
       textEntry(description_token)(indentLevel) |
+      listEntry(imports_token)(indentLevel => textValue)(indentLevel) |
       mapEntry(node_types_token)(nodeTypesEntry)(indentLevel) |
       mapEntry(capability_types_token)(capabilityTypesEntry)(indentLevel) |
       mapEntry(relationship_types_token)(relationshipTypesEntry)(indentLevel) |
@@ -394,6 +353,7 @@ object SyntaxAnalyzer extends YamlParser {
         get[ParsedValue[String]](map, definitions_version_token),
         get[ParsedValue[String]](map, template_name_token),
         get[ParsedValue[String]](map, template_version_token),
+        get[List[ParsedValue[String]]](map, imports_token),
         get[ParsedValue[String]](map, template_author_token),
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], NodeType]](map, node_types_token),

@@ -9,24 +9,20 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.Link;
 import com.github.dockerjava.api.model.Ports;
-import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.toscaruntime.util.DockerUtil;
 
 import tosca.nodes.Compute;
-import tosca.nodes.Root;
 
 public class Container extends Compute {
 
@@ -43,6 +39,10 @@ public class Container extends Compute {
     public static final String GENERATED_SCRIPT_PATH = "/.generated";
 
     private static final String RECIPE_GENERATED_SCRIPT_LOCATION = RECIPE_LOCATION + GENERATED_SCRIPT_PATH;
+
+    private String networkId;
+
+    private String networkName;
 
     public String getImageId() {
         return getProperty("image_id");
@@ -77,30 +77,11 @@ public class Container extends Compute {
         return mapping;
     }
 
-    private static synchronized void pullImageIfNotExisting(DockerClient dockerClient, String imageTag) {
-        if (!DockerUtil.imageExist(dockerClient, imageTag)) {
-            dockerClient.pullImageCmd(imageTag).exec(new PullImageResultCallback()).awaitSuccess();
-        }
-    }
-
     @Override
     public void create() {
         super.create();
         String imageId = getImageId();
         log.info("Node [" + getName() + "] : Creating container with image " + imageId);
-        Set<String> linkedWithContainers = Sets.newHashSet();
-        for (Root child : getChildren()) {
-            for (Root childDependency : child.getDependsOnNodes()) {
-                Compute childDependencyHost = childDependency.getHost();
-                if (childDependencyHost != null && childDependencyHost instanceof Container) {
-                    linkedWithContainers.add(childDependencyHost.getId());
-                }
-            }
-        }
-        List<Link> links = Lists.newArrayList();
-        for (String linkedContainer : linkedWithContainers) {
-            links.add(new Link(linkedContainer, linkedContainer));
-        }
         String[] exposedPortsRaw = getExposedPorts();
         Map<String, String> portMappingsRaw = getPortsMapping();
         List<ExposedPort> exposedPorts = Lists.newArrayList();
@@ -124,16 +105,8 @@ public class Container extends Compute {
                 }
             }
         }
-        String imageTag = imageId;
-        if (!imageTag.contains(":")) {
-            imageTag += ":latest";
-        }
-        if (!DockerUtil.imageExist(dockerClient, imageTag)) {
-            pullImageIfNotExisting(dockerClient, imageTag);
-        }
         containerId = dockerClient.createContainerCmd(imageId)
-                .withName(getId())
-                .withLinks(links.toArray(new Link[links.size()]))
+                .withName(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + getId())
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
                 .withPortBindings(portBindings).exec().getId();
         log.info("Node [" + getName() + "] : Created container with id " + containerId);
@@ -147,8 +120,20 @@ public class Container extends Compute {
         }
         log.info("Node [" + getName() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
+        if (StringUtils.isNotBlank(networkId)) {
+            dockerClient.connectContainerToNetworkCmd(containerId, networkId).exec();
+            log.info("Node [" + getName() + "] :Connected container {} to network {}", containerId, networkId);
+        }
         InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
-        ipAddress = response.getNetworkSettings().getIpAddress();
+        if (response.getNetworkSettings().getNetworks() == null || response.getNetworkSettings().getNetworks().isEmpty()) {
+            ipAddress = response.getNetworkSettings().getIpAddress();
+        } else {
+            if (StringUtils.isNotBlank(networkName) && response.getNetworkSettings().getNetworks().containsKey(networkName)) {
+                ipAddress = response.getNetworkSettings().getNetworks().get(networkName).getIpAddress();
+            } else {
+                ipAddress = response.getNetworkSettings().getNetworks().values().iterator().next().getIpAddress();
+            }
+        }
         setAttribute("ip_address", ipAddress);
         setAttribute("tosca_id", containerId);
         setAttribute("tosca_name", response.getName());
@@ -187,7 +172,7 @@ public class Container extends Compute {
      *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public Map<String, String> execute(String operationArtifactPath, Map<String, String> environmentVariables) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, String> environmentVariables) {
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
@@ -228,5 +213,13 @@ public class Container extends Compute {
 
     public DockerClient getDockerClient() {
         return dockerClient;
+    }
+
+    public void setNetworkId(String networkId) {
+        this.networkId = networkId;
+    }
+
+    public void setNetworkName(String networkName) {
+        this.networkName = networkName;
     }
 }

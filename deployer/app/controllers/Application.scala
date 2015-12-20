@@ -60,7 +60,7 @@ object Application extends Controller with Logging {
     }.toMap
   }
 
-  val deployment: Deployment = Deployer.createDeployment(recipePath, deploymentInputsPath, providerConfiguration, bootstrapContextPath, bootstrap)
+  val deployment: Deployment = Deployer.createDeployment(deploymentName, recipePath, deploymentInputsPath, providerConfiguration, bootstrapContextPath, bootstrap)
 
   def deploy() = Action { implicit request =>
     log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)

@@ -41,9 +41,13 @@ lazy val root = project.in(file("."))
     name := "tosca-runtime-parent"
   ).aggregate(deployer, proxy, rest, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
+val testDependencies: Seq[ModuleID] = Seq(
+  "junit" % "junit" % "4.12" % "test",
+  "org.scalatestplus" % "play_2.11" % "1.4.0-M4" % "test"
+)
+
 val commonDependencies: Seq[ModuleID] = Seq(
   "commons-lang" % "commons-lang" % "2.6",
-  "junit" % "junit" % "4.12" % "test",
   "org.slf4j" % "slf4j-api" % "1.7.12",
   "ch.qos.logback" % "logback-classic" % "1.1.3",
   "com.google.guava" % "guava" % "18.0"
@@ -53,7 +57,7 @@ lazy val common = project
   .settings(commonSettings: _*)
   .settings(
     name := "common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, constant, exception, restModel).enablePlugins(UniversalPlugin)
+  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, constant, exception, restModel).enablePlugins(UniversalPlugin)
 
 lazy val constant = project.in(file("common/constant"))
   .settings(commonSettings: _*)
@@ -102,6 +106,14 @@ lazy val fileUtil = project.in(file("common/file-util"))
     libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
   ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
+lazy val gitUtil = project.in(file("common/git-util"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "git-util",
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.1.1.201511131810-r"
+  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+
 lazy val restModel = project.in(file("common/rest-model"))
   .settings(commonSettings: _*)
   .settings(
@@ -122,10 +134,11 @@ lazy val compiler = project
   .settings(commonSettings: _*)
   .settings(
     name := "compiler",
+    libraryDependencies ++= testDependencies,
     libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "com.typesafe" % "config" % "1.3.0"
-  ).dependsOn(sdk, fileUtil, dockerUtil, miscUtil).enablePlugins(SbtTwirl, UniversalPlugin)
+  ).dependsOn(sdk, fileUtil, dockerUtil, miscUtil, gitUtil % "test").enablePlugins(SbtTwirl, UniversalPlugin)
 
 lazy val runtime = project
   .settings(commonSettings: _*)

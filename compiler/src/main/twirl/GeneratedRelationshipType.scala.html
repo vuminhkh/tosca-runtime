@@ -9,6 +9,7 @@ package @relationshipType.packageName;
 @Html("public " + relationshipType.className + "() {")
 @Html("super();")
 @base.html.generateAttributes(relationshipType.attributesDefinitions)
+@base.html.generateTypeProperties(relationshipType.propertiesDefinitions)
 @Html("}")
 
 @relationshipType.methods.map { method =>

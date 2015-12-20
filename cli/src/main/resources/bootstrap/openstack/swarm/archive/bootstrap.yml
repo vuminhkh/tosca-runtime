@@ -4,6 +4,22 @@ template_name: openstack-bootstrap-template
 template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
+node_types:
+
+  com.toscaruntime.openstack.nodes.SwarmCompute:
+    properties:
+      image: { get_input: image }
+      flavor: { get_input: flavor }
+      login: { get_input: login }
+      key_pair_name: { get_input: key_pair_name }
+      key_path: { get_input: key_path }
+      security_group_names: { get_input: security_group_names }
+      user_data: |
+        #!/bin/sh
+        sudo cp /etc/hosts /tmp/hosts
+        echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+        cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+
 topology_template:
   description: Wordpress deployment template for openstack
   inputs:
@@ -39,10 +55,16 @@ topology_template:
       description: The URL to access the proxy
       value: { get_attribute: [ proxy, proxy_url ] }
     network_id:
-      description: The id of the network the docker daemon connected to
+      description: The id of the openstack network that the host of docker daemon is connected to
       value: { get_attribute: [ privateNetwork, tosca_id ] }
+    docker_network_id:
+      description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
+      value: { get_attribute: [ swarmManager, docker_network_id ] }
+    docker_network_name:
+      description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
+      value: { get_attribute: [ swarmManager, docker_network_name ] }
     external_network_id:
-      description: The id of the external network the docker daemon connected to
+      description: The id of the external network that the host of docker daemon is connected to
       value: { get_attribute: [ publicNetwork, tosca_id ] }
 
   node_templates:
@@ -60,14 +82,7 @@ topology_template:
         dns_name_servers: { get_input: dns_name_servers }
 
     managerMachine:
-      type: com.toscaruntime.openstack.nodes.Compute
-      properties:
-        image: { get_input: image }
-        flavor: { get_input: flavor }
-        login: { get_input: login }
-        key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
-        security_group_names: { get_input: security_group_names }
+      type: com.toscaruntime.openstack.nodes.SwarmCompute
       requirements:
         - network: privateNetwork
         - network: publicNetwork
@@ -97,14 +112,7 @@ topology_template:
         - discovery_service: consulServer
 
     swarmNodeMachine:
-      type: com.toscaruntime.openstack.nodes.Compute
-      properties:
-        image: { get_input: image }
-        flavor: { get_input: flavor }
-        login: { get_input: login }
-        key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
-        security_group_names: { get_input: security_group_names }
+      type: com.toscaruntime.openstack.nodes.SwarmCompute
       requirements:
         - network: privateNetwork
 

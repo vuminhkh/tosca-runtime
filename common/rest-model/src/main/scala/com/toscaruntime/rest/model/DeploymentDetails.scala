@@ -33,7 +33,12 @@ object DeploymentDetails {
   implicit val DeploymentDetailsFormat = Json.format[DeploymentDetails]
 }
 
-case class DeploymentInfo(name: String, agentName:String, agentId: String, agentCreated: String, agentStatus: String, agentIP: String)
+case class DeploymentInfo(name: String,
+                          agentName: String,
+                          agentId: String,
+                          agentCreated: String,
+                          agentStatus: String,
+                          agentIPs: Map[String, String])
 
 object DeploymentInfo {
 

@@ -2,13 +2,15 @@ package controllers
 
 import javax.inject.Inject
 
+import com.github.dockerjava.api.command.InspectContainerResponse
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfo, RestResponse}
 import play.api.cache._
-import play.api.libs.json.{JsObject, Json}
+import play.api.libs.json.{JsObject, JsString, Json}
 import play.api.libs.ws.WSClient
 import play.api.mvc._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -16,13 +18,6 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
 
   // TODO better do it properly by performing connect operation in bootstrap recipe's relationship
   val dockerClient = connect(System.getenv("DOCKER_URL"))
-
-  def refreshAgentsURL() = {
-    val allDeployments = dockerClient.listDeploymentAgents()
-    allDeployments.foreach {
-      case (deploymentId: String, deploymentInfo: DeploymentInfo) => cache.set(deploymentId, "http://" + deploymentInfo.agentIP + ":9000/deployment")
-    }
-  }
 
   def connect(url: String) = {
     if (url != null && url.nonEmpty) {
@@ -32,13 +27,22 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
     }
   }
 
-  def getURL(deploymentId: String) = {
-    var cachedURL = cache.get[String](deploymentId)
+  def getURL(deploymentId: String): Option[String] = {
+    val cachedURL = cache.get[String](deploymentId)
     if (cachedURL.isEmpty) {
-      refreshAgentsURL()
-      cachedURL = cache.get[String](deploymentId)
+      dockerClient.getAgentInfo(deploymentId).map { agentInfo =>
+        val context = cache.get[JsObject](bootstrapContextKey).getOrElse(Json.obj())
+        val ipAddresses = agentInfo.getNetworkSettings.getNetworks.asScala.map {
+          case (networkName: String, network: InspectContainerResponse.Network) => (networkName, network.getIpAddress)
+        }.toMap
+        val agentIp = ipAddresses.getOrElse(context.value.getOrElse("docker_network_name", JsString("bridge")).asInstanceOf[JsString].value, ipAddresses.values.head)
+        val agentURL = "http://" + agentIp + ":9000/deployment"
+        cache.set(deploymentId, agentURL)
+        agentURL
+      }
+    } else {
+      cachedURL
     }
-    cachedURL
   }
 
   private val bootstrapContextKey: String = "bootstrap_context"

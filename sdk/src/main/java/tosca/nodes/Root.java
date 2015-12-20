@@ -92,7 +92,7 @@ public abstract class Root extends AbstractRuntimeType {
         if (host == null) {
             throw new NonRecoverableException("Non hosted node cannot have operation");
         }
-        return host.execute(operationArtifactPath, inputs);
+        return host.execute(getId(), operationArtifactPath, inputs);
     }
 
     public void create() {

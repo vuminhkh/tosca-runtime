@@ -11,14 +11,14 @@ object SemanticAnalyzer {
   def analyzeFieldDefinition(field: FieldDefinition) = {
     val propertyType = field.valueType
     if (!FieldDefinition.isTypeValid(propertyType.value)) {
-      Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, propertyType.value))
+      Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, Some(propertyType.value)))
     } else {
       field.default.flatMap { default =>
         try {
           Evaluator.eval[Any](default.value, propertyType.value)
           None
         } catch {
-          case e: Exception => Some(CompilationError("Property's default value [" + default.value + "] is not valid for property type [" + propertyType.value + "]: " + e.getMessage, default.pos, default.value))
+          case e: Exception => Some(CompilationError("Property's default value [" + default.value + "] is not valid for property type [" + propertyType.value + "]: " + e.getMessage, default.pos, Some(default.value)))
         }
       }
     }
@@ -29,7 +29,7 @@ object SemanticAnalyzer {
       Evaluator.eval[Any](textReference.value, propertyType)
       None
     } catch {
-      case e: Exception => Some(CompilationError("Property constraint's reference value [" + textReference.value + "] is not valid for property type [" + propertyType + "]: " + e.getMessage, textReference.pos, textReference.value))
+      case e: Exception => Some(CompilationError("Property constraint's reference value [" + textReference.value + "] is not valid for property type [" + propertyType + "]: " + e.getMessage, textReference.pos, Some(textReference.value)))
     }
   }
 
@@ -49,13 +49,13 @@ object SemanticAnalyzer {
         constraint.operator.value match {
           case "greater_than" | "greater_or_equal" | "less_than" | "less_or_equal" | "in_range" =>
             if (!FieldDefinition.isTypeComparable(propertyType)) {
-              Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs comparable type, but incompatible [" + propertyType + "] found", constraint.operator.pos, constraint.operator.value))
+              Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs comparable type, but incompatible [" + propertyType + "] found", constraint.operator.pos, Some(constraint.operator.value)))
             } else {
               None
             }
           case "length" | "min_length" | "max_length" | "pattern" =>
             if (propertyType != FieldDefinition.STRING) {
-              Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs string type , but incompatible [" + propertyType + "] found", constraint.operator.pos, constraint.operator.value))
+              Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs string type , but incompatible [" + propertyType + "] found", constraint.operator.pos, Some(constraint.operator.value)))
             } else {
               None
             }
@@ -67,7 +67,9 @@ object SemanticAnalyzer {
   }
 
   def analyzePropertyDefinitions(toscaType: Type) = {
-    toscaType.properties.map(_.values.map(analyzePropertyDefinition).toList).getOrElse(List.empty).flatten
+    toscaType.properties.map(_.values.filter(_.isInstanceOf[PropertyDefinition]).map { definition =>
+      analyzePropertyDefinition(definition.asInstanceOf[PropertyDefinition])
+    }.toList).getOrElse(List.empty).flatten
   }
 
   def analyzeAttributeDefinitions(nodeType: NodeType) = {
@@ -81,7 +83,7 @@ object SemanticAnalyzer {
     derivedFrom.flatMap { parentTypeName =>
       val typeFound = typeLoader(parentTypeName.value, csarPath)
       if (typeFound.isEmpty) {
-        Some(CompilationError("Type [" + typeName.value + "] derived from unknown type [" + parentTypeName.value + "]", parentTypeName.pos, parentTypeName.value))
+        Some(CompilationError("Type [" + typeName.value + "] derived from unknown type [" + parentTypeName.value + "]", parentTypeName.pos, Some(parentTypeName.value)))
       } else {
         None
       }
@@ -97,22 +99,22 @@ object SemanticAnalyzer {
       requirements.flatMap { requirement =>
         val compilationErrors = ListBuffer[CompilationError]()
         if (requirement._2.capabilityType.isEmpty) {
-          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has undefined type for capability", requirement._1.pos, requirement._1.value)
+          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has undefined type for capability", requirement._1.pos, Some(requirement._1.value))
         } else {
           val definedCapabilityType = requirement._2.capabilityType.get
           val capabilityFound = TypeLoader.loadCapabilityType(definedCapabilityType.value, csarPath)
           if (capabilityFound.isEmpty) {
-            compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] refers to unknown capability " + definedCapabilityType, definedCapabilityType.pos, definedCapabilityType.value)
+            compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] refers to unknown capability " + definedCapabilityType, definedCapabilityType.pos, Some(definedCapabilityType.value))
           }
         }
         if (requirement._2.lowerBound.value > requirement._2.upperBound.value) {
-          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has lower bound [" + requirement._2.lowerBound.value + "] greater than upper bound [" + requirement._2.upperBound.value + "]", requirement._2.lowerBound.pos, requirement._2.lowerBound.value.toString)
+          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has lower bound [" + requirement._2.lowerBound.value + "] greater than upper bound [" + requirement._2.upperBound.value + "]", requirement._2.lowerBound.pos, Some(requirement._2.lowerBound.value.toString))
         }
         if (requirement._2.lowerBound.value < 0) {
-          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has negative lower bound", requirement._2.lowerBound.pos, requirement._2.lowerBound.value.toString)
+          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has negative lower bound", requirement._2.lowerBound.pos, Some(requirement._2.lowerBound.value.toString))
         }
         if (requirement._2.upperBound.value < 0) {
-          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has negative upper bound", requirement._2.upperBound.pos, requirement._2.upperBound.value.toString)
+          compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] has negative upper bound", requirement._2.upperBound.pos, Some(requirement._2.upperBound.value.toString))
         }
         compilationErrors.toList
       }
@@ -124,16 +126,16 @@ object SemanticAnalyzer {
       capabilities.flatMap { capability =>
         val compilationErrors = ListBuffer[CompilationError]()
         if (capability._2.capabilityType.isEmpty) {
-          compilationErrors += CompilationError("Capability [" + capability._1.value + "] has undefined type for capability", capability._1.pos, capability._1.value)
+          compilationErrors += CompilationError("Capability [" + capability._1.value + "] has undefined type for capability", capability._1.pos, Some(capability._1.value))
         } else {
           val definedCapabilityType = capability._2.capabilityType.get
           val capabilityFound = TypeLoader.loadCapabilityType(definedCapabilityType.value, csarPath)
           if (capabilityFound.isEmpty) {
-            compilationErrors += CompilationError("Capability [" + capability._1.value + "] refers to unknown capability [" + definedCapabilityType.value + "]", definedCapabilityType.pos, definedCapabilityType.value)
+            compilationErrors += CompilationError("Capability [" + capability._1.value + "] refers to unknown capability [" + definedCapabilityType.value + "]", definedCapabilityType.pos, Some(definedCapabilityType.value))
           }
         }
         if (capability._2.upperBound.value < 0) {
-          compilationErrors += CompilationError("Capability [" + capability._1.value + "] has negative upper bound", capability._2.upperBound.pos, capability._2.upperBound.value.toString)
+          compilationErrors += CompilationError("Capability [" + capability._1.value + "] has negative upper bound", capability._2.upperBound.pos, Some(capability._2.upperBound.value.toString))
         }
         compilationErrors.toList
       }
@@ -143,7 +145,7 @@ object SemanticAnalyzer {
   def analyzeOperation(operationId: ParsedValue[String], operation: Operation, recipePath: Path) = {
     operation.implementation.flatMap { implementation =>
       if (!Files.isRegularFile(recipePath.resolve(implementation.value))) {
-        Some(CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, implementation.value))
+        Some(CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.value)))
       } else {
         None
       }
@@ -196,10 +198,10 @@ object SemanticAnalyzer {
       val typeName = nodeTemplate.typeName.get
       val typeFound = TypeLoader.loadNodeType(typeName.value, csarPath)
       if (typeFound.isEmpty) {
-        compilationErrors += CompilationError("Node template [" + nodeTemplate.name.value + "] is of unknown type [" + typeName.value + "]", typeName.pos, typeName.value)
+        compilationErrors += CompilationError("Node template [" + nodeTemplate.name.value + "] is of unknown type [" + typeName.value + "]", typeName.pos, Some(typeName.value))
       }
     } else {
-      compilationErrors += CompilationError("Type name is mandatory for node template [" + nodeTemplate.name.value + "]", nodeTemplate.name.pos, nodeTemplate.name.value)
+      compilationErrors += CompilationError("Type name is mandatory for node template [" + nodeTemplate.name.value + "]", nodeTemplate.name.pos, Some(nodeTemplate.name.value))
     }
     compilationErrors.toList
   }

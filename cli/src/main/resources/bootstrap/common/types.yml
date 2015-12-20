@@ -50,6 +50,9 @@ node_types:
       port_mapping:
         type: string
         required: false
+      docker_container_name:
+        type: string
+        required: false
     requirements:
       host:
         type: com.toscaruntime.docker.capabilities.DeployContainer
@@ -64,6 +67,8 @@ node_types:
             DOCKER_LABELS: { get_property: [SELF, docker_labels] }
             DOCKER_URL: { get_attribute: [HOST, docker_url] }
             PUBLIC_DOCKER_URL: { get_attribute: [HOST, public_docker_url] }
+            DOCKER_NETWORK_ID: { get_attribute: [HOST, docker_network_id] }
+            DOCKER_CONTAINER_NAME: { get_property: [SELF, docker_container_name] }
           implementation: component/scripts/create_docker_component.sh
 
   com.toscaruntime.docker.nodes.ProxyWebApp:
@@ -77,6 +82,9 @@ node_types:
       docker_image:
         type: string
         default: toscaruntime/proxy
+      docker_container_name:
+        type: string
+        default: toscaruntime_proxy
       docker_labels:
         type: string
         default: |
@@ -188,7 +196,7 @@ relationship_types:
     derived_from: tosca.relationships.Root
     interfaces:
       Configure:
-        add_source:
+        add_target:
           inputs:
             DOCKER_ADDRESS: { get_attribute: [SOURCE, docker_address] }
             CONSUL_CLIENT_ADDRESS: { get_attribute: [TARGET, consul_client_address] }
@@ -196,9 +204,13 @@ relationship_types:
 
   com.toscaruntime.docker.relationships.SwarmUseConsul:
     derived_from: tosca.relationships.Root
+    attributes:
+# This will be published also to source and target node
+      docker_network_id: { get_operation_output: [ SELF, Configure, add_target, DOCKER_NETWORK_ID ] }
+      docker_network_name: { get_operation_output: [ SELF, Configure, add_target, DOCKER_NETWORK_NAME ] }
     interfaces:
       Configure:
-        add_source:
+        add_target:
           inputs:
             SWARM_PORT: { get_property: [SOURCE, swarm_port] }
             CONSUL_CLIENT_ADDRESS: { get_attribute: [TARGET, consul_client_address] }

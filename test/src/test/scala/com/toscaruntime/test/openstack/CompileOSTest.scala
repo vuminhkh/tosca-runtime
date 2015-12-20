@@ -36,7 +36,7 @@ object CompileOSTest {
         "key_pair_name" -> "toscaruntime",
         "security_group_names" -> "openbar"
       )
-      Deployer.createDeployment(outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], true)
+      Deployer.createDeployment("testWordPress", outputDeployment, inputs, providerProperties, Map.empty[String, AnyRef], true)
     }
   }
 }

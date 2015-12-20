@@ -75,7 +75,7 @@ public class Compute extends tosca.nodes.Compute {
         return serverId;
     }
 
-    private Map<String, String> doExecute(String operationArtifactPath, Map<String, String> inputs) {
+    private Map<String, String> doExecute(String nodeId, String operationArtifactPath, Map<String, String> inputs) {
         try {
             return RetryUtil.doActionWithRetry(new RetryUtil.Action<Map<String, String>>() {
                 @Override
@@ -85,7 +85,7 @@ public class Compute extends tosca.nodes.Compute {
 
                 @Override
                 public Map<String, String> doAction() throws Throwable {
-                    return sshExecutor.executeScript(getId(), config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
+                    return sshExecutor.executeScript(nodeId, config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
                 }
             }, 12, 30000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
@@ -94,7 +94,7 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
-    public Map<String, String> execute(String operationArtifactPath, Map<String, String> inputs) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, String> inputs) {
         if (this.serverId == null) {
             throw new NonRecoverableException("Must create the server before executing operation on it");
         }
@@ -125,7 +125,7 @@ public class Compute extends tosca.nodes.Compute {
                             initSshExecutor(attachedFloatingIP);
                         }
                     }
-                    return doExecute(operationArtifactPath, inputs);
+                    return doExecute(nodeId, operationArtifactPath, inputs);
                 } finally {
                     // Remove the floating ip at the end of the operation
                     if (floatingIP != null) {
@@ -137,7 +137,7 @@ public class Compute extends tosca.nodes.Compute {
                 }
             }
         } else {
-            return doExecute(operationArtifactPath, inputs);
+            return doExecute(nodeId, operationArtifactPath, inputs);
         }
     }
 
@@ -159,7 +159,7 @@ public class Compute extends tosca.nodes.Compute {
             createServerOptions.availabilityZone(availabilityZone);
         }
         if (StringUtils.isNotBlank(configDrive)) {
-            createServerOptions.availabilityZone(configDrive);
+            createServerOptions.configDrive(Boolean.parseBoolean(configDrive));
         }
         if (StringUtils.isNotBlank(diskConfig)) {
             createServerOptions.diskConfig(diskConfig);
@@ -186,7 +186,15 @@ public class Compute extends tosca.nodes.Compute {
         if (StringUtils.isNotBlank(securityGroups)) {
             createServerOptions.securityGroupNames(securityGroups.trim().split("\\s*,\\s*"));
         }
-        ServerCreated serverCreated = this.serverApi.create(this.getId(), getMandatoryProperty("image"), getMandatoryProperty("flavor"), createServerOptions);
+        log.info("Creating server with info:\n- AVZ: {}\n- Config drive: {}\n- Disk config: {}\n- Key pair: {}\n- Networks: {}\n- Security groups: {}\n- User data: {}",
+                createServerOptions.getAvailabilityZone(),
+                createServerOptions.getConfigDrive(),
+                createServerOptions.getDiskConfig(),
+                createServerOptions.getKeyPairName(),
+                createServerOptions.getNetworks(),
+                createServerOptions.getSecurityGroupNames(),
+                userData);
+        ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryProperty("image"), getMandatoryProperty("flavor"), createServerOptions);
         this.serverId = serverCreated.getId();
         log.info("Created server with id " + this.serverId);
     }
