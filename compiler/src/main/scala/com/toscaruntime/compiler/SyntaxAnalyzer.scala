@@ -23,10 +23,17 @@ object SyntaxAnalyzer extends YamlParser {
         get[List[ParsedValue[String]]](map, file_ext_token))
     })
 
-  def artifactTypesEntry(indentLevel: Int = 0) =
+  def artifactTypesEntry(indentLevel: Int) =
     (keyValue into (artifactTypeName => keyComplexSeparatorPattern ~> artifactType(artifactTypeName)(indentLevel + 1))) ^^ {
       case artifactType => (artifactType.name, artifactType)
     }
+
+  def deploymentArtifactEntry(indentLevel: Int) = {
+    textEntry(keyValue)(indentLevel) ~ opt(indent(indentLevel) ~> textEntry(type_token)(indentLevel)) ^^ {
+      case (artifactName, artifactRef) ~ None => (artifactName, DeploymentArtifact(artifactRef, ParsedValue[String]("tosca.artifacts.File")))
+      case (artifactName, artifactRef) ~ Some((_, artifactType: ParsedValue[String])) => (artifactName, DeploymentArtifact(artifactRef, artifactType))
+    }
+  }
 
   def relationshipTypeEntry(indentLevel: Int) =
     (textEntry(derived_from_token)(indentLevel) |
@@ -34,11 +41,14 @@ object SyntaxAnalyzer extends YamlParser {
       textEntry(description_token)(indentLevel) |
       mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
       mapEntry(attributes_token)(attributeDefinitionsEntry)(indentLevel) |
+      // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
+      nestedListEntry(valid_source_types_token)(nestedTextValue) |
+      nestedListEntry(valid_target_types_token)(nestedTextValue) |
       nestedListEntry(valid_sources_token)(nestedTextValue) |
       nestedListEntry(valid_targets_token)(nestedTextValue) |
-      listEntry(artifacts_token)(textEntry(keyValue))(indentLevel) |
+      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) |
       mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
-      ) | failure(s"Expecting one of '$derived_from_token', '$abstract_token', '$description_token', '$properties_token', '$attributes_token', '$valid_sources_token', '$valid_targets_token', '$artifacts_token', '$interfaces_token'")
+      ) | failure(s"Expecting one of '$derived_from_token', '$abstract_token', '$description_token', '$properties_token', '$attributes_token', '$valid_source_types_token', '$valid_target_types_token', '$artifacts_token', '$interfaces_token'")
 
   def relationshipType(relationshipTypeName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(relationshipTypeEntry)(indentLevel) ^^ {
@@ -49,9 +59,10 @@ object SyntaxAnalyzer extends YamlParser {
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], PropertyDefinition]](map, properties_token),
         get[Map[ParsedValue[String], FieldValue]](map, attributes_token),
-        get[List[ParsedValue[String]]](map, valid_sources_token),
-        get[List[ParsedValue[String]]](map, valid_targets_token),
-        get[Map[ParsedValue[String], ParsedValue[String]]](map, artifacts_token),
+        // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
+        get[List[ParsedValue[String]]](map, valid_source_types_token).orElse(get[List[ParsedValue[String]]](map, valid_sources_token)),
+        get[List[ParsedValue[String]]](map, valid_target_types_token).orElse(get[List[ParsedValue[String]]](map, valid_targets_token)),
+        get[Map[ParsedValue[String], DeploymentArtifact]](map, artifacts_token),
         get[Map[ParsedValue[String], Interface]](map, interfaces_token))
     })
 
@@ -96,10 +107,12 @@ object SyntaxAnalyzer extends YamlParser {
 
   def constraintMultipleValueOperator = wrapParserWithPosition(valid_values_token | in_range_token) | failure(s"Expecting one of '$valid_values_token', '$in_range_token'")
 
-  def constraintEntry(indentLevel: Int) =
+  def constraintEntry = nestedConstraintEntry <~ lineEndingPattern
+
+  def nestedConstraintEntry =
     positioned(
-      (textEntry(constraintSingleValueOperator)(indentLevel) |
-        nestedListEntry(constraintMultipleValueOperator)(nestedTextValue)) ^^ {
+      (nestedTextEntry(constraintSingleValueOperator) |
+        internalNestedListEntry(constraintMultipleValueOperator)(nestedTextValue)) ^^ {
         case (operator, reference) => PropertyConstraint(operator, reference)
       }
     )
@@ -108,7 +121,7 @@ object SyntaxAnalyzer extends YamlParser {
     (textEntry(type_token)(indentLevel) |
       booleanEntry(required_token) |
       textEntry(default_token)(indentLevel) |
-      listEntry(constraints_token)(constraintEntry)(indentLevel) |
+      listEntry(constraints_token)(_ => constraintEntry)(indentLevel) |
       textEntry(description_token)(indentLevel) |
       complexEntry(entry_schema_token)(propertyDefinition)(indentLevel)) | failure(s"Expecting one of '$type_token', '$required_token', '$default_token', '$constraints_token', '$description_token', '$entry_schema_token'")
 
@@ -145,19 +158,54 @@ object SyntaxAnalyzer extends YamlParser {
   def attributeDefinitionsEntry(indentLevel: Int) =
     (keyValue ~ (keyComplexSeparatorPattern ~> attributeDefinition(indentLevel))) ^^ entryParseResultHandler | nestedComplexEntry(keyValue)(function)
 
+  def singleFilterConstraintEntry(indentLevel: Int) = nestedComplexEntry(keyValue)(nestedConstraintEntry) ^^ {
+    case (prop, constraint) => (prop, List(constraint))
+  }
+
+  def listFilterConstraintEntry(indentLevel: Int) = listEntry(keyValue)(_ => constraintEntry)(indentLevel)
+
+  def filterConstraintEntry(indentLevel: Int) = singleFilterConstraintEntry(indentLevel) | listFilterConstraintEntry(indentLevel)
+
+  def filterEntry(indentLevel: Int) = listEntry(properties_token)(filterConstraintEntry)(indentLevel)
+
+  def filterDefinition(indentLevel: Int) = (indentAtLeast(indentLevel) into (newIndentLength => filterEntry(newIndentLength))) ^^ {
+    case (_, constraints) => PropertiesFilter(constraints.toMap)
+  }
+
+  def nodeCapabilityFilterEntry(indentLevel: Int) = complexEntry(keyValue)(filterDefinition)(indentLevel)
+
+  def nodeCapabilitiesFilterEntry(indentLevel: Int) = listEntry(capabilities_token)(nodeCapabilityFilterEntry)(indentLevel) ^^ {
+    case (capabilitiesToken, filters) => (capabilitiesToken, filters.toMap)
+  }
+
+  def nodeFilterEntry(indentLevel: Int) =
+    (filterEntry(indentLevel) | nodeCapabilitiesFilterEntry(indentLevel)) | failure(s"Expecting one of '$capabilities_token', '$properties_token'")
+
+  def nodeFilter(indentLevel: Int): Parser[NodeFilter] =
+    map(nodeFilterEntry)(indentLevel) ^^ {
+      case map => NodeFilter(
+        get[Map[ParsedValue[String], List[PropertyConstraint]]](map, properties_token).getOrElse(Map.empty),
+        get[Map[ParsedValue[String], FilterDefinition]](map, capabilities_token).getOrElse(Map.empty)
+      )
+    }
+
   def requirementDefinitionEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
+      // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
       textEntry(relationship_token)(indentLevel) |
+      textEntry(relationship_type_token)(indentLevel) |
       intEntry(lower_bound_token) |
       intEntry(upper_bound_token) |
-      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$relationship_token', '$lower_bound_token', '$upper_bound_token'")
+      complexEntry(node_filter_token)(nodeFilter)(indentLevel) |
+      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$relationship_token', '$lower_bound_token', '$upper_bound_token', '$description_token'")
 
   def requirementDefinitionList(name: ParsedValue[String], capabilityType: ParsedValue[String], indentLevel: Int): Parser[RequirementDefinition] = positioned(
     map(requirementDefinitionEntry)(indentLevel) ^^ {
       case map => RequirementDefinition(
-        Some(name),
+        name,
         Some(capabilityType),
-        get[ParsedValue[String]](map, relationship_token),
+        // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
+        get[ParsedValue[String]](map, relationship_token).orElse(get[ParsedValue[String]](map, relationship_type_token)),
         get[ParsedValue[Int]](map, lower_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[Int]](map, upper_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[String]](map, description_token)
@@ -167,7 +215,7 @@ object SyntaxAnalyzer extends YamlParser {
   def requirementDefinition(name: ParsedValue[String], indentLevel: Int): Parser[RequirementDefinition] = positioned(
     map(requirementDefinitionEntry)(indentLevel) ^^ {
       case map => RequirementDefinition(
-        Some(name),
+        name,
         get[ParsedValue[String]](map, type_token),
         get[ParsedValue[String]](map, relationship_token),
         get[ParsedValue[Int]](map, lower_bound_token).getOrElse(ParsedValue(1)),
@@ -183,14 +231,18 @@ object SyntaxAnalyzer extends YamlParser {
 
   def requirementDefinitionsListEntry(indentLevel: Int) =
     textEntry(keyValue)(indentLevel) into {
-      case (requirementName, capabilityType) => requirementDefinitionList(requirementName, capabilityType, indentLevel)
+      case (requirementName, capabilityType) =>
+        opt(requirementDefinitionList(requirementName, capabilityType, indentLevel)) ^^ {
+          case Some(requirementDefinition) => requirementDefinition
+          case None => RequirementDefinition(requirementName, Some(capabilityType), None, ParsedValue(1), ParsedValue(1), None)
+        }
     }
 
   def capabilityDefinitionEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
       intEntry(upper_bound_token) |
       mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
-      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$upper_bound_token', '$properties_token'")
+      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$upper_bound_token', '$properties_token', '$description_token'")
 
   def simpleCapabilityDefinition(indentLevel: Int) = positioned(textValue ^^ {
     case capabilityType => CapabilityDefinition(Some(capabilityType), ParsedValue(1), None, None)
@@ -285,7 +337,7 @@ object SyntaxAnalyzer extends YamlParser {
       }) |
       mapEntry(requirements_token)(requirementDefinitionsEntry)(indentLevel) |
       mapEntry(capabilities_token)(capabilityDefinitionsEntry)(indentLevel) |
-      listEntry(artifacts_token)(textEntry(keyValue))(indentLevel) |
+      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) |
       mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
       ) | failure(s"Expecting one of '$abstract_token', '$derived_from_token', '$description_token', '$tags_token', '$properties_token', '$attributes_token', '$requirements_token', '$capabilities_token', '$artifacts_token', '$interfaces_token'")
 
@@ -301,7 +353,7 @@ object SyntaxAnalyzer extends YamlParser {
         get[Map[ParsedValue[String], FieldValue]](map, attributes_token),
         get[Map[ParsedValue[String], RequirementDefinition]](map, requirements_token),
         get[Map[ParsedValue[String], CapabilityDefinition]](map, capabilities_token),
-        get[Map[ParsedValue[String], ParsedValue[String]]](map, artifacts_token),
+        get[Map[ParsedValue[String], DeploymentArtifact]](map, artifacts_token),
         get[Map[ParsedValue[String], Interface]](map, interfaces_token))
     })
 
@@ -458,7 +510,7 @@ object SyntaxAnalyzer extends YamlParser {
       textEntry(template_version_token)(indentLevel) |
       textEntry(template_author_token)(indentLevel) |
       textEntry(description_token)(indentLevel) |
-      listEntry(imports_token)(indentLevel => textValue)(indentLevel) |
+      listEntry(imports_token)(_ => textValue <~ lineEndingPattern)(indentLevel) |
       mapEntry(node_types_token)(nodeTypesEntry)(indentLevel) |
       mapEntry(data_types_token)(dataTypesEntry)(indentLevel) |
       mapEntry(group_types_token)(groupTypesEntry)(indentLevel) |

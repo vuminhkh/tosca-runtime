@@ -1,11 +1,12 @@
 package com.toscaruntime.compiler
 
 import java.nio.file._
+import java.util.regex.Pattern
 
 import com.google.common.io.Closeables
 import com.toscaruntime.compiler.tosca.{CompilationError, CompilationResult, Csar, Definition}
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.InitializationException
+import com.toscaruntime.exception.{DependencyNotFoundException, InitializationException}
 import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
@@ -19,15 +20,52 @@ import scala.collection.mutable
   */
 object Compiler extends LazyLogging {
 
-  def resolveDependencies(dependencyDefinition: String, basePath: Path): Path = {
-    basePath.resolve(dependencyDefinition)
+  val repositoryDependencyPattern = """([^\s:]*):([^\s]*)""".r
+
+  private def resolveDependencies(repository: Path) = { (dependencyDefinition: String, basePath: Path) =>
+    checkRepositoryPattern(repositoryDependencyPattern.pattern, dependencyDefinition, basePath, repository).getOrElse(basePath.resolve(dependencyDefinition))
   }
 
-  def compile(path: Path): CompilationResult = {
-    compile(path, resolveDependencies, mutable.Map())
+  private def checkRepositoryPattern(pattern: Pattern, dependencyDefinition: String, basePath: Path, repository: Path) = {
+    val matcher = pattern.matcher(dependencyDefinition)
+    if (matcher.matches()) {
+      val dependencyName = matcher.group(1)
+      val dependencyVersion = matcher.group(2)
+      val resolvedDependency = repository.resolve(dependencyName).resolve(dependencyVersion).resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(dependencyName)
+      if (!Files.exists(resolvedDependency)) {
+        throw new DependencyNotFoundException("Dependency " + dependencyDefinition + " not found")
+      } else Some(resolvedDependency)
+    } else None
   }
 
-  def compile(path: Path, resolver: (String, Path) => Path, compilationCache: mutable.Map[String, CompilationResult]): CompilationResult = {
+  def compile(path: Path, repository: Path): CompilationResult = {
+    compile(path, resolveDependencies(repository))
+  }
+
+  def install(path: Path, repository: Path): CompilationResult = {
+    val dependencyResolver = resolveDependencies(repository)
+    compile(path, dependencyResolver, mutable.Map.empty, {
+      case compilationResult: CompilationResult =>
+        if (compilationResult.isSuccessful) {
+          logger.info("Build successful for path {}", path.toString)
+          logger.info("Installing {} to {}", compilationResult.csar.csarName + ":" + compilationResult.csar.csarVersion, repository.toString)
+          val compilationOutput = repository.resolve(compilationResult.csar.csarName).resolve(compilationResult.csar.csarVersion)
+          if (Files.exists(compilationOutput)) {
+            FileUtil.delete(compilationOutput)
+          }
+          Files.createDirectories(compilationOutput)
+          CodeGenerator.generate(compilationResult.csar, compilationResult.dependencies.values.toList, path, compilationOutput)
+        } else {
+          logger.info("Build failed for path {}, will not install the csar", path.toString)
+        }
+    })
+  }
+
+  def compile(path: Path,
+              dependencyResolver: (String, Path) => Path,
+              compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
+              postCompilation: (CompilationResult) => Unit = { _ => }): CompilationResult = {
+    logger.info("Compile {}", path.getFileName.toString)
     val absPath = path.toAbsolutePath
     val yamlFiles = FileUtil.listFiles(absPath, ".yml", ".yaml").asScala.toList
     val parseResults = yamlFiles.map { yamlPath =>
@@ -47,25 +85,31 @@ object Compiler extends LazyLogging {
       }.toSet
       val dependenciesCompilationResult = dependencies.map { dependency =>
         if (compilationCache.contains(dependency)) {
+          logger.info("Compile {}, hit cache for dependency {}", path.getFileName.toString, dependency)
           val dependencyCompilationResult = compilationCache.get(dependency).get
-          (dependencyCompilationResult.compilationPath.toString, dependencyCompilationResult)
+          (dependencyCompilationResult.path.toString, dependencyCompilationResult)
         } else {
-          val dependencyPath = resolver(dependency, absPath).toAbsolutePath
-          val dependencyCompilationResult = compile(dependencyPath, resolver, compilationCache)
+          logger.info("Compile {}, compiling transitive dependency {}", path.getFileName.toString, dependency)
+          val dependencyPath = dependencyResolver(dependency, absPath).toAbsolutePath
+          val dependencyCompilationResult = compile(dependencyPath, dependencyResolver, compilationCache)
           compilationCache.put(dependency, dependencyCompilationResult)
-          (dependencyCompilationResult.compilationPath.toString, dependencyCompilationResult)
+          (dependencyCompilationResult.path.toString, dependencyCompilationResult)
         }
       }.toMap
       val dependenciesCsars = dependenciesCompilationResult.flatMap {
-        case (_, dependencyCompilationResult) => dependencyCompilationResult.csars
+        case (_, depRes) => depRes.dependencies + (depRes.path.toString -> depRes.csar)
       }
       val dependenciesErrors = dependenciesCompilationResult.flatMap {
-        case (_, dependencyCompilationResult) => dependencyCompilationResult.errors
+        case (_, depRes) => depRes.errors
       }
       val semanticErrors = SemanticAnalyzer.analyze(csar, absPath, dependenciesCsars.values.toList)
-      CompilationResult(absPath, dependenciesCsars + (absPath.toString -> csar), semanticErrors ++ dependenciesErrors)
+      val result = CompilationResult(absPath, csar, dependenciesCsars, semanticErrors ++ dependenciesErrors)
+      postCompilation(result)
+      result
     } else {
-      CompilationResult(absPath, Map(absPath.toString -> csar), errors)
+      val result = CompilationResult(path = absPath, csar = csar, errors = errors)
+      postCompilation(result)
+      result
     }
   }
 

@@ -109,7 +109,10 @@ object SemanticAnalyzer {
           val definedCapabilityType = requirement._2.capabilityType.get
           val capabilityFound = TypeLoader.loadCapabilityType(definedCapabilityType.value, csarPath)
           if (capabilityFound.isEmpty) {
-            compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] refers to unknown capability " + definedCapabilityType, definedCapabilityType.pos, Some(definedCapabilityType.value))
+            val nodeTypeFound = TypeLoader.loadNodeType(definedCapabilityType.value, csarPath)
+            if (nodeTypeFound.isEmpty) {
+              compilationErrors += CompilationError("Requirement [" + requirement._1.value + "] refers to unknown capability " + definedCapabilityType.value, definedCapabilityType.pos, Some(definedCapabilityType.value))
+            }
           }
         }
         if (requirement._2.lowerBound.value > requirement._2.upperBound.value) {

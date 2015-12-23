@@ -11,6 +11,10 @@ case class Csar(path: Path, definitions: Map[String, Definition]) {
   def csarName = {
     definitions.values.head.name.get.value
   }
+
+  def csarVersion = {
+    definitions.values.head.version.get.value
+  }
 }
 
 case class ParsedValue[T](value: T) extends Positional
@@ -45,7 +49,7 @@ trait Type {
 
 trait RuntimeType extends Type {
   val attributes: Option[Map[ParsedValue[String], FieldValue]]
-  val artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]]
+  val artifacts: Option[Map[ParsedValue[String], DeploymentArtifact]]
   val interfaces: Option[Map[ParsedValue[String], Interface]]
 }
 
@@ -82,6 +86,9 @@ case class TopologyTemplate(description: Option[ParsedValue[String]],
                             outputs: Option[Map[ParsedValue[String], Output]],
                             nodeTemplates: Option[Map[ParsedValue[String], NodeTemplate]]) extends Positional
 
+case class DeploymentArtifact(name: ParsedValue[String],
+                              typeName: ParsedValue[String]) extends Positional
+
 case class NodeType(name: ParsedValue[String],
                     isAbstract: ParsedValue[Boolean],
                     derivedFrom: Option[ParsedValue[String]],
@@ -91,7 +98,7 @@ case class NodeType(name: ParsedValue[String],
                     attributes: Option[Map[ParsedValue[String], FieldValue]],
                     requirements: Option[Map[ParsedValue[String], RequirementDefinition]],
                     capabilities: Option[Map[ParsedValue[String], CapabilityDefinition]],
-                    artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]],
+                    artifacts: Option[Map[ParsedValue[String], DeploymentArtifact]],
                     interfaces: Option[Map[ParsedValue[String], Interface]]) extends Positional with RuntimeType
 
 case class RelationshipType(name: ParsedValue[String],
@@ -102,7 +109,7 @@ case class RelationshipType(name: ParsedValue[String],
                             attributes: Option[Map[ParsedValue[String], FieldValue]],
                             validSources: Option[List[ParsedValue[String]]],
                             validTargets: Option[List[ParsedValue[String]]],
-                            artifacts: Option[Map[ParsedValue[String], ParsedValue[String]]],
+                            artifacts: Option[Map[ParsedValue[String], DeploymentArtifact]],
                             interfaces: Option[Map[ParsedValue[String], Interface]]) extends Positional with RuntimeType
 
 case class CapabilityType(name: ParsedValue[String],
@@ -141,7 +148,16 @@ case class AttributeDefinition(valueType: ParsedValue[String],
                                description: Option[ParsedValue[String]],
                                default: Option[ParsedValue[String]]) extends FieldDefinition
 
-case class RequirementDefinition(name: Option[ParsedValue[String]],
+trait FilterDefinition extends Positional {
+  val properties: Map[ParsedValue[String], List[PropertyConstraint]]
+}
+
+case class PropertiesFilter(properties: Map[ParsedValue[String], List[PropertyConstraint]]) extends FilterDefinition
+
+case class NodeFilter(properties: Map[ParsedValue[String], List[PropertyConstraint]],
+                      capabilities: Map[ParsedValue[String], FilterDefinition]) extends FilterDefinition
+
+case class RequirementDefinition(name: ParsedValue[String],
                                  capabilityType: Option[ParsedValue[String]],
                                  relationshipType: Option[ParsedValue[String]],
                                  lowerBound: ParsedValue[Int],
