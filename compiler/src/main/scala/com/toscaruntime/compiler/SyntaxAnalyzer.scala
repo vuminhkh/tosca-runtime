@@ -426,18 +426,22 @@ object SyntaxAnalyzer extends YamlParser {
 
   def requirementEntry(indentLevel: Int) =
     (textEntry(node_token)(indentLevel) |
-      textEntry(capability_token)(indentLevel)) | failure(s"Expecting one of '$node_token', '$capability_token'")
+      complexEntry(properties_token)(properties)(indentLevel) |
+      textEntry(capability_token)(indentLevel) |
+      textEntry(relationship_token)(indentLevel)) | failure(s"Expecting one of '$node_token', '$capability_token', '$relationship_token")
 
   def requirement(requirementName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(requirementEntry)(indentLevel) ^^ {
       case map => Requirement(
         requirementName,
+        get[Map[ParsedValue[String], FieldValue]](map, properties_token),
         get[ParsedValue[String]](map, node_token),
-        get[ParsedValue[String]](map, capability_token))
+        get[ParsedValue[String]](map, capability_token),
+        get[ParsedValue[String]](map, relationship_token))
     })
 
   def simpleRequirement(requirementName: ParsedValue[String])(indentLevel: Int) = positioned(textValue ^^ {
-    case targetNode => Requirement(requirementName, Some(targetNode), None)
+    case targetNode => Requirement(requirementName, None, Some(targetNode), None, None)
   })
 
   def requirementsEntry(indentLevel: Int) =
@@ -448,10 +452,21 @@ object SyntaxAnalyzer extends YamlParser {
 
   def requirements(indentLevel: Int) = list(requirementsEntry)(indentLevel)
 
+  def capability(capabilityName: ParsedValue[String])(indentLevel: Int) = complexEntry(properties_token)(properties)(indentLevel) ^^ {
+    case (_, properties) => (capabilityName, Capability(capabilityName, properties))
+  }
+
+  def capabilitiesEntry(indentLevel: Int) = keyValue into {
+    capabilityName => keyComplexSeparatorPattern ~> indentAtLeast(indentLevel) into {
+      newIndentLevel => capability(capabilityName)(newIndentLevel)
+    }
+  }
+
   def nodeTemplateEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
       complexEntry(properties_token)(properties)(indentLevel) |
-      complexEntry(requirements_token)(requirements)(indentLevel)) | failure(s"Expecting one of '$type_token', '$properties_token', '$requirements_token'")
+      complexEntry(requirements_token)(requirements)(indentLevel) |
+      mapEntry(capabilities_token)(capabilitiesEntry)(indentLevel)) | failure(s"Expecting one of '$type_token', '$properties_token', '$requirements_token', '$capabilities_token'")
 
   def nodeTemplate(nodeTemplateName: ParsedValue[String])(indentLevel: Int) =
     positioned(map(nodeTemplateEntry)(indentLevel) ^^ {
@@ -459,7 +474,8 @@ object SyntaxAnalyzer extends YamlParser {
         nodeTemplateName,
         get[ParsedValue[String]](map, type_token),
         get[Map[ParsedValue[String], FieldValue]](map, properties_token),
-        get[List[Requirement]](map, requirements_token))
+        get[List[Requirement]](map, requirements_token),
+        get[Map[ParsedValue[String], Capability]](map, capabilities_token))
     })
 
   def nodeTemplatesEntry(indentLevel: Int) =

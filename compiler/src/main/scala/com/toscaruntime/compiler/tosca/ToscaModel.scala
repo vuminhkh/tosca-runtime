@@ -69,13 +69,19 @@ case class DataType(name: ParsedValue[String],
                     properties: Option[Map[ParsedValue[String], FieldValue]]) extends Positional with Type
 
 case class Requirement(name: ParsedValue[String],
+                       properties: Option[Map[ParsedValue[String], FieldValue]],
                        targetNode: Option[ParsedValue[String]],
-                       targetCapability: Option[ParsedValue[String]]) extends Positional
+                       targetCapability: Option[ParsedValue[String]],
+                       relationshipType: Option[ParsedValue[String]]) extends Positional
+
+case class Capability(name: ParsedValue[String],
+                      properties: Map[ParsedValue[String], FieldValue]) extends Positional
 
 case class NodeTemplate(name: ParsedValue[String],
                         typeName: Option[ParsedValue[String]],
                         properties: Option[Map[ParsedValue[String], FieldValue]],
-                        requirements: Option[List[Requirement]]) extends Positional
+                        requirements: Option[List[Requirement]],
+                        capabilities: Option[Map[ParsedValue[String], Capability]]) extends Positional
 
 case class Output(name: ParsedValue[String],
                   description: Option[ParsedValue[String]],

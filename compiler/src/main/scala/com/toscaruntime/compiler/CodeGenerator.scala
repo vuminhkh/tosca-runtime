@@ -136,7 +136,7 @@ object CodeGenerator extends LazyLogging {
             val targetNodeName = requirement.targetNode.get.value
             val targetNode = topologyNodes(targetNodeName)
 
-            val relationshipTypeNameOpt = sourceNodeType.requirements.get(requirement.name).relationshipType
+            val relationshipTypeNameOpt = requirement.relationshipType.orElse(sourceNodeType.requirements.get(requirement.name).relationshipType)
             val relationshipType = relationshipTypeNameOpt.map {
               relationshipTypeName => TypeLoader.loadRelationshipType(relationshipTypeName.value, csarPath)
             }.getOrElse {

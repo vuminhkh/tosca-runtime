@@ -33,7 +33,7 @@ class CompilerSpec extends AbstractSpec {
   }
 
   "Compiler" must {
-    "be able to compile alien sample types" in {
+    "be able to compile alien sample" in {
       val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
       Compiler.install(normativeTypesOutput, TestConstant.CSAR_REPOSITORY_PATH)
@@ -61,6 +61,14 @@ class CompilerSpec extends AbstractSpec {
       installAndAssertCompilationResult(sampleTypesOutput.resolve("tomcat-war"))
 
       installAndAssertCompilationResult(sampleTypesOutput.resolve("wordpress"))
+
+      installAndAssertCompilationResult(sampleTypesOutput.resolve("topology-load-balancer-tomcat"))
+
+      installAndAssertCompilationResult(sampleTypesOutput.resolve("topology-nodecellar"))
+
+      installAndAssertCompilationResult(sampleTypesOutput.resolve("topology-tomcatWar"))
+
+      installAndAssertCompilationResult(sampleTypesOutput.resolve("topology-wordpress"))
     }
   }
 }

@@ -82,6 +82,7 @@ object TypeLoader {
     if (instanceType == right) {
       return true
     }
+    if (!allTypes.contains(instanceType)) return false
     while (allTypes(instanceType).derivedFrom.isDefined) {
       instanceType = allTypes(instanceType).derivedFrom.get.value
       if (instanceType == right) {
@@ -99,8 +100,16 @@ object TypeLoader {
       relationshipType =>
         val validTargets = relationshipType.validTargets.map(_.map(_.value))
         val validSources = relationshipType.validSources.map(_.map(_.value))
+        // A relationship is eligible only if it's not abstract
         !relationshipType.isAbstract.value &&
-          (validTargets.isDefined && (isInstanceOf(capability, validTargets.get, allCapabilityTypes) || isInstanceOf(target, validTargets.get, allNodeTypes))) &&
+          // A relationship is eligible if the capability is a node type and if the target is a child type of the capability
+          (isInstanceOf(target, capability, allNodeTypes) ||
+            // A relationship is eligible if its valid target is defined and the capability or the target it-self is of those types
+            (validTargets.isDefined &&
+              (isInstanceOf(capability, validTargets.get, allCapabilityTypes) ||
+                isInstanceOf(capability, validTargets.get, allNodeTypes) ||
+                isInstanceOf(target, validTargets.get, allNodeTypes)))) &&
+          // Valid source must be empty or else it must be checked to be sure that the relationship is eligible
           (validSources.isEmpty || isInstanceOf(source, validSources.get, allNodeTypes))
     }
   }

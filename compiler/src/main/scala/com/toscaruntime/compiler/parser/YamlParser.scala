@@ -20,7 +20,7 @@ trait YamlParser extends JavaTokenParsers {
 
   val nestedEntrySeparator = regex( """\s*,\s*""".r).withFailureMessage("Expecting ',' to separate nested map or list entry")
 
-  val nonQuotedTextValuePattern = regex( """[^\r\n].*""".r).withFailureMessage("Expecting non quoted text")
+  val nonQuotedTextValuePattern = regex( """[^\[\]\{\}\r\n].*""".r).withFailureMessage("Expecting non quoted text")
 
   val nestedNonQuotedTextValuePattern = regex( """[^,:\[\]\{\}\r\n]*""".r).withFailureMessage("Expecting nested non quoted text")
 
