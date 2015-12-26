@@ -5,7 +5,7 @@ emojiLogs
 
 val commonSettings: Seq[Setting[_]] = Seq(
   organization := "com.toscaruntime",
-  version := "1.0-SNAPSHOT",
+  version := "1.0.0-SNAPSHOT",
   crossPaths := false,
   scalaVersion := "2.11.7",
   javacOptions ++= Seq(
@@ -39,7 +39,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "tosca-runtime-parent"
-  ).aggregate(deployer, proxy, rest, test, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % "test",
@@ -171,12 +171,6 @@ lazy val proxy = project
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(dockerUtil, rest).enablePlugins(PlayScala, DockerPlugin)
 
-lazy val test = project
-  .settings(commonSettings: _*)
-  .settings(
-    name := "test"
-  ).dependsOn(compiler, runtime, docker, openstack).enablePlugins(JavaAppPackaging)
-
 val providerSettings: Seq[Setting[_]] = commonSettings ++ Seq(
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
     val dir = base / "src" / "main"
@@ -239,9 +233,9 @@ lazy val cli = project
       launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@name", name.value)
       launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@version", version.value)
       IO.write(launchConfigTarget, launchConfigTemplateText)
-      val dockerProviderTarget = target.value / "prepare-stage" / "providers" / "docker"
+      val dockerProviderTarget = target.value / "prepare-stage" / "repository" / "docker-provider-types" / version.value
       dockerProviderTarget.mkdirs()
-      val openstackProviderTarget = target.value / "prepare-stage" / "providers" / "openstack"
+      val openstackProviderTarget = target.value / "prepare-stage" / "repository" / "openstack-provider-types" / version.value
       openstackProviderTarget.mkdirs()
       val providerConf = target.value / "prepare-stage" / "conf" / "providers"
       providerConf.mkdirs()
@@ -251,12 +245,17 @@ lazy val cli = project
       IO.copyDirectory((resourceDirectory in Compile).value / "bootstrap", bootstrapConf)
       IO.copyDirectory((stage in docker).value, dockerProviderTarget)
       IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
-      val sdkTarget = target.value / "prepare-stage" / "sdk"
-      sdkTarget.mkdirs()
-      IO.copyDirectory((stage in sdk).value / "src" / "main" / "resources", sdkTarget)
-      val command = "java -jar " + sbtLaunchTarget.toString + " @" + launchConfigTarget
+      val sdkToscaTarget = target.value / "prepare-stage" / "csars"
+      val sdkToscaTempDownloadTarget = sdkToscaTarget / "tosca-normative-types.zip"
+      sdkToscaTempDownloadTarget.getParentFile.mkdirs()
+      IO.download(url("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip"), sdkToscaTempDownloadTarget)
+      IO.unzip(sdkToscaTempDownloadTarget, sdkToscaTarget)
+      IO.copyDirectory((resourceDirectory in Compile).value / "csars", sdkToscaTarget)
+      val command = s"java -jar $sbtLaunchTarget @$launchConfigTarget"
       Process(command, Some(sbtLaunchTarget.getParentFile)) ! match {
-        case 0 => println("Successfully loaded cli dependencies")
+        case 0 =>
+          println("Successfully loaded cli dependencies")
+          IO.delete(sdkToscaTarget)
         case n => sys.error(s"Could not load cli dependencies, exit code: $n")
       }
     },

@@ -9,4 +9,6 @@ object TestConstant {
   val CSAR_REPOSITORY_PATH = TEST_DATA_PATH.resolve("csars")
 
   val GIT_TEST_DATA_PATH = TEST_DATA_PATH.resolve("gits")
+
+  val ASSEMBLY_PATH = TEST_DATA_PATH.resolve("assemblies")
 }

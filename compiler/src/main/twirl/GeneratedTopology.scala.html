@@ -38,7 +38,7 @@
   }
 }
 @deployment.relationships.map { relationship =>
-  @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @relationship.typeName @Html(".class);")
+  @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @Html(relationship.typeName + ".class);")
 }
 @Html("}")
 @if(deployment.outputs.nonEmpty) {

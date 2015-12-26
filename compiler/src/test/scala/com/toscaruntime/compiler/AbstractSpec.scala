@@ -1,9 +1,9 @@
 package com.toscaruntime.compiler
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.compiler.tosca.CompilationResult
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.BeforeAndAfter
 import org.scalatestplus.play.PlaySpec
@@ -12,6 +12,9 @@ class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
 
   before {
     FileUtil.delete(TestConstant.TEST_DATA_PATH)
+    Files.createDirectories(TestConstant.ASSEMBLY_PATH)
+    Files.createDirectories(TestConstant.GIT_TEST_DATA_PATH)
+    Files.createDirectories(TestConstant.CSAR_REPOSITORY_PATH)
   }
 
   def showCompilationErrors(compilationResult: CompilationResult) = {
@@ -27,5 +30,16 @@ class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
     showCompilationErrors(compilationResult)
     compilationResult.isSuccessful must be(true)
     compilationResult
+  }
+
+  def assemblyDockerTopologyAndAssertCompilationResult(dockerTopology: String) = {
+    val topologyPath = ClassLoaderUtil.getPathForResource(dockerTopology)
+    val generatedAssemblyPath = TestConstant.ASSEMBLY_PATH.resolve(topologyPath.getFileName.toString)
+    Files.createDirectories(generatedAssemblyPath)
+    val topologyCompilationErrors = Compiler.assembly(topologyPath, generatedAssemblyPath, TestConstant.CSAR_REPOSITORY_PATH)
+    showCompilationErrors(topologyCompilationErrors)
+    topologyCompilationErrors.isSuccessful must be(true)
+    val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("deployment").resolve("Deployment.java"))
+    deploymentGenerated must include("com.toscaruntime.docker.nodes.Container")
   }
 }

@@ -9,6 +9,7 @@ import scala.io.StdIn
 
 /**
   * Command to handle list, delete, show information of an agent
+  *
   * @author Minh Khang VU
   */
 object AgentsCommand {
@@ -61,7 +62,7 @@ object AgentsCommand {
         DeployUtil.printDetails(client, deploymentId)
       case ("deploy", deploymentId: String) =>
         client.deploy(deploymentId)
-        println("Execute 'agents log " + deploymentId + "' to tail the log of deployment agent")
+        println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
       case ("log", deploymentId: String) =>
         println("***Press enter to stop following logs***")
         val logCallback = client.tailLog(deploymentId, System.out)
@@ -72,16 +73,17 @@ object AgentsCommand {
         }
       case ("undeploy", deploymentId: String) =>
         client.undeploy(deploymentId)
-        println("Execute 'agents log " + deploymentId + "' to tail the log of deployment agent")
+        println(s"Undeployed $deploymentId")
+        println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
       case ("start", deploymentId: String) =>
         client.startDeploymentAgent(deploymentId)
-        println("Started " + deploymentId)
+        println(s"Started $deploymentId")
       case ("stop", deploymentId: String) =>
         client.stopDeploymentAgent(deploymentId)
-        println("Stopped " + deploymentId)
+        println(s"Stopped $deploymentId")
       case ("delete", deploymentId: String) =>
         client.deleteDeploymentAgent(deploymentId)
-        println("Deleted " + deploymentId)
+        println(s"Deleted $deploymentId")
     }
     state
   }

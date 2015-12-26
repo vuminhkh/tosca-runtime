@@ -191,13 +191,14 @@ object SyntaxAnalyzer extends YamlParser {
 
   def requirementDefinitionEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
+      textEntry(capability_token)(indentLevel) |
       // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
       textEntry(relationship_token)(indentLevel) |
       textEntry(relationship_type_token)(indentLevel) |
       intEntry(lower_bound_token) |
       intEntry(upper_bound_token) |
       complexEntry(node_filter_token)(nodeFilter)(indentLevel) |
-      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$relationship_token', '$lower_bound_token', '$upper_bound_token', '$description_token'")
+      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$relationship_type_token', '$lower_bound_token', '$upper_bound_token', '$node_filter_token', '$description_token'")
 
   def requirementDefinitionList(name: ParsedValue[String], capabilityType: ParsedValue[String], indentLevel: Int): Parser[RequirementDefinition] = positioned(
     map(requirementDefinitionEntry)(indentLevel) ^^ {
@@ -205,10 +206,11 @@ object SyntaxAnalyzer extends YamlParser {
         name,
         Some(capabilityType),
         // FIXME Hack to handle both versions, find an elegant way to handle multiple version of mappings
-        get[ParsedValue[String]](map, relationship_token).orElse(get[ParsedValue[String]](map, relationship_type_token)),
+        get[ParsedValue[String]](map, relationship_token).orElse(get[ParsedValue[String]](map, relationship_type_token)).orElse(get[ParsedValue[String]](map, type_token)),
         get[ParsedValue[Int]](map, lower_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[Int]](map, upper_bound_token).getOrElse(ParsedValue(1)),
-        get[ParsedValue[String]](map, description_token)
+        get[ParsedValue[String]](map, description_token),
+        get[NodeFilter](map, node_filter_token)
       )
     })
 
@@ -216,11 +218,12 @@ object SyntaxAnalyzer extends YamlParser {
     map(requirementDefinitionEntry)(indentLevel) ^^ {
       case map => RequirementDefinition(
         name,
-        get[ParsedValue[String]](map, type_token),
+        get[ParsedValue[String]](map, type_token).orElse(get[ParsedValue[String]](map, capability_token)),
         get[ParsedValue[String]](map, relationship_token),
         get[ParsedValue[Int]](map, lower_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[Int]](map, upper_bound_token).getOrElse(ParsedValue(1)),
-        get[ParsedValue[String]](map, description_token)
+        get[ParsedValue[String]](map, description_token),
+        get[NodeFilter](map, node_filter_token)
       )
     })
 
@@ -234,7 +237,7 @@ object SyntaxAnalyzer extends YamlParser {
       case (requirementName, capabilityType) =>
         opt(requirementDefinitionList(requirementName, capabilityType, indentLevel)) ^^ {
           case Some(requirementDefinition) => requirementDefinition
-          case None => RequirementDefinition(requirementName, Some(capabilityType), None, ParsedValue(1), ParsedValue(1), None)
+          case None => RequirementDefinition(requirementName, Some(capabilityType), None, ParsedValue(1), ParsedValue(1), None, None)
         }
     }
 

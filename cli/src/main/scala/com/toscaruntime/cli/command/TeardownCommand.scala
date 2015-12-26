@@ -40,10 +40,6 @@ object TeardownCommand {
         logCallback.close()
       }
     }
-    if (fail) {
-      state.fail
-    } else {
-      state
-    }
+    if (fail) state.fail else state
   }
 }

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,12 +42,9 @@ public final class FileUtil {
 
     static void putZipEntry(ZipOutputStream zipOutputStream, ZipEntry zipEntry, Path file) throws IOException {
         zipOutputStream.putNextEntry(zipEntry);
-        InputStream input = new BufferedInputStream(Files.newInputStream(file));
-        try {
+        try (InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
             ByteStreams.copy(input, zipOutputStream);
             zipOutputStream.closeEntry();
-        } finally {
-            input.close();
         }
     }
 
@@ -275,6 +273,34 @@ public final class FileUtil {
             }
         });
         return allFiles;
+    }
+
+    /**
+     * List all children directories of a path
+     *
+     * @param path           path to list directories
+     * @param dirNameFilters the dir name must contain one of those filter string (case ignored)
+     * @return the list of path of all directories
+     * @throws IOException
+     */
+    public static List<Path> listChildrenDirectories(final Path path, String... dirNameFilters) throws IOException {
+        final List<Path> allDirs = Lists.newArrayList();
+        try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
+            for (Path child : directoryStream) {
+                if (Files.isDirectory(child)) {
+                    if (dirNameFilters.length > 0) {
+                        for (String filter : dirNameFilters) {
+                            if (StringUtils.containsIgnoreCase(child.getFileName().toString(), filter)) {
+                                allDirs.add(child);
+                            }
+                        }
+                    } else {
+                        allDirs.add(child);
+                    }
+                }
+            }
+        }
+        return allDirs;
     }
 
     /**

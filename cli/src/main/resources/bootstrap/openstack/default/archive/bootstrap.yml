@@ -4,6 +4,9 @@ template_name: openstack-bootstrap-template
 template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
+imports:
+  - toscaruntime-bootstrap-type:*
+
 topology_template:
   description: Wordpress deployment template for openstack
   inputs:

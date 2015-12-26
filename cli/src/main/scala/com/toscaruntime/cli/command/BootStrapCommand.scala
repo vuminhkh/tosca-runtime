@@ -2,7 +2,7 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Files
 
-import com.toscaruntime.cli.util.DeployUtil
+import com.toscaruntime.cli.util.{CompilationUtil, DeployUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
 import sbt.complete.DefaultParsers._
@@ -39,15 +39,8 @@ object BootStrapCommand {
       val target = argsMap.getOrElse(Args.targetOpt, "default")
       val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
       val bootstrapInputPath = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("inputs.yml")
-      val dockerComponentCsar = basedir.resolve("bootstrap").resolve("common")
-      val compilationSuccessful = Compiler.compile(
-        bootstrapTopology,
-        List(dockerComponentCsar),
-        basedir.resolve("providers").resolve(providerName),
-        basedir.resolve("sdk"),
-        outputPath
-      )
-      if (compilationSuccessful) {
+      val compilationResult = Compiler.assembly(bootstrapTopology, outputPath, basedir.resolve("repository"))
+      if (compilationResult.isSuccessful) {
         val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(target)
         val image = client.createBootstrapImage(
           providerName,
@@ -66,14 +59,11 @@ object BootStrapCommand {
         }
       } else {
         println("Failed to compile bootstrap topology")
+        CompilationUtil.showErrors(compilationResult)
         fail = true
       }
     }
-    if (fail) {
-      state.fail
-    } else {
-      state
-    }
+    if (fail) state.fail else state
   }
 
 }

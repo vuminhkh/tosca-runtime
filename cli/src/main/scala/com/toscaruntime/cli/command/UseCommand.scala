@@ -92,14 +92,13 @@ object UseCommand {
     val dockerConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
     val dockerConfigFilePath = dockerConfigPath.resolve("provider.conf")
     if (Files.exists(dockerConfigFilePath)) {
-      println("Found existing configuration at <" + dockerConfigPath + ">")
+      println(s"Found existing configuration at <$dockerConfigPath>")
       val providerConfig = ConfigFactory.parseFile(dockerConfigFilePath.toFile).resolveWith(
         ConfigFactory.empty().withValue("com.toscaruntime.provider.dir", ConfigValueFactory.fromAnyRef(dockerConfigPath.toString))
       )
       val config = providerConfig.entrySet().asScala.map { entry =>
         (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])
       }.toMap
-      println("Existing Config <" + config + ">")
       config
     } else {
       Map.empty[String, String]

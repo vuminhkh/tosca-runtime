@@ -1,12 +1,11 @@
 package com.toscaruntime.compiler.tosca
 
-import java.nio.file.Path
 import java.text.DateFormat
 import java.util.Locale
 
 import scala.util.parsing.input.Positional
 
-case class Csar(path: Path, definitions: Map[String, Definition]) {
+case class Csar(path: String, definitions: Map[String, Definition]) {
 
   def csarName = {
     definitions.values.head.name.get.value
@@ -14,6 +13,10 @@ case class Csar(path: Path, definitions: Map[String, Definition]) {
 
   def csarVersion = {
     definitions.values.head.version.get.value
+  }
+
+  def csarId = {
+    csarName + ":" + csarVersion
   }
 }
 
@@ -168,7 +171,8 @@ case class RequirementDefinition(name: ParsedValue[String],
                                  relationshipType: Option[ParsedValue[String]],
                                  lowerBound: ParsedValue[Int],
                                  upperBound: ParsedValue[Int],
-                                 description: Option[ParsedValue[String]]) extends Positional
+                                 description: Option[ParsedValue[String]],
+                                 nodeFilter: Option[NodeFilter]) extends Positional
 
 case class CapabilityDefinition(capabilityType: Option[ParsedValue[String]],
                                 upperBound: ParsedValue[Int],

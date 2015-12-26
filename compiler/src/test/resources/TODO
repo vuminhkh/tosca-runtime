@@ -1,0 +1,10 @@
+Tosca support:
+
+- Override topology
+- Capabilities properties
+- Relationship properties
+- Scale
+- Custom command
+- Custom workflow
+- Data types
+- Semantic analyzer

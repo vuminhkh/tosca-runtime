@@ -245,7 +245,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
         super.onNext(item)
       }
     }
-    DockerUtil.showLog(dockerClient, containerId, true, 200, logCallBack)
+    DockerUtil.showLog(dockerClient, containerId, true, 1000, logCallBack)
     logCallBack
   }
 

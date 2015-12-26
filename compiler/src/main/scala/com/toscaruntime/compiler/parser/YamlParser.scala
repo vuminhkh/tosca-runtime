@@ -22,7 +22,7 @@ trait YamlParser extends JavaTokenParsers {
 
   val nonQuotedTextValuePattern = regex( """[^\[\]\{\}\r\n].*""".r).withFailureMessage("Expecting non quoted text")
 
-  val nestedNonQuotedTextValuePattern = regex( """[^,:\[\]\{\}\r\n]*""".r).withFailureMessage("Expecting nested non quoted text")
+  val nestedNonQuotedTextValuePattern = regex( """[^,\[\]\{\}\r\n]*""".r).withFailureMessage("Expecting nested non quoted text")
 
   val quotedTextValuePattern = regex( """"[^"\r\n]*"""".r).withFailureMessage("Expecting quoted text")
 

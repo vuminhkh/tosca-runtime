@@ -1,0 +1,25 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Apache load balancer partial topology for docker
+template_name: apache-load-balancer-template-docker
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - apache-load-balancer:1.0.0-SNAPSHOT
+  - docker-provider-types:*
+
+topology_template:
+
+  node_templates:
+
+    WebServer:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: phusion/baseimage
+
+    LoadBalancerServer:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: phusion/baseimage
+        exposed_ports: 80
+        port_mappings: 80 - 51000

@@ -1,8 +1,11 @@
 tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
 
-template_name: openstack-bootstrap-template
+template_name: openstack-swarm-bootstrap-template
 template_version: 1.0.0-SNAPSHOT
 template_author: MKV
+
+imports:
+  - toscaruntime-bootstrap-type:*
 
 node_types:
 
