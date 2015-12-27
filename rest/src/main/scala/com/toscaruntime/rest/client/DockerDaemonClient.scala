@@ -176,7 +176,9 @@ class DockerDaemonClient(var url: String, var certPath: String) {
   }
 
   def deleteDeploymentImage(deploymentId: String) = {
-    dockerClient.removeImageCmd(getAgentImage(deploymentId).get.getId).exec()
+    getAgentImage(deploymentId).map { agentImage =>
+      dockerClient.removeImageCmd(agentImage.getId).exec()
+    }.orElse(throw new ResourcesNotFoundException(s"Deployment image $deploymentId not found"))
   }
 
   def cleanDanglingImages() = {
@@ -187,6 +189,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
   }
 
   private def createAgent(deploymentId: String, labels: Map[String, String], bootstrapContext: Map[String, String]) = {
+    val deploymentImageId = getAgentImage(deploymentId).getOrElse(throw new ResourcesNotFoundException(s"Deployment image $deploymentId not found")).getId
     val labels = Maps.newHashMap[String, String]()
     labels.put(RuntimeConstant.ORGANIZATION_LABEL, RuntimeConstant.ORGANIZATION_VALUE)
     labels.put(RuntimeConstant.DEPLOYMENT_ID_LABEL, deploymentId)
@@ -195,7 +198,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     val portBindings: Ports = new Ports
     portBindings.bind(portHttp, Ports.Binding(null))
     val createdContainer = dockerClient
-      .createContainerCmd(getAgentImage(deploymentId).get.getId)
+      .createContainerCmd(deploymentImageId)
       .withExposedPorts(portHttp)
       .withPortBindings(portBindings)
       .withName("toscaruntime_" + deploymentId + "_agent")

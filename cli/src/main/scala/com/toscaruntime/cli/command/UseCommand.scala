@@ -19,6 +19,8 @@ import scala.collection.JavaConverters._
   */
 object UseCommand {
 
+  val commandName = "use"
+
   private val dockerUrlOpt = "-u"
 
   private val dockerCertOpt = "-c"
@@ -29,20 +31,20 @@ object UseCommand {
 
   private lazy val useArgsParser = Space ~> (dockerUrlArg | dockerCertPathArg) +
 
-  private lazy val useHelp = Help("use", ("use", "Use the specified docker daemon url"),
-    """
-      |use -u <docker daemon url> -c <certificate path>
-      |-u   : url of the docker daemon
-      |-c   : path to the the certificate to connect to the docker daemon
+  private lazy val useHelp = Help(commandName, (commandName, "Use the specified docker daemon url"),
+    s"""
+       |$commandName $dockerUrlOpt <docker daemon url> $dockerCertOpt <certificate path>
+       |$dockerUrlOpt     : url of the docker daemon
+       |$dockerCertOpt    : (optional if https is not used) path to the the certificate to connect to the docker daemon
     """.stripMargin
   )
 
-  lazy val instance = Command("use", useHelp)(_ => useArgsParser) { (state, args) =>
+  lazy val instance = Command(commandName, useHelp)(_ => useArgsParser) { (state, args) =>
     val argsMap = args.toMap
     var fail = false
     val client = state.attributes.get(Attributes.clientAttribute).get
     if (!argsMap.contains(dockerUrlOpt)) {
-      println(dockerUrlOpt + " is mandatory")
+      println(s"$dockerUrlOpt is mandatory")
       fail = true
     } else {
       val basedir = state.attributes.get(Attributes.basedirAttribute).get
@@ -50,14 +52,9 @@ object UseCommand {
       val cert = argsMap.getOrElse(dockerCertOpt, null)
       client.switchConnection(url, cert)
       switchConfiguration(url, cert, basedir)
-      println(argsMap(dockerUrlOpt) + " is using api version " + client.dockerVersion)
+      println(s"Begin to use docker daemon at [${argsMap(dockerUrlOpt)}] with api version [${client.dockerVersion}]")
     }
-    if (fail) {
-      state.fail
-    } else {
-      println("Begin to use docker daemon at <" + argsMap(dockerUrlOpt) + ">" + " with api version <" + client.dockerVersion + ">")
-      state
-    }
+    if (fail) state.fail else state
   }
 
   def switchConfiguration(url: String, cert: String, basedir: Path) = {

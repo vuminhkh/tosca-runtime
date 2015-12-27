@@ -29,4 +29,32 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
       parseResult.get.description.get.value must be(longText)
     }
   }
+
+  "Syntax analyzer" must {
+    "be able to handle list of primitive type" in {
+      val topology =
+        s"""
+           |$node_types_token:
+           |  test.node_type:
+           |    $properties_token:
+           |      list_prop:
+           |        $type_token: list
+           |        $entry_schema_token:
+           |          $type_token: integer
+           |$topology_template_token:
+           |  $node_templates_token:
+           |    test_node:
+           |      $properties_token:
+           |        list_prop: [1, 2]
+           |    test_node_2:
+           |      $properties_token:
+           |        list_prop:
+           |          - 1
+           |          - 2
+         """.stripMargin
+      val parseResult = SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, topology)
+      TestUtil.printResult(parseResult)
+      parseResult.successful must be(true)
+    }
+  }
 }

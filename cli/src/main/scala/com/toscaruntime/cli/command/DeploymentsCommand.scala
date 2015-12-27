@@ -6,7 +6,7 @@ import com.toscaruntime.cli.parser.Parsers
 import com.toscaruntime.cli.util.{CompilationUtil, DeployUtil, TabulatorUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
-import com.toscaruntime.constant.{RuntimeConstant, ProviderConstant}
+import com.toscaruntime.constant.{ProviderConstant, RuntimeConstant}
 import com.toscaruntime.util.FileUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
@@ -69,12 +69,16 @@ object DeploymentsCommand {
     args.head match {
       case "list" =>
         val images = client.listDeploymentImages()
-        println(s"Found ${images.size} deployment image(s):")
-        val headers = List("Deployment Id", "Created", "Image Id")
-        val imagesData = images.map { image =>
-          List(image.getContainerConfig.getLabels.get(RuntimeConstant.DEPLOYMENT_ID_LABEL), image.getCreated, image.getId)
+        if (images.nonEmpty) {
+          println(s"Found ${images.size} deployment image(s):")
+          val headers = List("Deployment Id", "Created", "Image Id")
+          val imagesData = images.map { image =>
+            List(image.getContainerConfig.getLabels.get(RuntimeConstant.DEPLOYMENT_ID_LABEL), image.getCreated, image.getId)
+          }
+          println(TabulatorUtil.format(headers :: imagesData))
+        } else {
+          println("No deployment found")
         }
-        println(TabulatorUtil.format(headers :: imagesData))
       case (("create", deploymentId: String), createOpts: Seq[(String, _)]) =>
         val basedir = state.attributes.get(Attributes.basedirAttribute).get
         val repository = basedir.resolve("repository")
@@ -105,6 +109,7 @@ object DeploymentsCommand {
                 .resolve(createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String])
                 .resolve(createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String])
               client.createDeploymentImage(deploymentId, deploymentWorkDir, createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String])), providerConf).awaitImageId()
+              println(s"Deployment $deploymentId has been created, 'deployments run $deploymentId' to deploy it")
             } else {
               CompilationUtil.showErrors(compilationResult)
               fail = true

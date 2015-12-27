@@ -19,13 +19,17 @@ object DeployUtil extends LazyLogging {
   private val waitForEver = 365 day
 
   def listDeploymentAgents(client: ToscaRuntimeClient) = {
-    val deployments = Await.result(client.listDeploymentAgents(), waitForEver)
-    println("Daemon has " + deployments.length + " deployment agent(s) : ")
-    val headers = List("Deployment Id", "Status", "Created", "IP", "Container Id")
-    val deploymentsData = deployments.map { deployment =>
-      List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
+    val deploymentAgents = Await.result(client.listDeploymentAgents(), waitForEver)
+    if (deploymentAgents.nonEmpty) {
+      println("Daemon has " + deploymentAgents.length + " deployment agent(s) : ")
+      val headers = List("Deployment Id", "Status", "Created", "IP", "Container Id")
+      val deploymentsData = deploymentAgents.map { deployment =>
+        List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
+      }
+      println(TabulatorUtil.format(headers :: deploymentsData))
+    } else {
+      println("No deployment agent found")
     }
-    println(TabulatorUtil.format(headers :: deploymentsData))
   }
 
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {

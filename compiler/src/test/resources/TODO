@@ -1,10 +1,43 @@
+Documentation
+
 Tosca support:
 
-- Override topology
+- Deployment artifacts
+- Data types, list, map types
+- Scale
+- Version Size Frequency type support
 - Capabilities properties
 - Relationship properties
-- Scale
 - Custom command
 - Custom workflow
-- Data types
-- Semantic analyzer
+- Semantic analyzer completion
+
+Core:
+
+- Review class loading model
+
+Provider:
+
+- Manage get_operation_output for docker
+- Error handling (Recoverable, non recoverable, retry ...)
+- Manage docker volume, docker network
+- Name - Id translation for resources
+- Manage openstack volume
+- Manage public_ip for docker
+- Exploring using consul for service discovery
+
+Runtime:
+
+- Persistence (persisted on file system per container basis ?)
+- Executions modelling (need to save execution with their state ?)
+- Deployment state (need a state machine here ?)
+
+Testing:
+
+- Provider test
+- Integration end to end test
+- Perform cli test on linux system (Ubuntu)
+
+Security:
+
+- Https bootstrap

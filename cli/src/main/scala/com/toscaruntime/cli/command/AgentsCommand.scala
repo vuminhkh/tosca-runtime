@@ -14,6 +14,8 @@ import scala.io.StdIn
   */
 object AgentsCommand {
 
+  val commandName = "agents"
+
   private val listOpt = "list"
 
   private val logOpt = "log"
@@ -40,15 +42,17 @@ object AgentsCommand {
       (token(undeployOpt) ~ (Space ~> token(StringBasic))) |
       (token(infoOpt) ~ (Space ~> token(StringBasic)))) +
 
-  private lazy val agentsActionsHelp = Help("agents", ("agents", "List, stop or delete agent, execute 'help agents' for more details"),
-    """
-      |agents [list | [stop|delete|deploy|undeploy|info|log] <deployment id>]
-      |list     : list all agents
-      |start    : start agent, agent will begin to manage deployment
-      |stop     : stop agent, agent will not manage deployment anymore
-      |deploy   : launch default deployment workflow
-      |undeploy : launch default un-deployment workflow
-      |delete   : delete agent
+  private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent, execute 'help $commandName' for more details"),
+    s"""
+       |$commandName [$listOpt| [$startOpt|$stopOpt|$deleteOpt|$deployOpt|$undeployOpt|$infoOpt|$logOpt] <deployment id>]
+       |$listOpt     : list all agents
+       |$logOpt      : show the agent's log
+       |$infoOpt     : show the agent's deployment details
+       |$startOpt    : start agent, agent will begin to manage deployment
+       |$stopOpt     : stop agent, agent will not manage deployment anymore
+       |$deployOpt   : launch default deployment workflow
+       |$undeployOpt : launch default un-deployment workflow
+       |$deleteOpt   : delete agent
     """.stripMargin
   )
 
