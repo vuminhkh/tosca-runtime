@@ -171,11 +171,11 @@ object CodeGenerator extends LazyLogging {
 
   def parseValue(fieldValue: FieldValue): runtime.Value = {
     fieldValue match {
-      case scalarFieldValue: ScalarValue => runtime.ScalarValue(scalarFieldValue.value)
+      case scalarFieldValue: ScalarValue => runtime.ScalarValue(scalarFieldValue.value.value)
       case functionFieldValue: Function => runtime.Function(functionFieldValue.function.value, functionFieldValue.paths.map(_.value))
       case compositeFunctionFieldValue: CompositeFunction =>
         runtime.CompositeFunction(compositeFunctionFieldValue.function.value, compositeFunctionFieldValue.members.map {
-          case scalarMemberValue: ScalarValue => runtime.ScalarValue(scalarMemberValue.value)
+          case scalarMemberValue: ScalarValue => runtime.ScalarValue(scalarMemberValue.value.value)
           case functionMemberValue: Function => runtime.Function(functionMemberValue.function.value, functionMemberValue.paths.map(_.value))
         })
     }

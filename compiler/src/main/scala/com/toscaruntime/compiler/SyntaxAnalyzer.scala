@@ -139,7 +139,11 @@ object SyntaxAnalyzer extends YamlParser {
     })
 
   def propertyDefinitionsEntry(indentLevel: Int) =
-    (keyValue ~ (keyComplexSeparatorPattern ~> propertyDefinition(indentLevel))) ^^ entryParseResultHandler | nestedComplexEntry(keyValue)(function)
+    complexEntry(keyValue)(propertyDefinition)(indentLevel) |
+      nestedComplexEntry(keyValue)(function) |
+      scalarValueEntry(indentLevel) |
+      mapValueEntry(indentLevel) |
+      listValueEntry(indentLevel)
 
   def attributeDefinitionEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
@@ -282,12 +286,20 @@ object SyntaxAnalyzer extends YamlParser {
 
   def function = compositeFunction | singleArgumentFunction | multipleArgumentsFunction
 
-  def scalarTextEntry(indentLevel: Int) = textEntry(keyValue)(indentLevel) ^^ { case (key: ParsedValue[String], value: ParsedValue[String]) => (key, ScalarValue(value)) }
+  def scalarValueEntry(indentLevel: Int) = yamlTextEntry(indentLevel) ^^ { case (key: ParsedValue[String], value: ParsedValue[String]) => (key, ScalarValue(value)) }
+
+  def mapValueEntry(indentLevel: Int) = (yamlMapEntry(indentLevel) | nestedYamlMapEntry) ^^ { case (key: ParsedValue[String], value: Map[ParsedValue[String], Any]) => (key, MapValue(value)) }
+
+  def listValueEntry(indentLevel: Int) = (yamlListEntry(indentLevel) | nestedYamlListEntry) ^^ { case (key: ParsedValue[String], value: List[Any]) => (key, ListValue(value)) }
 
   def operationInputEntry(indentLevel: Int) =
-    scalarTextEntry(indentLevel) |
-      nestedComplexEntry(keyValue)(function) |
-      propertyDefinitionsEntry(indentLevel)
+    nestedComplexEntry(keyValue)(function) |
+      propertyDefinitionsEntry(indentLevel) |
+      // Very important here as nestedComplexEntry and propertyDefinitionsEntry are positioned before the rest
+      // and then it will be taken into account first or else the propertyDefinitionsEntry can be interpreted as a map value
+      scalarValueEntry(indentLevel) |
+      mapValueEntry(indentLevel) |
+      listValueEntry(indentLevel)
 
   def operationEntry(indentLevel: Int) =
     textEntry(description_token)(indentLevel) |
@@ -425,7 +437,15 @@ object SyntaxAnalyzer extends YamlParser {
         get[Map[ParsedValue[String], PropertyDefinition]](map, properties_token))
     })
 
-  def properties(indentLevel: Int) = map(operationInputEntry)(indentLevel)
+  def propertiesEntry(indentLevel: Int) =
+    nestedComplexEntry(keyValue)(function) |
+      // Very important here as nestedComplexEntry is positioned before mapValueEntry
+      // and then it will be taken into account first or else the nestedComplexEntry for function access can be interpreted as a map value
+      scalarValueEntry(indentLevel) |
+      mapValueEntry(indentLevel) |
+      listValueEntry(indentLevel)
+
+  def properties(indentLevel: Int) = map(propertiesEntry)(indentLevel)
 
   def requirementEntry(indentLevel: Int) =
     (textEntry(node_token)(indentLevel) |

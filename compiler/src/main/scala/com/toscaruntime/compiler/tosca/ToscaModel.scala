@@ -127,18 +127,17 @@ case class CapabilityType(name: ParsedValue[String],
                           description: Option[ParsedValue[String]],
                           properties: Option[Map[ParsedValue[String], PropertyDefinition]]) extends Positional with Type
 
-case class ScalarValue(value: String) extends FieldValue
+case class ScalarValue(value: ParsedValue[String]) extends PropertyValue[ParsedValue[String]]
 
-object ScalarValue {
+case class ListValue(value: List[Any]) extends PropertyValue[List[Any]]
 
-  def apply(parsedValue: ParsedValue[String]) = {
-    val instance = new ScalarValue(parsedValue.value)
-    instance.setPos(parsedValue.pos)
-    instance
-  }
-}
+case class MapValue(value: Map[ParsedValue[String], Any]) extends PropertyValue[Map[ParsedValue[String], Any]]
 
 trait FieldValue extends Positional
+
+trait PropertyValue[T] extends FieldValue {
+  val value: T
+}
 
 trait FieldDefinition extends FieldValue {
   val valueType: ParsedValue[String]

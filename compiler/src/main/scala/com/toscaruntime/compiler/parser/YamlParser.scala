@@ -8,7 +8,7 @@ trait YamlParser extends JavaTokenParsers {
 
   override def skipWhitespace = false
 
-  val keyPattern = regex( """\p{Alnum}+[^:\[\]\{\}>\p{Blank},]*""".r).withFailureMessage("Expecting yaml key")
+  val keyPattern = regex( """\p{Alnum}+[^:\[\]\{\}>|\p{Blank},]*""".r).withFailureMessage("Expecting yaml key")
 
   val nestedListStartPattern = regex( """\[ *""".r).withFailureMessage("Expecting '[' to start an inline list")
 
@@ -34,19 +34,21 @@ trait YamlParser extends JavaTokenParsers {
 
   val commentRegex = """\p{Blank}*(?:#.*)?"""
 
-  val blankLineRegex = commentRegex + """\r?\n"""
+  val endOfLineRegex = """(?:(?:\r?\n)|\Z)"""
 
-  val newLineRegex = commentRegex + """\r?\n(?:""" + blankLineRegex + """)*"""
+  val blankLineRegex = commentRegex + endOfLineRegex
 
-  val lineEndingPattern = regex(("""(?:""" + newLineRegex + """|""" + """\Z)""").r).withFailureMessage("Unexpected token, expecting new line or end of file")
+  val lineEndingRegex = s"""(?:$blankLineRegex)+"""
+
+  val lineEndingPattern = regex(lineEndingRegex.r).withFailureMessage("Unexpected token, expecting new line or end of file")
 
   val keyValueSeparatorPattern = regex( """: +""".r).withFailureMessage("Expecting ':' to separate key and value")
 
-  val keyLongTextSeparatorPattern = regex( """:[ \t]*>[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '>' to start a long text")
+  val keyLongTextSeparatorPattern = regex( """>[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '>' to start a long text")
 
-  val keyLongTextWithNewLineSeparatorPattern = regex( """:[ \t]*\|[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '|' to start a multilines text")
+  val keyLongTextWithNewLineSeparatorPattern = regex( """\|[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '|' to start a multilines text")
 
-  val keyComplexSeparatorPattern = regex((""":[ \t]*""" + newLineRegex).r).withFailureMessage("Expecting ':' to start a complex object")
+  val keyComplexSeparatorPattern = regex((""":[ \t]*""" + lineEndingRegex).r).withFailureMessage("Expecting ':' to start a complex object")
 
   def listIndicator: Parser[Int] = regex( """- +""".r).withFailureMessage("Expecting '-' for list entry") ^^ (_.length)
 
@@ -87,13 +89,13 @@ trait YamlParser extends JavaTokenParsers {
   def textValueWithSeparator(indentLevel: Int) =
     (((keyLongTextSeparatorPattern ~> longTextValue(indentLevel + 1, withNewLine = false)) |
       (keyLongTextWithNewLineSeparatorPattern ~> longTextValue(indentLevel + 1, withNewLine = true)) |
-      (keyValueSeparatorPattern ~> textValue)) <~ lineEndingPattern) | failure("Expecting text value")
+      textValue) <~ lineEndingPattern) | failure("Expecting text value")
 
   def textEntry(key: String)(indentLevel: Int): Parser[(ParsedValue[String], ParsedValue[String])] =
     textEntry(wrapTextWithPosition(key))(indentLevel) | failure(s"Expecting text entry with key '$key'")
 
   def textEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): Parser[(ParsedValue[String], ParsedValue[String])] =
-    ((keyParser ~ textValueWithSeparator(indentLevel)) ^^ entryParseResultHandler) | failure("Expecting text entry")
+    (((keyParser <~ keyValueSeparatorPattern) ~ textValueWithSeparator(indentLevel)) ^^ entryParseResultHandler) | failure("Expecting text entry")
 
   def nestedTextEntry(key: String): Parser[(ParsedValue[String], ParsedValue[String])] =
     nestedTextEntry(wrapTextWithPosition(key)) | failure(s"Expecting nested text entry with key '$key'")
@@ -200,4 +202,58 @@ trait YamlParser extends JavaTokenParsers {
   def wrapParserWithPosition[T](parser: Parser[T]) = positioned(parser ^^ wrapValueWithPosition)
 
   def wrapTextWithPosition[T](text: String) = positioned(text ^^ wrapValueWithPosition) | failure(s"Expecting token '$text'")
+
+  def nestedYamlListEntryMember: Parser[Any] = {
+    nestedTextValue | nestedMap(nestedYamlMapEntry) | nestedList(nestedYamlListEntry)
+  }
+
+  def mapEntryHandler[T](input: (ParsedValue[String], T)) = {
+    input match {
+      case (key, value) =>
+        Map(key -> value)
+    }
+  }
+
+  def yamlListEntryMember(indentLevel: Int): Parser[Any] = {
+    map(yamlMapEntry)(indentLevel) |
+      list(yamlListEntry)(indentLevel) |
+      nestedMap(nestedYamlMapEntry) |
+      nestedList(nestedYamlListEntry) |
+      (yamlMapEntry(indentLevel) ^^ mapEntryHandler) |
+      (yamlListEntry(indentLevel) ^^ mapEntryHandler) |
+      (yamlTextEntry(indentLevel) ^^ mapEntryHandler) |
+      textValueWithSeparator(indentLevel)
+  }
+
+  def nestedYamlMapEntryMember: Parser[(ParsedValue[String], Any)] = {
+    nestedTextEntry(keyValue) | nestedYamlMapEntry | nestedYamlListEntry
+  }
+
+  def yamlMapEntryMember(indentLevel: Int): Parser[(ParsedValue[String], Any)] = {
+    yamlTextEntry(indentLevel) |
+      yamlMapEntry(indentLevel) |
+      yamlListEntry(indentLevel) |
+      nestedYamlMapEntry |
+      nestedYamlListEntry
+  }
+
+  def yamlMapEntry(indentLevel: Int): Parser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+    mapEntry(keyValue)(yamlMapEntryMember)(indentLevel)
+  }
+
+  def nestedYamlMapEntry: Parser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+    internalNestedMapEntry(keyValue)(nestedYamlMapEntryMember) <~ lineEndingPattern
+  }
+
+  def yamlListEntry(indentLevel: Int): Parser[(ParsedValue[String], List[Any])] = {
+    listEntry(keyValue)(yamlListEntryMember)(indentLevel)
+  }
+
+  def nestedYamlListEntry: Parser[(ParsedValue[String], List[Any])] = {
+    internalNestedListEntry(keyValue)(nestedYamlListEntryMember) <~ lineEndingPattern
+  }
+
+  def yamlTextEntry(indentLevel: Int): Parser[(ParsedValue[String], ParsedValue[String])] = {
+    textEntry(keyValue)(indentLevel)
+  }
 }

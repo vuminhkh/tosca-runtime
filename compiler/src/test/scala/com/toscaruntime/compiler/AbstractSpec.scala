@@ -11,10 +11,14 @@ import org.scalatestplus.play.PlaySpec
 class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
 
   before {
-    FileUtil.delete(TestConstant.TEST_DATA_PATH)
-    Files.createDirectories(TestConstant.ASSEMBLY_PATH)
-    Files.createDirectories(TestConstant.GIT_TEST_DATA_PATH)
-    Files.createDirectories(TestConstant.CSAR_REPOSITORY_PATH)
+    try {
+      FileUtil.delete(TestConstant.TEST_DATA_PATH)
+      Files.createDirectories(TestConstant.ASSEMBLY_PATH)
+      Files.createDirectories(TestConstant.GIT_TEST_DATA_PATH)
+      Files.createDirectories(TestConstant.CSAR_REPOSITORY_PATH)
+    } catch {
+      case _: Throwable =>
+    }
   }
 
   def showCompilationErrors(compilationResult: CompilationResult) = {
