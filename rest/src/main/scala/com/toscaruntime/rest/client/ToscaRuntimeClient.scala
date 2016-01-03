@@ -7,9 +7,9 @@ import java.nio.file.Path
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
 import com.toscaruntime.exception.{BadConfigurationException, ResourcesNotFoundException}
-import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, RestResponse}
+import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.{JsObject, JsString, JsValue}
+import play.api.libs.json.JsObject
 import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -77,30 +77,18 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  private def toJson(map: Map[String, String]) = {
-    JsObject(map.map {
-      case (key: String, value: String) => (key, JsString(value))
-    })
-  }
-
-  private def fromJson(jsObject: JsObject) = {
-    jsObject.fields.map {
-      case (key: String, value: JsValue) => (key, value.as[JsString].value)
-    }.toMap
-  }
-
   def bootstrap(provider: String, target: String) = {
     deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap {
       case response =>
         val proxyUrl = response.outputs.get("public_proxy_url").get + "/context"
-        saveBootstrapContext(proxyUrl, toJson(response.outputs), response)
+        saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(response.outputs), response)
     }
   }
 
-  def getBootstrapContext: Future[Map[String, String]] = {
+  def getBootstrapContext: Future[Map[String, Any]] = {
     proxyURLOpt.map { proxyUrl =>
       wsClient.url(proxyUrl + "/context").get().map { response =>
-        fromJson(response.json.as[RestResponse[JsObject]].data.get)
+        JSONMapStringAnyFormat.convertJsObjectToMap(response.json.as[RestResponse[JsObject]].data.get)
       }
     }.getOrElse(Future(Map.empty))
   }
@@ -111,7 +99,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def updateBootstrapContext(context: Map[String, String]) = {
     val proxyUrl = proxyURLOpt.getOrElse(throw new BadConfigurationException("Try to update bootstrap context but proxy url not configured"))
-    wsClient.url(proxyUrl + "/context").post(toJson(context))
+    wsClient.url(proxyUrl + "/context").post(JSONMapStringAnyFormat.convertMapToJsValue(context))
   }
 
   private def saveBootstrapContext[T](proxyUrl: String, context: JsObject, result: T): Future[T] = {

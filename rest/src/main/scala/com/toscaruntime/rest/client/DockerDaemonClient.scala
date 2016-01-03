@@ -102,7 +102,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     * @param deploymentPath the path to the deployment
     * @return id of the created docker image
     */
-  def createAgentImage(deploymentPath: Path, bootstrapContext: Map[String, String]) = {
+  def createAgentImage(deploymentPath: Path, bootstrapContext: Map[String, Any]) = {
     var realDeploymentPath = deploymentPath
     val deploymentIsZipped = Files.isRegularFile(deploymentPath)
     if (deploymentIsZipped) {
@@ -130,7 +130,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     * @param inputsPath inputs for the deployment
     * @return id of the created docker image
     */
-  def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrapContext: Map[String, String]) = {
+  def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrapContext: Map[String, Any]) = {
     val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
     val tempRecipePath = tempDockerImageBuildDir.resolve("deployment").resolve("recipe")
     val recipeIsZipped = Files.isRegularFile(recipePath)
@@ -188,7 +188,7 @@ class DockerDaemonClient(var url: String, var certPath: String) {
     }
   }
 
-  private def createAgent(deploymentId: String, labels: Map[String, String], bootstrapContext: Map[String, String]) = {
+  private def createAgent(deploymentId: String, labels: Map[String, String], bootstrapContext: Map[String, Any]) = {
     val deploymentImageId = getAgentImage(deploymentId).getOrElse(throw new ResourcesNotFoundException(s"Deployment image $deploymentId not found")).getId
     val labels = Maps.newHashMap[String, String]()
     labels.put(RuntimeConstant.ORGANIZATION_LABEL, RuntimeConstant.ORGANIZATION_VALUE)
@@ -204,14 +204,15 @@ class DockerDaemonClient(var url: String, var certPath: String) {
       .withName("toscaruntime_" + deploymentId + "_agent")
       .withLabels(labels).exec
     dockerClient.startContainerCmd(createdContainer.getId).exec()
-    bootstrapContext.get("docker_network_id").map { networkId =>
-      // If it's a swarm cluster with a swarm network overly then connect to it
-      dockerClient.connectContainerToNetworkCmd(createdContainer.getId, networkId).exec()
+    bootstrapContext.get("docker_network_id").map {
+      case networkId: String =>
+        // If it's a swarm cluster with a swarm network overly then connect to it
+        dockerClient.connectContainerToNetworkCmd(createdContainer.getId, networkId).exec()
     }
     createdContainer
   }
 
-  def createDeploymentAgent(deploymentId: String, bootstrapContext: Map[String, String]) = {
+  def createDeploymentAgent(deploymentId: String, bootstrapContext: Map[String, Any]) = {
     createAgent(deploymentId, Map(RuntimeConstant.AGENT_TYPE_LABEL -> RuntimeConstant.AGENT_TYPE_DEPLOYMENT_VALUE), bootstrapContext)
   }
 

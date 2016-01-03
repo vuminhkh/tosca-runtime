@@ -9,8 +9,12 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +23,19 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
+import com.toscaruntime.util.DockerStreamDecoder;
 import com.toscaruntime.util.DockerUtil;
+import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Compute;
 
 public class Container extends Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
+
+    private static final Pattern ENV_VAR_PATTERN = Pattern.compile("^(\\S+)=(.+)$");
 
     private DockerClient dockerClient;
 
@@ -45,34 +54,35 @@ public class Container extends Compute {
     private String networkName;
 
     public String getImageId() {
-        return getProperty("image_id");
+        return getMandatoryPropertyAsString("image_id");
     }
 
-    public String[] getExposedPorts() {
-        String exposedPortsRaw = getProperty("exposed_ports");
-        if (exposedPortsRaw != null) {
-            List<String> exposedPortsList = Lists.newArrayList();
-            for (String exposedPortRaw : exposedPortsRaw.split(",")) {
-                exposedPortsList.add(exposedPortRaw.trim());
+    @SuppressWarnings("unchecked")
+    public List<ExposedPort> getExposedPorts() {
+        List<Map<String, String>> rawExposedPorts = (List<Map<String, String>>) getProperty("exposed_ports");
+        List<ExposedPort> exposedPorts = Lists.newArrayList();
+        if (rawExposedPorts != null) {
+            for (Map<String, String> rawExposedPortsEntry : rawExposedPorts) {
+                int port = Integer.parseInt(rawExposedPortsEntry.get("port"));
+                if ("udp".equals(rawExposedPortsEntry.get("protocol"))) {
+                    exposedPorts.add(ExposedPort.udp(port));
+                } else {
+                    exposedPorts.add(ExposedPort.tcp(port));
+                }
             }
-            return exposedPortsList.toArray(new String[exposedPortsList.size()]);
-        } else {
-            return new String[0];
         }
+        return exposedPorts;
     }
 
-    public Map<String, String> getPortsMapping() {
-        Map<String, String> mapping = new HashMap<>();
-        String portMappingsRaw = getProperty("port_mappings");
+    @SuppressWarnings("unchecked")
+    public Map<Integer, Integer> getPortsMapping() {
+        Map<Integer, Integer> mapping = new HashMap<>();
+        List<Map<String, String>> portMappingsRaw = (List<Map<String, String>>) getProperty("port_mappings");
         if (portMappingsRaw == null) {
             return mapping;
         }
-        String[] portMappingsEntriesRaw = portMappingsRaw.split(",");
-        for (String portMappingEntryRaw : portMappingsEntriesRaw) {
-            String[] entry = portMappingEntryRaw.split("-");
-            if (entry.length == 2) {
-                mapping.put(entry[0].trim(), entry[1].trim());
-            }
+        for (Map<String, String> entry : portMappingsRaw) {
+            mapping.put(Integer.parseInt(entry.get("from").trim()), Integer.parseInt(entry.get("to").trim()));
         }
         return mapping;
     }
@@ -81,48 +91,38 @@ public class Container extends Compute {
     public void create() {
         super.create();
         String imageId = getImageId();
-        log.info("Node [" + getName() + "] : Creating container with image " + imageId);
-        String[] exposedPortsRaw = getExposedPorts();
-        Map<String, String> portMappingsRaw = getPortsMapping();
-        List<ExposedPort> exposedPorts = Lists.newArrayList();
+        log.info("Node [" + getId() + "] : Creating container with image " + imageId);
+        List<ExposedPort> exposedPorts = getExposedPorts();
+        Map<Integer, Integer> portMappings = getPortsMapping();
         Ports portBindings = new Ports();
-        if (exposedPortsRaw.length > 0) {
-            for (String exposedPort : exposedPortsRaw) {
-                try {
-                    int port = Integer.parseInt(exposedPort);
-                    ExposedPort portTcp = ExposedPort.tcp(port);
-                    ExposedPort portUdp = ExposedPort.udp(port);
-                    exposedPorts.add(portTcp);
-                    exposedPorts.add(portUdp);
-                    String mappedPortRaw = portMappingsRaw.get(exposedPort);
-                    if (mappedPortRaw != null) {
-                        int mappedPort = Integer.parseInt(mappedPortRaw);
-                        portBindings.bind(portTcp, Ports.Binding(mappedPort));
-                        portBindings.bind(portUdp, Ports.Binding(mappedPort));
-                    }
-                } catch (Exception e) {
-                    log.error("Port exposed not in good format " + exposedPort, e);
-                }
+        for (ExposedPort exposedPort : exposedPorts) {
+            Integer mappedPort = portMappings.get(exposedPort.getPort());
+            if (mappedPort != null) {
+                portBindings.bind(exposedPort, Ports.Binding(mappedPort));
             }
         }
-        containerId = dockerClient.createContainerCmd(imageId)
+        String tag = getPropertyAsString("tag", "latest");
+        log.info("Node [" + getId() + "] : Pulling image " + imageId);
+        dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitSuccess();
+        log.info("Node [" + getId() + "] : Pulled image " + imageId);
+        containerId = dockerClient.createContainerCmd(imageId + ":" + tag)
                 .withName(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + getId())
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
                 .withPortBindings(portBindings).exec().getId();
-        log.info("Node [" + getName() + "] : Created container with id " + containerId);
+        log.info("Node [" + getId() + "] : Created container with id " + containerId);
     }
 
     @Override
     public void start() {
         super.start();
         if (containerId == null) {
-            throw new RuntimeException("Node [" + getName() + "] : Container has not been created yet");
+            throw new RuntimeException("Node [" + getId() + "] : Container has not been created yet");
         }
-        log.info("Node [" + getName() + "] : Starting container with id " + containerId);
+        log.info("Node [" + getId() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
         if (StringUtils.isNotBlank(networkId)) {
             dockerClient.connectContainerToNetworkCmd(containerId, networkId).exec();
-            log.info("Node [" + getName() + "] :Connected container {} to network {}", containerId, networkId);
+            log.info("Node [" + getId() + "] :Connected container {} to network {}", containerId, networkId);
         }
         InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
         if (response.getNetworkSettings().getNetworks() == null || response.getNetworkSettings().getNetworks().isEmpty()) {
@@ -137,8 +137,8 @@ public class Container extends Compute {
         setAttribute("ip_address", ipAddress);
         setAttribute("tosca_id", containerId);
         setAttribute("tosca_name", response.getName());
-        log.info("Node [" + getName() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
-        DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
+        log.info("Node [" + getId() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
+        DockerUtil.runCommand(dockerClient, containerId, "Node [" + getId() + "][Create recipe dir]", Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
         dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
@@ -148,9 +148,9 @@ public class Container extends Compute {
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
-        log.info("Node [" + getName() + "] : Stopping container with id " + containerId);
+        log.info("Node [" + getId() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
-        log.info("Node [" + getName() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
+        log.info("Node [" + getId() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
         removeAttribute("ip_address");
         ipAddress = null;
     }
@@ -161,9 +161,9 @@ public class Container extends Compute {
         if (containerId == null) {
             throw new RuntimeException("Container has not been created yet");
         }
-        log.info("Node [" + getName() + "] : Deleting container with id " + containerId);
+        log.info("Node [" + getId() + "] : Deleting container with id " + containerId);
         dockerClient.removeContainerCmd(containerId).exec();
-        log.info("Node [" + getName() + "] : Deleted container with id " + containerId);
+        log.info("Node [" + getId() + "] : Deleted container with id " + containerId);
         containerId = null;
     }
 
@@ -172,35 +172,56 @@ public class Container extends Compute {
      *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, String> environmentVariables) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
         try {
             Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
+            final String endOfOutputToken = UUID.randomUUID().toString();
             Files.createDirectories(localGeneratedScriptPath.getParent());
             localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
             localGeneratedScriptWriter.write("#!/bin/sh -e\n");
             if (environmentVariables != null) {
-                for (Map.Entry<String, String> envEntry : environmentVariables.entrySet()) {
-                    localGeneratedScriptWriter.write("export " + envEntry.getKey() + "=" + envEntry.getValue() + "\n");
+                for (Map.Entry<String, Object> envEntry : environmentVariables.entrySet()) {
+                    localGeneratedScriptWriter.write("export " + envEntry.getKey() + "='" + StringEscapeUtils.escapeJavaScript(PropertyUtil.propertyValueToString(envEntry.getValue())) + "'\n");
                 }
             }
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
-            localGeneratedScriptWriter.write(containerScriptPath + "\n");
+            localGeneratedScriptWriter.write(". " + containerScriptPath + "\n");
+            localGeneratedScriptWriter.write("echo " + endOfOutputToken + "\n");
+            localGeneratedScriptWriter.write("printenv\n");
             localGeneratedScriptWriter.flush();
-            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
+            DockerUtil.runCommand(dockerClient, containerId, "Node [" + getId() + "][Create wrapper script dir]", Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
             dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
             String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
-            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList("chmod", "+x", copiedScript), log);
-            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), log);
+            DockerUtil.runCommand(dockerClient, containerId, "Node [" + getId() + "][Chmod wrapper script]", Lists.newArrayList("chmod", "+x", copiedScript), log);
+            Map<String, String> envVars = new HashMap<>();
+            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), new DockerUtil.CommandLogger() {
+                private boolean endOfOutputDetected = false;
+
+                @Override
+                public void log(DockerStreamDecoder.DecoderResult line) {
+                    if (endOfOutputToken.equals(line.getData())) {
+                        endOfOutputDetected = true;
+                    } else {
+                        if (endOfOutputDetected) {
+                            Matcher matcher = ENV_VAR_PATTERN.matcher(line.getData());
+                            if (matcher.matches()) {
+                                envVars.put(matcher.group(1), matcher.group(2));
+                            }
+                        } else {
+                            log.info("[{}][{}][{}] {}", getId(), operationArtifactPath, line.getStreamType(), line.getData());
+                        }
+                    }
+                }
+            });
+            return envVars;
         } catch (IOException e) {
             throw new RuntimeException("Unable to create generated script for " + operationArtifactPath, e);
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }
-        // TODO Manage get_operation_output
-        return new HashMap<>();
     }
 
     public void setDockerClient(DockerClient dockerClient) {
@@ -221,5 +242,9 @@ public class Container extends Compute {
 
     public void setNetworkName(String networkName) {
         this.networkName = networkName;
+    }
+
+    public String getContainerId() {
+        return containerId;
     }
 }

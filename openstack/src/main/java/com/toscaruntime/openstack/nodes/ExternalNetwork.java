@@ -8,10 +8,10 @@ public class ExternalNetwork extends tosca.nodes.Network {
     @Override
     public void create() {
         super.create();
-        setAttribute("tosca_id", getProperty("network_id"));
+        setAttribute("tosca_id", getPropertyAsString("network_id"));
     }
 
     public String getNetworkId() {
-        return getMandatoryProperty("network_id");
+        return getMandatoryPropertyAsString("network_id");
     }
 }

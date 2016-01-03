@@ -21,5 +21,8 @@ topology_template:
       type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: phusion/baseimage
-        exposed_ports: 8080
-        port_mappings: 8080 - 51000
+        exposed_ports:
+          - port: 8080
+        port_mappings:
+          - from: 8080
+            to: 51000

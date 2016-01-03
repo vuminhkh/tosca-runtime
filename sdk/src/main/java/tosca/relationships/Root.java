@@ -21,7 +21,7 @@ public abstract class Root extends AbstractRuntimeType {
         return target;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, Map<String, Object> inputs) {
         switch (operationName) {
             case "pre_configure_source":
             case "post_configure_source":
@@ -44,21 +44,21 @@ public abstract class Root extends AbstractRuntimeType {
         }
     }
 
-    protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (source == null || source.getHost() == null) {
             throw new NonRecoverableException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
         return source.getHost().execute(source.getId(), operationArtifactPath, inputs);
     }
 
-    protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (target == null) {
             throw new NonRecoverableException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
         return target.getHost().execute(target.getId(), operationArtifactPath, inputs);
     }
 
-    public String evaluateFunction(String functionName, String... paths) {
+    public Object evaluateFunction(String functionName, String... paths) {
         String entity = paths[0];
         switch (entity) {
             case "SOURCE":

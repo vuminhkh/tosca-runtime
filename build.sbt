@@ -75,7 +75,9 @@ lazy val miscUtil = project.in(file("common/misc-util"))
   .settings(commonSettings: _*)
   .settings(
     name := "misc-util",
-    libraryDependencies ++= commonDependencies
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= testDependencies,
+    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4"
   ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
 lazy val sshUtil = project.in(file("common/ssh-util"))
@@ -144,9 +146,10 @@ lazy val runtime = project
   .settings(commonSettings: _*)
   .settings(
     name := "runtime",
+    libraryDependencies ++= testDependencies,
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
     sources in doc in Compile := List()
-  ).dependsOn(sdk).enablePlugins(UniversalPlugin)
+  ).dependsOn(sdk, compiler % "test->test;test->compile", docker % "test").enablePlugins(UniversalPlugin)
 
 lazy val deployer = project
   .settings(commonSettings: _*)
@@ -180,7 +183,8 @@ val providerSettings: Seq[Setting[_]] = commonSettings ++ Seq(
 lazy val docker = project
   .settings(providerSettings: _*)
   .settings(
-    name := "docker"
+    name := "docker",
+    libraryDependencies ++= testDependencies
   ).dependsOn(sdk, dockerUtil).enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project

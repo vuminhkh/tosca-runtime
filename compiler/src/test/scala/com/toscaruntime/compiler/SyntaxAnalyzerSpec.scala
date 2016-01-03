@@ -51,7 +51,6 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
           |      properties:
           |        list_prop: [1, 2, 3]
           |          """.stripMargin
-      println(topology)
       val parseResult = SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, topology)
       TestUtil.printResult(parseResult)
       parseResult.successful must be(true)
@@ -82,7 +81,6 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
           |        simple_prop: 3
           |        map_prop: { a: b, c: d }
         """.stripMargin
-      println(topology)
       val parseResult = SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, topology)
       TestUtil.printResult(parseResult)
       parseResult.successful must be(true)
@@ -102,6 +100,13 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
           |        type: map
           |        entry_schema:
           |          type: string
+          |        default:
+          |          a: b
+          |          c: d
+          |      list_of_map_prop:
+          |        type: list
+          |        entry_schema:
+          |          type: map
           |      list_prop:
           |        type: list
           |        entry_schema:
@@ -120,7 +125,13 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
           |      properties:
           |        data_prop:
           |          int_prop: 1
-          |          map_prop: { d: e }
+          |          map_prop: { d: [e, g], k: {i: j, h: u} }
+          |          nested_list_prop: [{a: b, c: d}, {x: y}]
+          |          list_of_map_prop:
+          |            - x: y
+          |              z: t
+          |            - titi: toto
+          |              tata: toctoc
           |          list_prop:
           |            - data1:
           |                int_prop: 2
@@ -129,7 +140,6 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
           |                int_prop: 3
           |                map_prop: { h: i }
         """.stripMargin
-      println(topology)
       val parseResult = SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, topology)
       TestUtil.printResult(parseResult)
       parseResult.successful must be(true)

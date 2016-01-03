@@ -2,6 +2,7 @@ package com.toscaruntime.openstack.nodes;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.util.PropertyUtil;
 import com.toscaruntime.util.RetryUtil;
 import com.toscaruntime.util.SSHExecutor;
 
@@ -75,26 +77,24 @@ public class Compute extends tosca.nodes.Compute {
         return serverId;
     }
 
-    private Map<String, String> doExecute(String nodeId, String operationArtifactPath, Map<String, String> inputs) {
+    private Map<String, String> doExecute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
+        // Convert complex properties to JSON format before execute operation by SSH
+        Map<String, String> inputTexts = new HashMap<>();
+        for (Map.Entry<String, Object> input : inputs.entrySet()) {
+            inputTexts.put(input.getKey(), PropertyUtil.propertyValueToString(input.getValue()));
+        }
         try {
-            return RetryUtil.doActionWithRetry(new RetryUtil.Action<Map<String, String>>() {
-                @Override
-                public String getName() {
-                    return operationArtifactPath;
-                }
-
-                @Override
-                public Map<String, String> doAction() throws Throwable {
-                    return sshExecutor.executeScript(nodeId, config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputs);
-                }
-            }, 12, 30000L, RuntimeSshException.class, SshException.class);
+            return RetryUtil.doActionWithRetry(
+                    () -> sshExecutor.executeScript(nodeId, config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputTexts),
+                    operationArtifactPath, 12, 30000L, RuntimeSshException.class, SshException.class
+            );
         } catch (Throwable e) {
             throw new NonRecoverableException("Unable to execute operation " + operationArtifactPath, e);
         }
     }
 
     @Override
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, String> inputs) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
         if (this.serverId == null) {
             throw new NonRecoverableException("Must create the server before executing operation on it");
         }
@@ -103,7 +103,7 @@ public class Compute extends tosca.nodes.Compute {
             synchronized (this) {
                 FloatingIP floatingIP = null;
                 try {
-                    String attachedFloatingIP = getAttribute("public_ip_address");
+                    String attachedFloatingIP = getAttributeAsString("public_ip_address");
                     if (StringUtils.isBlank(attachedFloatingIP)) {
                         if (this.externalNetworkId != null) {
                             // In bootstrap mode if the VM does not have any floating ip assigned
@@ -143,14 +143,14 @@ public class Compute extends tosca.nodes.Compute {
 
     @Override
     public void create() {
-        String userData = getProperty("user_data");
-        String networksProperty = getProperty("networks");
-        String securityGroups = getProperty("security_group_names");
-        String adminPass = getProperty("admin_pass");
-        String availabilityZone = getProperty("availability_zone");
-        String configDrive = getProperty("config_drive");
-        String diskConfig = getProperty("disk_config");
-        String keyPairName = getProperty("key_pair_name");
+        String userData = getPropertyAsString("user_data");
+        String networksProperty = getPropertyAsString("networks");
+        String securityGroups = getPropertyAsString("security_group_names");
+        String adminPass = getPropertyAsString("admin_pass");
+        String availabilityZone = getPropertyAsString("availability_zone");
+        String configDrive = getPropertyAsString("config_drive");
+        String diskConfig = getPropertyAsString("disk_config");
+        String keyPairName = getPropertyAsString("key_pair_name");
         CreateServerOptions createServerOptions = new CreateServerOptions();
         if (StringUtils.isNotBlank(adminPass)) {
             createServerOptions.adminPass(adminPass);
@@ -194,7 +194,7 @@ public class Compute extends tosca.nodes.Compute {
                 createServerOptions.getNetworks(),
                 createServerOptions.getSecurityGroupNames(),
                 userData);
-        ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryProperty("image"), getMandatoryProperty("flavor"), createServerOptions);
+        ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryPropertyAsString("image"), getMandatoryPropertyAsString("flavor"), createServerOptions);
         this.serverId = serverCreated.getId();
         log.info("Created server with id " + this.serverId);
     }
@@ -214,24 +214,18 @@ public class Compute extends tosca.nodes.Compute {
         if (StringUtils.isBlank(ipForSSSHSession)) {
             throw new NonRecoverableException("IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
         }
-        String user = getMandatoryProperty("login");
-        String keyPath = getMandatoryProperty("key_path");
+        String user = getMandatoryPropertyAsString("login");
+        String keyPath = getMandatoryPropertyAsString("key_path");
         String absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
-        String port = getProperty("ssh_port", "22");
+        String port = getPropertyAsString("ssh_port", "22");
         this.sshExecutor = new SSHExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath);
         try {
-            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
-                @Override
-                public String getName() {
-                    return "create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath;
-                }
-
-                @Override
-                public Object doAction() throws Throwable {
-                    sshExecutor.init();
-                    return null;
-                }
-            }, 240, 5000L, RuntimeSshException.class, SshException.class);
+            String operationName = "create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath;
+            RetryUtil.Action<Void> action = () -> {
+                sshExecutor.init();
+                return null;
+            };
+            RetryUtil.doActionWithRetry(action, operationName, 240, 5000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
             log.error("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
             throw new NonRecoverableException("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);

@@ -83,12 +83,12 @@ public class Network extends tosca.nodes.Network {
     @Override
     public void create() {
         super.create();
-        String networkId = getProperty("network_id");
-        String dnsNameServers = getProperty("dns_name_servers");
+        String networkId = getPropertyAsString("network_id");
+        String dnsNameServers = getPropertyAsString("dns_name_servers");
         if (StringUtils.isBlank(networkId)) {
-            String networkName = getMandatoryProperty("network_name");
-            String cidr = getProperty("cidr");
-            int ipVersion = Integer.parseInt(getProperty("ip_version", "4"));
+            String networkName = getMandatoryPropertyAsString("network_name");
+            String cidr = getPropertyAsString("cidr");
+            int ipVersion = Integer.parseInt(getPropertyAsString("ip_version", "4"));
             this.createdNetwork = networkApi.create(org.jclouds.openstack.neutron.v2.domain.Network.createBuilder(networkName).build());
             this.networkId = this.createdNetwork.getId();
             Subnet.CreateBuilder subnetCreateBuilder =
@@ -106,7 +106,7 @@ public class Network extends tosca.nodes.Network {
                 createRouter(networkName + "-Router", externalNetworkId);
             }
             for (ExternalNetwork externalNetwork : externalNetworks.values()) {
-                createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getMandatoryProperty("network_id"));
+                createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getMandatoryPropertyAsString("network_id"));
             }
             setAttribute("tosca_name", networkName);
         } else {
@@ -130,57 +130,33 @@ public class Network extends tosca.nodes.Network {
     public void delete() {
         super.delete();
         try {
-            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
-                @Override
-                public String getName() {
-                    return "delete routers";
+            RetryUtil.doActionWithRetry(() -> {
+                for (Router router : createdRouters) {
+                    routerApi.removeInterfaceForSubnet(router.getId(), createdSubnet.getId());
+                    routerApi.delete(router.getId());
                 }
-
-                @Override
-                public Object doAction() throws Throwable {
-                    for (Router router : createdRouters) {
-                        routerApi.removeInterfaceForSubnet(router.getId(), createdSubnet.getId());
-                        routerApi.delete(router.getId());
-                    }
-                    return null;
-                }
-            }, 3, 2000L, Throwable.class);
+                return null;
+            }, "delete routers", 3, 2000L, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete routers " + createdRouters, e);
         }
         try {
-            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
-                @Override
-                public String getName() {
-                    return "delete subnet " + createdSubnet.getName();
+            RetryUtil.doActionWithRetry(() -> {
+                if (createdSubnet != null) {
+                    subnetApi.delete(createdSubnet.getId());
                 }
-
-                @Override
-                public Object doAction() throws Throwable {
-                    if (createdSubnet != null) {
-                        subnetApi.delete(createdSubnet.getId());
-                    }
-                    return null;
-                }
-            }, 3, 2000L, Throwable.class);
+                return null;
+            }, "delete subnet " + createdSubnet.getName(), 3, 2000L, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete subnet " + this.createdSubnet, e);
         }
         try {
-            RetryUtil.doActionWithRetry(new RetryUtil.Action<Object>() {
-                @Override
-                public String getName() {
-                    return "delete network " + createdNetwork.getName();
+            RetryUtil.doActionWithRetry(() -> {
+                if (createdNetwork != null) {
+                    networkApi.delete(createdNetwork.getId());
                 }
-
-                @Override
-                public Object doAction() throws Throwable {
-                    if (createdNetwork != null) {
-                        networkApi.delete(createdNetwork.getId());
-                    }
-                    return null;
-                }
-            }, 3, 2000L, Throwable.class);
+                return null;
+            }, "delete network " + createdNetwork.getName(), 3, 2000L, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete network " + this.createdNetwork, e);
         }

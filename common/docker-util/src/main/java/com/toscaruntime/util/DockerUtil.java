@@ -1,10 +1,7 @@
 package com.toscaruntime.util;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -15,7 +12,6 @@ import org.slf4j.Logger;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.InspectExecResponse;
-import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
@@ -44,53 +40,26 @@ public class DockerUtil {
         return buildDockerClient(providerProperties);
     }
 
-    public static String getImageTag(Image image) {
-        String[] repoTags = image.getRepoTags();
-        if (repoTags == null || repoTags.length == 0) {
-            return "";
-        } else {
-            return repoTags[0];
-        }
-    }
-
-    public static boolean imageExist(DockerClient dockerClient, String imageTag) {
-        List<Image> images = dockerClient.listImagesCmd().withFilters("{\"dangling\":[\"true\"]}").exec();
-        for (Image image : images) {
-            if (DockerUtil.getImageTag(image).equals(imageTag)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public static void showLog(DockerClient dockerClient, String containerId, boolean follow, int numberOfLines, LogContainerResultCallback logCallback) {
         dockerClient.logContainerCmd(containerId).withStdOut(true).withStdErr(true).withFollowStream(follow).withTail(numberOfLines).exec(logCallback);
     }
 
-    /**
-     * Run command without blocking and return immediately the command's response as InputStream
-     *
-     * @param dockerClient the docker client
-     * @param containerId  id of the container
-     * @param commands     commands to be executed on the container
-     * @return input stream of the response
-     */
-    public static InputStream runCommand(DockerClient dockerClient, String containerId, List<String> commands) {
-        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout(true).withAttachStderr(true)
-                .withCmd(commands.toArray(new String[commands.size()]))
-                .exec();
-        return dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec();
-    }
-
     public interface CommandLogger {
-        void log(String line);
+        void log(DockerStreamDecoder.DecoderResult line);
     }
 
-    public static void runCommand(DockerClient dockerClient, String containerId, List<String> commands, Logger log) {
-        runCommand(dockerClient, containerId, commands, new CommandLogger() {
-            @Override
-            public void log(String line) {
-                log.info(line);
+    public static void runCommand(DockerClient dockerClient, String containerId, String operationName, List<String> commands, Logger log) {
+        runCommand(dockerClient, containerId, commands, line -> {
+            switch (line.getStreamType()) {
+                case STD_IN:
+                    log.info("[" + operationName + "][stdin]: " + line.getData());
+                    break;
+                case STD_OUT:
+                    log.info("[" + operationName + "][stdout]: " + line.getData());
+                    break;
+                case STD_ERR:
+                    log.info("[" + operationName + "][stderr]: " + line.getData());
+                    break;
             }
         });
     }
@@ -107,12 +76,10 @@ public class DockerUtil {
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
         try (InputStream startResponse = dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec()) {
-            BufferedReader scriptOutputReader = new BufferedReader(new InputStreamReader(new BufferedInputStream(startResponse), "UTF-8"));
-            String line;
-            while ((line = scriptOutputReader.readLine()) != null) {
-                if (log != null) {
-                    log.log(line);
-                }
+            DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder(startResponse);
+            List<DockerStreamDecoder.DecoderResult> lines;
+            while ((lines = dockerStreamDecoder.readLines()) != null) {
+                lines.forEach(log::log);
             }
         } catch (IOException e) {
             throw new RuntimeException("Script " + commands + " exec encountered error while reading for output ", e);
@@ -121,10 +88,6 @@ public class DockerUtil {
         int exitStatus = response.getExitCode();
         if (exitStatus != 0) {
             throw new RuntimeException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
-        } else {
-            if (log != null) {
-                log.log("Script " + commands + "  exec has exited normally");
-            }
         }
     }
 }

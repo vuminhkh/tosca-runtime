@@ -21,6 +21,7 @@ import com.toscaruntime.sdk.workflow.Sequence;
 import com.toscaruntime.sdk.workflow.Task;
 import com.toscaruntime.sdk.workflow.TaskExecutorFactory;
 import com.toscaruntime.util.FunctionUtil;
+import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Root;
 
@@ -63,7 +64,7 @@ public abstract class Deployment {
         this.config.setInputs(inputs);
         this.config.setRecipePath(recipePath);
         this.config.setBootstrap(bootstrap);
-        this.config.setArtifactsPath(recipePath.resolve("src/main/resources"));
+        this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
     }
 
     protected void initializeNode(String nodeName, Map<String, Object> properties) {
@@ -217,7 +218,7 @@ public abstract class Deployment {
         if (outputs != null && !outputs.isEmpty()) {
             log.info("Deployment produced following outputs:");
             for (Map.Entry<String, Object> outputEntry : outputs.entrySet()) {
-                log.info(outputEntry.getKey() + " : " + outputEntry.getValue());
+                log.info(outputEntry.getKey() + " : " + PropertyUtil.propertyValueToString(outputEntry.getValue()));
             }
         } else {
             log.info("Deployment does not have any output");

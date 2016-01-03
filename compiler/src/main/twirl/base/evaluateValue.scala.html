@@ -1,10 +1,15 @@
 @import com.toscaruntime.compiler.runtime.{CompositeFunction, Function, ScalarValue, Value}
 @import org.apache.commons.lang.StringEscapeUtils
+@import com.toscaruntime.compiler.runtime.ListValue
+@import com.toscaruntime.compiler.runtime.ComplexValue
 @(value: Value)
 @{
   value match {
     case scalarValue: ScalarValue => Html("\"" + StringEscapeUtils.escapeJava(scalarValue.value) + "\"")
+    case listValue: ListValue => Html("com.toscaruntime.util.PropertyUtil.toList(\"" + StringEscapeUtils.escapeJava(listValue.value) + "\")")
+    case complexValue: ComplexValue => Html("com.toscaruntime.util.PropertyUtil.toMap(\"" + StringEscapeUtils.escapeJava(complexValue.value) + "\")")
     case function: Function => base.html.evaluateFunction(function)
     case function: CompositeFunction => base.html.evaluateCompositeFunction(function)
+    case _ => Html("null")
   }
 }

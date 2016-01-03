@@ -3,8 +3,8 @@ package com.toscaruntime.compiler
 import java.nio.file.{Files, Path, StandardCopyOption}
 
 import com.google.common.io.Closeables
-import com.toscaruntime.compiler.runtime.{Method, Value}
 import com.toscaruntime.compiler.tosca._
+import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
 import com.toscaruntime.util.{ClassLoaderUtil, CodeGeneratorUtil, FileUtil}
@@ -18,14 +18,14 @@ import com.typesafe.scalalogging.LazyLogging
 object CodeGenerator extends LazyLogging {
 
   def getInputs(operation: Operation) = {
-    operation.inputs.map(_.filter(!_._2.isInstanceOf[PropertyDefinition]).map {
-      case (inputName: ParsedValue[String], inputValue: FieldValue) => (inputName.value, parseValue(inputValue))
+    operation.inputs.map(_.filter(_._2.isInstanceOf[EvaluableFieldValue]).map {
+      case (inputName: ParsedValue[String], inputValue: EvaluableFieldValue) => (inputName.value, parseValue(inputValue))
     }).getOrElse(Map.empty)
   }
 
   def parseMethod(interfaceName: String, operationName: String, operation: Operation) = {
     val methodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName)
-    Method(methodName, getInputs(operation), operation.implementation.map(_.value))
+    runtime.Method(methodName, getInputs(operation), operation.implementation.map(_.value))
   }
 
   def parseInterface(interfaceName: String, interface: Interface) = {
@@ -39,19 +39,19 @@ object CodeGenerator extends LazyLogging {
                                     isAbstract: Boolean,
                                     derivedFrom: Option[String],
                                     methods: Seq[runtime.Method],
-                                    properties: Map[String, Value],
-                                    attributes: Map[String, Value])
+                                    properties: Map[String, runtime.Value],
+                                    attributes: Map[String, runtime.Value])
 
   def parseRuntimeType(runtimeType: RuntimeType) = {
     val packageNameAndClassName = CompilerUtil.splitClassNameAndPackageName(runtimeType.name.value)
     val methods = runtimeType.interfaces.map(_.flatMap {
       case (name: ParsedValue[String], interface: Interface) => parseInterface(name.value, interface)
     }).getOrElse(Seq.empty).toSeq
-    val attributes = runtimeType.attributes.map(_.filter(!_._2.isInstanceOf[AttributeDefinition]).map {
-      case (name: ParsedValue[String], value: FieldValue) => (name.value, parseValue(value))
+    val attributes = runtimeType.attributes.map(_.filter(_._2.isInstanceOf[EvaluableFieldValue]).map {
+      case (name: ParsedValue[String], value: EvaluableFieldValue) => (name.value, parseValue(value))
     }).getOrElse(Map.empty)
-    val properties = runtimeType.properties.map(_.filter(!_._2.isInstanceOf[PropertyDefinition]).map {
-      case (name: ParsedValue[String], value: FieldValue) => (name.value, parseValue(value))
+    val properties = runtimeType.properties.map(_.filter(_._2.isInstanceOf[EvaluableFieldValue]).map {
+      case (name: ParsedValue[String], value: EvaluableFieldValue) => (name.value, parseValue(value))
     }).getOrElse(Map.empty)
     RuntimeTypeParseResult(packageNameAndClassName._1, packageNameAndClassName._2, runtimeType.isAbstract.value, runtimeType.derivedFrom.map(_.value), methods, properties, attributes)
   }
@@ -119,7 +119,7 @@ object CodeGenerator extends LazyLogging {
           _.filter {
             case (propertyName, propertyDefinition) => propertyDefinition.isInstanceOf[PropertyDefinition] && propertyDefinition.asInstanceOf[PropertyDefinition].default.isDefined
           }.map {
-            case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, runtime.ScalarValue(propertyDefinition.default.get.value))
+            case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, parseValue(propertyDefinition.default.get))
           }
         }.getOrElse(Map.empty)
         (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, defaultProperties ++ properties))
@@ -169,9 +169,11 @@ object CodeGenerator extends LazyLogging {
       topologyCsarName)
   }
 
-  def parseValue(fieldValue: FieldValue): runtime.Value = {
+  def parseValue(fieldValue: EvaluableFieldValue): runtime.Value = {
     fieldValue match {
       case scalarFieldValue: ScalarValue => runtime.ScalarValue(scalarFieldValue.value.value)
+      case listFieldValue: ListValue => runtime.ListValue(CompilerUtil.serializeToJson(listFieldValue.value))
+      case complexFieldValue: ComplexValue => runtime.ComplexValue(CompilerUtil.serializeToJson(complexFieldValue.value))
       case functionFieldValue: Function => runtime.Function(functionFieldValue.function.value, functionFieldValue.paths.map(_.value))
       case compositeFunctionFieldValue: CompositeFunction =>
         runtime.CompositeFunction(compositeFunctionFieldValue.function.value, compositeFunctionFieldValue.members.map {

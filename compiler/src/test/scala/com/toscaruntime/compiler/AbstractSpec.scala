@@ -40,10 +40,11 @@ class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
     val topologyPath = ClassLoaderUtil.getPathForResource(dockerTopology)
     val generatedAssemblyPath = TestConstant.ASSEMBLY_PATH.resolve(topologyPath.getFileName.toString)
     Files.createDirectories(generatedAssemblyPath)
-    val topologyCompilationErrors = Compiler.assembly(topologyPath, generatedAssemblyPath, TestConstant.CSAR_REPOSITORY_PATH)
-    showCompilationErrors(topologyCompilationErrors)
-    topologyCompilationErrors.isSuccessful must be(true)
+    val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, TestConstant.CSAR_REPOSITORY_PATH)
+    showCompilationErrors(topologyCompilationResult)
+    topologyCompilationResult.isSuccessful must be(true)
     val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("deployment").resolve("Deployment.java"))
     deploymentGenerated must include("com.toscaruntime.docker.nodes.Container")
+    generatedAssemblyPath
   }
 }

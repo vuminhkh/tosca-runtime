@@ -6,15 +6,43 @@ template_author: mkv
 imports:
   - tosca-normative-types:*
 
+data_types:
+
+  com.toscaruntime.docker.datatypes.PortMapping:
+    properties:
+      from:
+        type: integer
+      to:
+        type: integer
+
+  com.toscaruntime.docker.datatypes.ExposedPort:
+    properties:
+      port:
+        type: integer
+      protocol:
+        type: string
+        default: tcp
+        constraints:
+          - valid_values: [ "tcp", "udp" ]
+
 node_types:
+
   com.toscaruntime.docker.nodes.Container:
     derived_from: tosca.nodes.Compute
     properties:
       image_id:
         type: string
-      exposed_ports:
+      tag:
         type: string
+        default: latest
+      exposed_ports:
+        type: list
+        entry_schema:
+          type: com.toscaruntime.docker.datatypes.ExposedPort
         required: false
       port_mappings:
-        type: string
+        type: list
+        entry_schema:
+          type: com.toscaruntime.docker.datatypes.PortMapping
         required: false
+

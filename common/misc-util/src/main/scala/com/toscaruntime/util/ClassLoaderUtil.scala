@@ -25,14 +25,13 @@ object ClassLoaderUtil {
   }
 
   def getPathForResource(resource: String) = {
-    val normativeTypesUrl = Thread.currentThread().getContextClassLoader.getResource(resource)
-    val normativeTypesUri = normativeTypesUrl.toURI
-    if (!"file".equals(normativeTypesUrl.getProtocol)) {
+    val resourcesUrl = Thread.currentThread().getContextClassLoader.getResource(resource)
+    val resourcesUri = resourcesUrl.toURI
+    if (!"file".equals(resourcesUrl.getProtocol)) {
       val env = Maps.newHashMap[String, String]()
       env.put("create", "true")
-      FileSystems.newFileSystem(normativeTypesUri, env)
+      FileSystems.newFileSystem(resourcesUri, env)
     }
-    Paths.get(normativeTypesUri)
+    Paths.get(resourcesUri)
   }
-
 }

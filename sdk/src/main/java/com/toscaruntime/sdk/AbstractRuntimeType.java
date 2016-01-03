@@ -19,7 +19,7 @@ public abstract class AbstractRuntimeType {
 
     protected Map<String, Object> properties = new HashMap<>();
 
-    protected Map<String, String> attributes = new HashMap<>();
+    protected Map<String, Object> attributes = new HashMap<>();
 
     protected DeploymentConfig config;
 
@@ -43,38 +43,50 @@ public abstract class AbstractRuntimeType {
         this.properties = properties;
     }
 
-    public Map<String, String> getAttributes() {
+    public Map<String, Object> getAttributes() {
         return attributes;
     }
 
-    public void setAttributes(Map<String, String> attributes) {
+    public void setAttributes(Map<String, Object> attributes) {
         this.attributes = attributes;
     }
 
-    protected String getProperty(String propertyName) {
+    protected Object getProperty(String propertyName) {
+        return PropertyUtil.getProperty(this.properties, propertyName, null);
+    }
+
+    protected String getPropertyAsString(String propertyName) {
         return PropertyUtil.getPropertyAsString(this.properties, propertyName);
     }
 
-    public String getProperty(String propertyName, String defaultValue) {
-        String value = PropertyUtil.getPropertyAsString(this.properties, propertyName);
-        return value != null ? value : defaultValue;
+    public String getPropertyAsString(String propertyName, String defaultValue) {
+        return PropertyUtil.getPropertyAsString(this.properties, propertyName, defaultValue);
     }
 
-    public String getMandatoryProperty(String propertyName) {
+    public String getMandatoryPropertyAsString(String propertyName) {
         return PropertyUtil.getMandatoryPropertyAsString(this.properties, propertyName);
     }
 
-    public String getAttribute(String attributeName) {
-        String attributeValue = this.attributes.get(attributeName);
+    public String getAttributeAsString(String attributeName) {
+        String attributeValue = PropertyUtil.getPropertyAsString(attributes, attributeName);
         if (StringUtils.isEmpty(attributeValue)) {
+            return getPropertyAsString(attributeName);
+        } else {
+            return attributeValue;
+        }
+    }
+
+    public Object getAttribute(String attributeName) {
+        Object attributeValue = PropertyUtil.getProperty(attributes, attributeName, null);
+        if (attributeValue == null) {
             return getProperty(attributeName);
         } else {
             return attributeValue;
         }
     }
 
-    protected String getInput(String inputName) {
-        return PropertyUtil.getPropertyAsString(this.config.getInputs(), inputName);
+    protected Object getInput(String inputName) {
+        return PropertyUtil.getProperty(this.config.getInputs(), inputName, null);
     }
 
     protected String getOperationOutput(String interfaceName, String operationName, String outputName) {

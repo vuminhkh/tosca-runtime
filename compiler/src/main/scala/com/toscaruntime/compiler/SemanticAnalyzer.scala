@@ -10,7 +10,7 @@ object SemanticAnalyzer {
 
   def analyzeFieldDefinition(field: FieldDefinition, csarPath: List[Csar]) = {
     val propertyType = field.valueType
-    if (!FieldDefinition.isTypePrimitive(propertyType.value)) {
+    if (!FieldDefinition.isToscaNativeType(propertyType.value)) {
       // TODO validate default value for data types
       if (TypeLoader.loadDataType(propertyType.value, csarPath).isEmpty) {
         Some(CompilationError("Property type [" + propertyType.value + "] is not valid", propertyType.pos, Some(propertyType.value)))
@@ -18,13 +18,16 @@ object SemanticAnalyzer {
         None
       }
     } else {
-      field.default.flatMap { default =>
-        try {
-          Evaluator.eval[Any](default.value, propertyType.value)
-          None
-        } catch {
-          case e: Exception => Some(CompilationError("Property's default value [" + default.value + "] is not valid for property type [" + propertyType.value + "]: " + e.getMessage, default.pos, Some(default.value)))
-        }
+      // TODO validate default value for map/list types
+      field.default.flatMap {
+        case default: ScalarValue =>
+          try {
+            Evaluator.eval[Any](default.value.value, propertyType.value)
+            None
+          } catch {
+            case e: Exception => Some(CompilationError(s"Property's default value [${default.value.value}] is not valid for property type [${propertyType.value}]: ${e.getMessage}", default.pos, Some(default.value.value)))
+          }
+        case _ => None
       }
     }
   }
@@ -53,7 +56,7 @@ object SemanticAnalyzer {
       constraints.flatMap { constraint =>
         constraint.operator.value match {
           case Tokens.greater_than_token | Tokens.greater_or_equal_token | Tokens.less_than_token | Tokens.less_or_equal_token | Tokens.in_range_token =>
-            if (!FieldDefinition.isTypeComparable(propertyType)) {
+            if (!FieldDefinition.isComparableType(propertyType)) {
               Some(CompilationError("Property constraint's [" + constraint.operator.value + "] needs comparable type, but incompatible [" + propertyType + "] found", constraint.operator.pos, Some(constraint.operator.value)))
             } else {
               None

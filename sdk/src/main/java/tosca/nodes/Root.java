@@ -87,7 +87,7 @@ public abstract class Root extends AbstractRuntimeType {
         this.dependedByNodes = dependedByNodes;
     }
 
-    protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, String> inputs) {
+    protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, Object> inputs) {
         Compute host = getHost();
         if (host == null) {
             throw new NonRecoverableException("Non hosted node cannot have operation");
@@ -125,16 +125,16 @@ public abstract class Root extends AbstractRuntimeType {
         return buffer.toString();
     }
 
-    public String evaluateFunction(String functionName, String... paths) {
+    public Object evaluateFunction(String functionName, String... paths) {
         if (paths.length == 0) {
             throw new IllegalFunctionException("Function " + functionName + " path is empty");
         }
         String entity = paths[0];
-        String value;
+        Object value;
         switch (entity) {
             case "HOST":
                 if (getParent() == null) {
-                    throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node do not have a parent");
+                    throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node does not have a parent");
                 }
                 return getParent().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
             case "SELF":

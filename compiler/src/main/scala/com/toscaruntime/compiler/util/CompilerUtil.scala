@@ -1,10 +1,13 @@
-package com.toscaruntime.compiler
+package com.toscaruntime.compiler.util
 
 import java.nio.file.{Files, Path}
 
 import com.google.common.base.CaseFormat
+import com.toscaruntime.compiler.tosca.ParsedValue
 import com.toscaruntime.exception.NotSupportedGenerationException
 import com.toscaruntime.util.FileUtil
+
+import scala.util.parsing.json._
 
 object CompilerUtil {
 
@@ -43,5 +46,30 @@ object CompilerUtil {
         (path, None)
       }
     }
+  }
+
+  private def convertObject(item: Any): Any = {
+    item match {
+      case map: Map[ParsedValue[String], Any] => convertMap(map)
+      case list: Iterable[Any] => convertList(list)
+      case value: ParsedValue[String] => value.value
+      case other: Any => throw new UnsupportedOperationException(s"Type not supported ${other.getClass}")
+    }
+  }
+
+  private def convertMap(map: Map[ParsedValue[String], Any]) = {
+    JSONObject(map.map {
+      case (key, value) => (key.value, convertObject(value))
+    })
+  }
+
+  private def convertList(list: Iterable[Any]) = {
+    JSONArray(list.map {
+      case el => convertObject(el)
+    }.toList)
+  }
+
+  def serializeToJson(obj: Any) = {
+    convertObject(obj).toString
   }
 }

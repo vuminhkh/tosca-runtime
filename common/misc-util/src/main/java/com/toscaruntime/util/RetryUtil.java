@@ -14,8 +14,6 @@ public class RetryUtil {
 
     public interface Action<T> {
 
-        String getName();
-
         T doAction() throws Throwable;
     }
 
@@ -30,7 +28,7 @@ public class RetryUtil {
     }
 
     @SafeVarargs
-    public static <T> T doActionWithRetry(Action<T> action, int times, long coolDownInMillis, Class<? extends Throwable>... recoverableErrors) throws Throwable {
+    public static <T> T doActionWithRetry(Action<T> action, String name, int times, long coolDownInMillis, Class<? extends Throwable>... recoverableErrors) throws Throwable {
         int currentTimes = 0;
         while (true) {
             try {
@@ -40,10 +38,10 @@ public class RetryUtil {
                 if (isRecoverableError(t.getClass(), recoverableErrors) && currentTimes < times) {
                     // Retry if it's recoverable error
                     Thread.sleep(coolDownInMillis);
-                    if(t.getMessage() == null) {
-                        log.warn(currentTimes + " attempt to execute " + action.getName() + ", sleep " + coolDownInMillis + " and retry ", t);
+                    if (t.getMessage() == null) {
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry ", t);
                     } else {
-                        log.warn(currentTimes + " attempt to execute " + action.getName() + ", sleep " + coolDownInMillis + " and retry " + t.getMessage());
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry " + t.getMessage());
                     }
                 } else {
                     throw t;

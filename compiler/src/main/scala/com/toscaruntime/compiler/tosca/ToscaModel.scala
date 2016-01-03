@@ -72,23 +72,23 @@ case class DataType(name: ParsedValue[String],
                     properties: Option[Map[ParsedValue[String], FieldValue]]) extends Positional with Type
 
 case class Requirement(name: ParsedValue[String],
-                       properties: Option[Map[ParsedValue[String], FieldValue]],
+                       properties: Option[Map[ParsedValue[String], EvaluableFieldValue]],
                        targetNode: Option[ParsedValue[String]],
                        targetCapability: Option[ParsedValue[String]],
                        relationshipType: Option[ParsedValue[String]]) extends Positional
 
 case class Capability(name: ParsedValue[String],
-                      properties: Map[ParsedValue[String], FieldValue]) extends Positional
+                      properties: Map[ParsedValue[String], EvaluableFieldValue]) extends Positional
 
 case class NodeTemplate(name: ParsedValue[String],
                         typeName: Option[ParsedValue[String]],
-                        properties: Option[Map[ParsedValue[String], FieldValue]],
+                        properties: Option[Map[ParsedValue[String], EvaluableFieldValue]],
                         requirements: Option[List[Requirement]],
                         capabilities: Option[Map[ParsedValue[String], Capability]]) extends Positional
 
 case class Output(name: ParsedValue[String],
                   description: Option[ParsedValue[String]],
-                  value: Option[FieldValue]) extends Positional
+                  value: Option[EvaluableFieldValue]) extends Positional
 
 case class TopologyTemplate(description: Option[ParsedValue[String]],
                             inputs: Option[Map[ParsedValue[String], PropertyDefinition]],
@@ -131,30 +131,32 @@ case class ScalarValue(value: ParsedValue[String]) extends PropertyValue[ParsedV
 
 case class ListValue(value: List[Any]) extends PropertyValue[List[Any]]
 
-case class MapValue(value: Map[ParsedValue[String], Any]) extends PropertyValue[Map[ParsedValue[String], Any]]
+case class ComplexValue(value: Map[ParsedValue[String], Any]) extends PropertyValue[Map[ParsedValue[String], Any]]
 
 trait FieldValue extends Positional
 
-trait PropertyValue[T] extends FieldValue {
+trait EvaluableFieldValue extends FieldValue
+
+trait PropertyValue[T] extends EvaluableFieldValue {
   val value: T
 }
 
 trait FieldDefinition extends FieldValue {
   val valueType: ParsedValue[String]
   val description: Option[ParsedValue[String]]
-  val default: Option[ParsedValue[String]]
+  val default: Option[EvaluableFieldValue]
 }
 
 case class PropertyDefinition(valueType: ParsedValue[String],
                               required: ParsedValue[Boolean],
-                              default: Option[ParsedValue[String]],
+                              default: Option[EvaluableFieldValue],
                               constraints: Option[List[PropertyConstraint]],
                               description: Option[ParsedValue[String]],
                               entrySchema: Option[PropertyDefinition]) extends FieldDefinition
 
 case class AttributeDefinition(valueType: ParsedValue[String],
                                description: Option[ParsedValue[String]],
-                               default: Option[ParsedValue[String]]) extends FieldDefinition
+                               default: Option[EvaluableFieldValue]) extends FieldDefinition
 
 trait FilterDefinition extends Positional {
   val properties: Map[ParsedValue[String], List[PropertyConstraint]]
@@ -185,9 +187,9 @@ case class Operation(description: Option[ParsedValue[String]],
                      inputs: Option[Map[ParsedValue[String], FieldValue]],
                      implementation: Option[ParsedValue[String]]) extends Positional
 
-case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends FieldValue
+case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends EvaluableFieldValue
 
-case class CompositeFunction(function: ParsedValue[String], members: Seq[FieldValue]) extends FieldValue
+case class CompositeFunction(function: ParsedValue[String], members: Seq[FieldValue]) extends EvaluableFieldValue
 
 case class PropertyConstraint(operator: ParsedValue[String], reference: Any) extends Positional
 
@@ -230,15 +232,17 @@ object FieldDefinition {
   val VERSION = "version"
   val SIZE = "scalar-unit.size"
   val FREQUENCY = "scalar-unit.frequency"
+  val LIST = "list"
+  val MAP = "map"
 
-  def isTypePrimitive(propType: String) = {
+  def isToscaNativeType(propType: String) = {
     propType match {
-      case STRING | INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY => true
+      case STRING | INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY | LIST | MAP => true
       case _ => false
     }
   }
 
-  def isTypeComparable(propType: String) = {
+  def isComparableType(propType: String) = {
     propType match {
       case INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY => true
       case _ => false

@@ -75,7 +75,7 @@ object DeployerUtil {
 
   def compileJavaRecipe(sourcePaths: List[Path], libPath: Path): (List[String], ClassLoader) = {
     // TODO Hacking the class loader in order to force sdk class loading from the context class loader, other classes should be loaded from the dynamically created
-    val deploymentClassLoader = new DeploymentClassLoader(Thread.currentThread().getContextClassLoader, "com.toscaruntime", "tosca")
+    val deploymentClassLoader = new DeploymentClassLoader(Thread.currentThread().getContextClassLoader, "com.toscaruntime", "tosca", "java")
     val javaSourceCompiler = new JavaSourceCompilerImpl
     val compilationUnit = javaSourceCompiler.createCompilationUnit
     val allLoadedClasses = ListBuffer[String]()

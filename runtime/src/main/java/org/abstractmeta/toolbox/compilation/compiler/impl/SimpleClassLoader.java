@@ -171,13 +171,14 @@ public class SimpleClassLoader extends ClassLoader {
     @Override
     protected URL findResource(String name) {
         try {
-            // TODO better optimize loading resources, do not need to load all resources
-            Enumeration<URL> resources = findResources(name);
-            if (resources.hasMoreElements()) {
-                return resources.nextElement();
-            } else {
-                return null;
+            URL resource = super.findResource(name);
+            if (resource == null) {
+                resource = findResourceInJarFiles(name);
             }
+            if (resource == null) {
+                resource = findResourceInJavaFileObjectRegistry(name);
+            }
+            return resource;
         } catch (IOException e) {
             logger.warning("Unable to load resource <" + name + "> error " + e.getMessage());
             return null;
@@ -193,6 +194,17 @@ public class SimpleClassLoader extends ClassLoader {
         }
     }
 
+    protected URL findResourceInJarFiles(String resource) throws MalformedURLException {
+        for (JarFile jarFile : jarFiles) {
+            JarEntry entry = jarFile.getJarEntry(resource);
+            if (entry != null) {
+                return new URL("jar", "", String.format("file:%s!/%s", jarFile.getName(), resource));
+            }
+        }
+        return null;
+    }
+
+
     protected void findResourcesInJavaFileObjectRegistry(List<URL> result, String resource) throws MalformedURLException {
         for (JavaFileObject javaFileObject : registry.get(JavaFileObject.Kind.CLASS)) {
             String internalName = javaFileObject.getName().substring(1);
@@ -203,4 +215,26 @@ public class SimpleClassLoader extends ClassLoader {
         }
     }
 
+    protected URL findResourceInJavaFileObjectRegistry(String resource) throws MalformedURLException {
+        for (JavaFileObject javaFileObject : registry.get(JavaFileObject.Kind.CLASS)) {
+            String internalName = javaFileObject.getName().substring(1);
+            if (internalName.startsWith(resource)) {
+                File file = new File(classOutputDirectory, internalName);
+                return new URL(String.format("file://%s", file.getAbsolutePath()));
+            }
+        }
+        return null;
+    }
+
+    public URL getResource(String name) {
+        URL url = super.getResource(name);
+        if (url == null) {
+            if (getParent() != null) {
+                url = getParent().getResource(name);
+            } else {
+                url = findResource(name);
+            }
+        }
+        return url;
+    }
 }
