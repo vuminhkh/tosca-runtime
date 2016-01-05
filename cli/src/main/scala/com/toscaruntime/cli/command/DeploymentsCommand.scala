@@ -120,7 +120,7 @@ object DeploymentsCommand {
             }
           }
         }
-      case "clean" =>
+      case "cleanDangling" =>
         client.cleanDanglingImages()
         println("Cleaned all dangling images")
       case ("delete", deploymentId: String) =>

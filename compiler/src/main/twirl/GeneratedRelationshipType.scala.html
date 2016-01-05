@@ -10,6 +10,7 @@ package @relationshipType.packageName;
 @Html("super();")
 @base.html.generateAttributes(relationshipType.attributesDefinitions)
 @base.html.generateTypeProperties(relationshipType.propertiesDefinitions)
+@base.html.generateDeploymentArtifacts(relationshipType.csarName, relationshipType.deploymentArtifacts)
 @Html("}")
 
 @relationshipType.methods.map { method =>

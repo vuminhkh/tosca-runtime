@@ -14,12 +14,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.Ports;
@@ -31,6 +31,7 @@ import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Compute;
 
+@SuppressWarnings("unchecked")
 public class Container extends Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
@@ -43,7 +44,7 @@ public class Container extends Compute {
 
     private String ipAddress;
 
-    private static final String RECIPE_LOCATION = "/var/recipe";
+    public static final String RECIPE_LOCATION = "/var/recipe";
 
     public static final String GENERATED_SCRIPT_PATH = "/.generated";
 
@@ -57,7 +58,6 @@ public class Container extends Compute {
         return getMandatoryPropertyAsString("image_id");
     }
 
-    @SuppressWarnings("unchecked")
     public List<ExposedPort> getExposedPorts() {
         List<Map<String, String>> rawExposedPorts = (List<Map<String, String>>) getProperty("exposed_ports");
         List<ExposedPort> exposedPorts = Lists.newArrayList();
@@ -74,7 +74,6 @@ public class Container extends Compute {
         return exposedPorts;
     }
 
-    @SuppressWarnings("unchecked")
     public Map<Integer, Integer> getPortsMapping() {
         Map<Integer, Integer> mapping = new HashMap<>();
         List<Map<String, String>> portMappingsRaw = (List<Map<String, String>>) getProperty("port_mappings");
@@ -105,10 +104,16 @@ public class Container extends Compute {
         log.info("Node [" + getId() + "] : Pulling image " + imageId);
         dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitSuccess();
         log.info("Node [" + getId() + "] : Pulled image " + imageId);
-        containerId = dockerClient.createContainerCmd(imageId + ":" + tag)
+        CreateContainerCmd createContainerCmd = dockerClient.createContainerCmd(imageId + ":" + tag)
+                .withStdinOpen(Boolean.parseBoolean(getPropertyAsString("interactive", "true")))
                 .withName(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + getId())
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
-                .withPortBindings(portBindings).exec().getId();
+                .withPortBindings(portBindings);
+        List<String> commands = (List<String>) getProperty("commands");
+        if (commands != null && !commands.isEmpty()) {
+            createContainerCmd.withCmd(commands);
+        }
+        containerId = createContainerCmd.exec().getId();
         log.info("Node [" + getId() + "] : Created container with id " + containerId);
     }
 
@@ -181,15 +186,28 @@ public class Container extends Compute {
             final String endOfOutputToken = UUID.randomUUID().toString();
             Files.createDirectories(localGeneratedScriptPath.getParent());
             localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
-            localGeneratedScriptWriter.write("#!/bin/sh -e\n");
+            localGeneratedScriptWriter.write("#!/bin/bash -e\n");
             if (environmentVariables != null) {
                 for (Map.Entry<String, Object> envEntry : environmentVariables.entrySet()) {
-                    localGeneratedScriptWriter.write("export " + envEntry.getKey() + "='" + StringEscapeUtils.escapeJavaScript(PropertyUtil.propertyValueToString(envEntry.getValue())) + "'\n");
+                    String envValue = PropertyUtil.propertyValueToString(envEntry.getValue());
+                    if (envValue != null) {
+                        String escapedEnvValue = envValue.replace("'", "'\\''");
+                        localGeneratedScriptWriter.write("export " + envEntry.getKey() + "='" + escapedEnvValue + "'\n");
+                    }
+                }
+            }
+            Map<String, String> allArtifacts = getHostDeploymentArtifacts();
+            if (allArtifacts != null && !allArtifacts.isEmpty()) {
+                for (Map.Entry<String, String> deploymentEntry : allArtifacts.entrySet()) {
+                    if (deploymentEntry.getValue() != null) {
+                        String escapedEnvValue = deploymentEntry.getValue().replace("'", "'\\''");
+                        localGeneratedScriptWriter.write("export " + deploymentEntry.getKey() + "='" + RECIPE_LOCATION + "/" + escapedEnvValue + "'\n");
+                    }
                 }
             }
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
             localGeneratedScriptWriter.write(". " + containerScriptPath + "\n");
-            localGeneratedScriptWriter.write("echo " + endOfOutputToken + "\n");
+            localGeneratedScriptWriter.write("echo '" + endOfOutputToken + "'\n");
             localGeneratedScriptWriter.write("printenv\n");
             localGeneratedScriptWriter.flush();
             DockerUtil.runCommand(dockerClient, containerId, "Node [" + getId() + "][Create wrapper script dir]", Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);

@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
@@ -110,7 +109,10 @@ public class SSHUtil {
     private static void setEnv(PrintWriter commandWriter, Map<String, String> env) {
         if (env != null) {
             for (Map.Entry<String, String> envEntry : env.entrySet()) {
-                doExecuteCommand(commandWriter, "export " + envEntry.getKey() + "='" + StringEscapeUtils.escapeJavaScript(envEntry.getValue()) + "'");
+                if (envEntry.getValue() != null) {
+                    String escapedEnvValue = envEntry.getValue().replace("'", "'\\''");
+                    doExecuteCommand(commandWriter, "export " + envEntry.getKey() + "='" + escapedEnvValue + "'");
+                }
             }
         }
     }

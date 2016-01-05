@@ -1,0 +1,4 @@
+@(csarName: String, artifacts: Map[String, String])
+@artifacts.map { artifactEntry =>
+  @Html("deploymentArtifacts.put(\"" + artifactEntry._1 + "\", \"" + csarName + "/" + artifactEntry._2 + "\");")
+}

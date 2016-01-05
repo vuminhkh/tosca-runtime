@@ -4,12 +4,8 @@ import play.api.libs.json._
 
 object JSONMapStringAnyFormat {
 
-  def convertListToJsValue(list: Iterable[Any]): JsArray = {
-    Json.toJson(list.map(convertToJsValue).toSeq).as[JsArray]
-  }
-
-  def convertJsArrayToList(jsArray: JsArray): Iterable[Any] = {
-    jsArray.value.map(convertJsValueToObject)
+  def convertJsArrayToList(jsArray: JsArray): List[Any] = {
+    jsArray.value.map(convertJsValueToObject).toList
   }
 
   def convertJsObjectToMap(jsObject: JsObject): Map[String, Any] = {
@@ -28,8 +24,12 @@ object JSONMapStringAnyFormat {
     }
   }
 
+  def convertListToJsValue(list: List[Any]): JsArray = {
+    JsArray(list.map(convertToJsValue).toSeq).as[JsArray]
+  }
+
   def convertMapToJsValue(map: Map[String, Any]): JsObject = {
-    Json.toJson(map.map {
+    JsObject(map.map {
       case (key, value) => (key, convertToJsValue(value))
     }).as[JsObject]
   }
@@ -37,21 +37,21 @@ object JSONMapStringAnyFormat {
   def convertToJsValue(obj: Any): JsValue = {
     obj match {
       case map: Map[String, Any] => convertMapToJsValue(map)
-      case list: Iterable[Any] => convertListToJsValue(list)
+      case list: List[Any] => convertListToJsValue(list)
       case string: String => JsString(string)
       case bool: Boolean => JsBoolean(bool)
-      case other => JsNumber(other.asInstanceOf[BigDecimal])
+      case other => JsNumber(BigDecimal(other.toString))
     }
   }
 
   implicit val stringAnyMapFormat = new Format[Map[String, Any]] {
 
-    def writes(map: Map[String, Any]): JsValue = {
-      convertMapToJsValue(map)
-    }
-
     override def reads(json: JsValue): JsResult[Map[String, Any]] = {
       JsSuccess(convertJsObjectToMap(json.as[JsObject]))
+    }
+
+    def writes(map: Map[String, Any]): JsValue = {
+      convertMapToJsValue(map)
     }
   }
 }

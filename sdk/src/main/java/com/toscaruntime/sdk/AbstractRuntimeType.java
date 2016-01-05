@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.google.common.collect.Maps;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
@@ -26,6 +27,8 @@ public abstract class AbstractRuntimeType {
     protected String state = "initial";
 
     protected Map<String, AttributeDefinition> attributeDefinitions = new HashMap<>();
+
+    protected Map<String, String> deploymentArtifacts = Maps.newHashMap();
 
     public String getState() {
         return state;
@@ -128,5 +131,13 @@ public abstract class AbstractRuntimeType {
         for (Map.Entry<String, AttributeDefinition> attributeDefinitionEntry : attributeDefinitions.entrySet()) {
             setAttribute(attributeDefinitionEntry.getKey(), attributeDefinitionEntry.getValue().evaluateAttribute());
         }
+    }
+
+    public Map<String, String> getDeploymentArtifacts() {
+        return deploymentArtifacts;
+    }
+
+    public void setDeploymentArtifacts(Map<String, String> deploymentArtifacts) {
+        this.deploymentArtifacts = deploymentArtifacts;
     }
 }

@@ -42,7 +42,7 @@ object Compiler extends LazyLogging {
         if ("*" == dependencyVersion) {
           val firstVersionFound = Files.list(repository.resolve(dependencyName)).findAny()
           if (firstVersionFound.isPresent) {
-            logger.info(s"Wildcard dependency $dependencyDefinition resolved to ${firstVersionFound.get()}")
+            logger.debug(s"Wildcard dependency $dependencyDefinition resolved to ${firstVersionFound.get()}")
             Some((dependencyName, firstVersionFound.get().getFileName.toString, firstVersionFound.get()))
           } else None
         } else {
@@ -90,7 +90,7 @@ object Compiler extends LazyLogging {
               dependencyResolver: (String, Option[Path]) => Option[(String, Path)],
               compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
               postCompilation: (CompilationResult) => Unit = { _ => }): CompilationResult = {
-    logger.info("Compile {}", path.getFileName.toString)
+    logger.debug("Compile {}", path.getFileName.toString)
     val absPath = path.toAbsolutePath
     val yamlFiles = FileUtil.listFiles(absPath, ".yml", ".yaml").asScala.toList
     val parseResults = yamlFiles.map { yamlPath =>
@@ -127,11 +127,11 @@ object Compiler extends LazyLogging {
         val dependenciesCompilationResult = dependencies.map {
           case ((defFile, ParsedValue(dependency)), Some((dependencyId, dependencyPath))) =>
             if (compilationCache.contains(dependencyId)) {
-              logger.info("Compile {}, hit cache for dependency {}", path.getFileName.toString, dependency)
+              logger.debug("Compile {}, hit cache for dependency {}", path.getFileName.toString, dependency)
               val dependencyCompilationResult = compilationCache.get(dependencyId).get
               (dependencyId, dependencyCompilationResult)
             } else {
-              logger.info("Compile {}, compiling transitive dependency {}", path.getFileName.toString, dependency)
+              logger.debug("Compile {}, compiling transitive dependency {}", path.getFileName.toString, dependency)
               val dependencyCompilationResult = compile(dependencyPath, dependencyResolver, compilationCache)
               compilationCache.put(dependencyId, dependencyCompilationResult)
               (dependencyId, dependencyCompilationResult)
@@ -184,7 +184,7 @@ object Compiler extends LazyLogging {
       if (definitionWithTopologyEntry.isEmpty) {
         throw new InvalidTopologyException(s"No topology found at ${topologyPath.toAbsolutePath.toString} for assembly")
       } else {
-        logger.info(s"Performing assembly for topology at ${definitionWithTopologyEntry.get._1}")
+        logger.debug(s"Performing assembly for topology at ${definitionWithTopologyEntry.get._1}")
       }
       val definitionWithTopology = definitionWithTopologyEntry.get._2
       val topology = definitionWithTopology.topologyTemplate.get
@@ -192,7 +192,7 @@ object Compiler extends LazyLogging {
         case (csarPath, csar) => csar.definitions.nonEmpty && csar.definitions.head._2.topologyTemplate.isDefined
       }.map {
         case (csarPath, csar) =>
-          logger.info(s"Merging topology at ${csar.definitions.head._1} into ${topologyPath.toString} for assembly")
+          logger.debug(s"Merging topology at ${csar.definitions.head._1} into ${topologyPath.toString} for assembly")
           csar.definitions.head._2.topologyTemplate.get
       }.toList
       val mergedTopology = (dependenciesTopologies :+ topology).foldLeft(TopologyTemplate(topology.description, Some(Map.empty), Some(Map.empty), Some(Map.empty))) { (merged, current) =>
@@ -212,7 +212,7 @@ object Compiler extends LazyLogging {
       CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
       topologyCompilationResult.copy(csar = mergedCsar)
     } else {
-      logger.info(s"Topology ${topologyPath.toString} has compilation errors")
+      logger.debug(s"Topology ${topologyPath.toString} has compilation errors")
       topologyCompilationResult
     }
   }

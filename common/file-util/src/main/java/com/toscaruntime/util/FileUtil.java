@@ -162,14 +162,14 @@ public final class FileUtil {
     private static class EraserWalker extends SimpleFileVisitor<Path> {
         @Override
         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            file.toFile().delete();
+            Files.delete(file);
             return FileVisitResult.CONTINUE;
         }
 
         @Override
         public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
             if (exc == null) {
-                dir.toFile().delete();
+                Files.delete(dir);
                 return FileVisitResult.CONTINUE;
             }
             throw exc;
@@ -183,8 +183,11 @@ public final class FileUtil {
      * @throws IOException when IO error happened
      */
     public static void delete(Path deletePath) throws IOException {
+        if (!Files.exists(deletePath)) {
+            return;
+        }
         if (!Files.isDirectory(deletePath)) {
-            deletePath.toFile().delete();
+            Files.delete(deletePath);
             return;
         }
         Files.walkFileTree(deletePath, new EraserWalker());

@@ -2,17 +2,19 @@ package com.toscaruntime.runtime
 
 import java.nio.file.Paths
 
-import com.toscaruntime.compiler.{AbstractSpec, Compiler, TestConstant}
+import com.toscaruntime.compiler.{AbstractSpec, Compiler}
 import com.toscaruntime.util.GitClient
 
 class DeployerSpec extends AbstractSpec {
 
+  override lazy val testPath = Paths.get("target").resolve("deployer-test-data")
+
   "Deployer" must {
     "be able to create deployment for assembled topology for docker" in {
-      val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
-      Compiler.install(normativeTypesOutput, TestConstant.CSAR_REPOSITORY_PATH)
-      val sampleTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("samples")
+      Compiler.install(normativeTypesOutput, csarsPath)
+      val sampleTypesOutput = gitPath.resolve("samples")
       GitClient.clone("https://github.com/alien4cloud/samples.git", sampleTypesOutput)
 
       installAndAssertCompilationResult(sampleTypesOutput.resolve("apache"))
@@ -38,7 +40,7 @@ class DeployerSpec extends AbstractSpec {
       deployment.getNodes.size() must be(6)
       deployment.getRelationshipNodes.size() must be(6)
       val container = deployment.getNodeInstancesByNodeName("computeWww").iterator().next()
-      container.getMandatoryPropertyAsString("image_id") must be("phusion/baseimage")
+      container.getMandatoryPropertyAsString("image_id") must be("toscaruntime/ubuntu-trusty")
       container.getMandatoryPropertyAsString("port_mappings[0].from") must be("80")
       container.getMandatoryPropertyAsString("port_mappings[0].to") must be("51000")
       container.getMandatoryPropertyAsString("exposed_ports[0].port") must be("80")

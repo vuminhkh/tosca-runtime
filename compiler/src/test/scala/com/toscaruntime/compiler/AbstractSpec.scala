@@ -10,14 +10,21 @@ import org.scalatestplus.play.PlaySpec
 
 class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
 
+  lazy val testPath = Paths.get("target").resolve("compiler-test-data")
+  lazy val assemblyPath = testPath.resolve("assemblies")
+  lazy val gitPath = testPath.resolve("gits")
+  lazy val csarsPath = testPath.resolve("csars")
+
   before {
     try {
-      FileUtil.delete(TestConstant.TEST_DATA_PATH)
-      Files.createDirectories(TestConstant.ASSEMBLY_PATH)
-      Files.createDirectories(TestConstant.GIT_TEST_DATA_PATH)
-      Files.createDirectories(TestConstant.CSAR_REPOSITORY_PATH)
+      logger.info(s"Cleaning test data at ${testPath.toAbsolutePath}")
+      FileUtil.delete(testPath)
+      Files.createDirectories(assemblyPath)
+      Files.createDirectories(gitPath)
+      Files.createDirectories(csarsPath)
+      logger.info(s"Cleaned test data ${testPath.toAbsolutePath}")
     } catch {
-      case _: Throwable =>
+      case _: Throwable => logger.warn(s"Could not properly clean test data at ${testPath.toAbsolutePath}")
     }
   }
 
@@ -30,7 +37,7 @@ class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
   }
 
   def installAndAssertCompilationResult(csarPath: Path) = {
-    val compilationResult = Compiler.install(csarPath, TestConstant.CSAR_REPOSITORY_PATH)
+    val compilationResult = Compiler.install(csarPath, csarsPath)
     showCompilationErrors(compilationResult)
     compilationResult.isSuccessful must be(true)
     compilationResult
@@ -38,9 +45,9 @@ class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
 
   def assemblyDockerTopologyAndAssertCompilationResult(dockerTopology: String) = {
     val topologyPath = ClassLoaderUtil.getPathForResource(dockerTopology)
-    val generatedAssemblyPath = TestConstant.ASSEMBLY_PATH.resolve(topologyPath.getFileName.toString)
+    val generatedAssemblyPath = assemblyPath.resolve(topologyPath.getFileName.toString)
     Files.createDirectories(generatedAssemblyPath)
-    val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, TestConstant.CSAR_REPOSITORY_PATH)
+    val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, csarsPath)
     showCompilationErrors(topologyCompilationResult)
     topologyCompilationResult.isSuccessful must be(true)
     val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("deployment").resolve("Deployment.java"))

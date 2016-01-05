@@ -15,12 +15,12 @@ topology_template:
     MongoHost:
       type: com.toscaruntime.docker.nodes.Container
       properties:
-        image_id: phusion/baseimage
+        image_id: toscaruntime/ubuntu-trusty
 
     NodejsHost:
       type: com.toscaruntime.docker.nodes.Container
       properties:
-        image_id: phusion/baseimage
+        image_id: toscaruntime/ubuntu-trusty
         exposed_ports:
           - port: 8080
         port_mappings:

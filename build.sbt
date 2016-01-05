@@ -12,6 +12,9 @@ val commonSettings: Seq[Setting[_]] = Seq(
     "-source", "1.8",
     "-target", "1.8"
   ),
+  parallelExecution in Test := false,
+  parallelExecution in IntegrationTest := false,
+  fork in Test := false,
   javacOptions in doc := Seq("-source", "1.8"),
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
@@ -120,7 +123,9 @@ lazy val restModel = project.in(file("common/rest-model"))
   .settings(commonSettings: _*)
   .settings(
     name := "rest-model",
-    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2"
+    libraryDependencies ++= testDependencies,
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
+    libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ).enablePlugins(UniversalPlugin)
 
 lazy val rest = project.in(file("rest"))
@@ -128,7 +133,6 @@ lazy val rest = project.in(file("rest"))
   .settings(
     name := "rest",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
-    libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
   ).dependsOn(restModel, dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
 

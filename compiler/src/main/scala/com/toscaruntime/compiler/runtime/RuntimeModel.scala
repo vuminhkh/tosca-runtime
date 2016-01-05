@@ -13,6 +13,8 @@ trait RuntimeType {
 
   val csarName: String
 
+  val deploymentArtifacts: Map[String, String]
+
   val propertiesDefinitions: Map[String, Value]
 
   val attributesDefinitions: Map[String, Value]
@@ -24,6 +26,7 @@ case class NodeType(className: String,
                     superClass: Option[String],
                     methods: Seq[Method],
                     csarName: String,
+                    deploymentArtifacts: Map[String, String],
                     // One of StaticValue, Function or CompositeFunction
                     propertiesDefinitions: Map[String, Value],
                     // One of StaticValue, Function or CompositeFunction
@@ -35,6 +38,7 @@ case class RelationshipType(className: String,
                             superClass: Option[String],
                             methods: Seq[Method],
                             csarName: String,
+                            deploymentArtifacts: Map[String, String],
                             // One of StaticValue, Function or CompositeFunction
                             propertiesDefinitions: Map[String, Value],
                             // One of StaticValue, Function or CompositeFunction
@@ -83,4 +87,5 @@ class Node(var name: String,
 
 class Relationship(var source: Node,
                    var target: Node,
-                   var typeName: String)
+                   var typeName: String,
+                   var properties: Map[String, Value])

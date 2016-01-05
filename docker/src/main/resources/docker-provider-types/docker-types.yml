@@ -35,6 +35,9 @@ node_types:
       tag:
         type: string
         default: latest
+      interactive:
+        type: boolean
+        default: true
       exposed_ports:
         type: list
         entry_schema:
@@ -45,4 +48,8 @@ node_types:
         entry_schema:
           type: com.toscaruntime.docker.datatypes.PortMapping
         required: false
+      commands:
+        type: list
+        entry_schema:
+          type: string
 

@@ -95,7 +95,7 @@ case class TopologyTemplate(description: Option[ParsedValue[String]],
                             outputs: Option[Map[ParsedValue[String], Output]],
                             nodeTemplates: Option[Map[ParsedValue[String], NodeTemplate]]) extends Positional
 
-case class DeploymentArtifact(name: ParsedValue[String],
+case class DeploymentArtifact(ref: ParsedValue[String],
                               typeName: ParsedValue[String]) extends Positional
 
 case class NodeType(name: ParsedValue[String],
@@ -114,7 +114,7 @@ case class RelationshipType(name: ParsedValue[String],
                             isAbstract: ParsedValue[Boolean],
                             derivedFrom: Option[ParsedValue[String]],
                             description: Option[ParsedValue[String]],
-                            properties: Option[Map[ParsedValue[String], PropertyDefinition]],
+                            properties: Option[Map[ParsedValue[String], FieldValue]],
                             attributes: Option[Map[ParsedValue[String], FieldValue]],
                             validSources: Option[List[ParsedValue[String]]],
                             validTargets: Option[List[ParsedValue[String]]],

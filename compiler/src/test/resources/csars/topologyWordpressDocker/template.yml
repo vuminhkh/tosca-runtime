@@ -15,12 +15,12 @@ topology_template:
     computeDb:
       type: com.toscaruntime.docker.nodes.Container
       properties:
-        image_id: phusion/baseimage
+        image_id: toscaruntime/ubuntu-trusty
 
     computeWww:
       type: com.toscaruntime.docker.nodes.Container
       properties:
-        image_id: phusion/baseimage
+        image_id: toscaruntime/ubuntu-trusty
         exposed_ports:
           - port: 80
         port_mappings:

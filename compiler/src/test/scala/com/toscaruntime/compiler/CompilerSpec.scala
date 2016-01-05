@@ -10,7 +10,7 @@ class CompilerSpec extends AbstractSpec {
 
   "Compiler" must {
     "be able to compile alien normative types" in {
-      val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
       val compilationResult = installAndAssertCompilationResult(normativeTypesOutput)
       val definition = compilationResult.csar.definitions.values.head
@@ -24,7 +24,7 @@ class CompilerSpec extends AbstractSpec {
 
   "Compiler" must {
     "be able to show error when import not found" in {
-      val compilationResult = Compiler.compile(ClassLoaderUtil.getPathForResource("csars/importNotExist/"), TestConstant.CSAR_REPOSITORY_PATH)
+      val compilationResult = Compiler.compile(ClassLoaderUtil.getPathForResource("csars/importNotExist/"), csarsPath)
       showCompilationErrors(compilationResult)
       compilationResult.isSuccessful must be(false)
       compilationResult.errors.head._2.size must be(4)
@@ -33,10 +33,10 @@ class CompilerSpec extends AbstractSpec {
 
   "Compiler" must {
     "be able to compile alien extended types" in {
-      val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
-      Compiler.install(normativeTypesOutput, TestConstant.CSAR_REPOSITORY_PATH)
-      val alienExtendedTypes = TestConstant.GIT_TEST_DATA_PATH.resolve("alien-extended-types")
+      Compiler.install(normativeTypesOutput, csarsPath)
+      val alienExtendedTypes = gitPath.resolve("alien-extended-types")
       GitClient.clone("https://github.com/alien4cloud/alien4cloud-extended-types.git", alienExtendedTypes)
       installAndAssertCompilationResult(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"))
       installAndAssertCompilationResult(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"))
@@ -45,14 +45,14 @@ class CompilerSpec extends AbstractSpec {
 
   "Compiler" must {
     "be able to compile alien sample" in {
-      val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
-      Compiler.install(normativeTypesOutput, TestConstant.CSAR_REPOSITORY_PATH)
-      val alienExtendedTypes = TestConstant.GIT_TEST_DATA_PATH.resolve("alien-extended-types")
+      Compiler.install(normativeTypesOutput, csarsPath)
+      val alienExtendedTypes = gitPath.resolve("alien-extended-types")
       GitClient.clone("https://github.com/alien4cloud/alien4cloud-extended-types.git", alienExtendedTypes)
-      Compiler.install(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"), TestConstant.CSAR_REPOSITORY_PATH)
-      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"), TestConstant.CSAR_REPOSITORY_PATH)
-      val sampleTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("samples")
+      Compiler.install(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"), csarsPath)
+      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"), csarsPath)
+      val sampleTypesOutput = gitPath.resolve("samples")
       GitClient.clone("https://github.com/alien4cloud/samples.git", sampleTypesOutput)
       installAndAssertCompilationResult(sampleTypesOutput.resolve("apache-load-balancer"))
       installAndAssertCompilationResult(sampleTypesOutput.resolve("apache"))
@@ -72,14 +72,14 @@ class CompilerSpec extends AbstractSpec {
 
   "Compiler" must {
     "be able to assembly alien samples topologies for docker" in {
-      val normativeTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("tosca-normative-types")
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
-      Compiler.install(normativeTypesOutput, TestConstant.CSAR_REPOSITORY_PATH)
-      val sampleTypesOutput = TestConstant.GIT_TEST_DATA_PATH.resolve("samples")
-      val alienExtendedTypes = TestConstant.GIT_TEST_DATA_PATH.resolve("alien-extended-types")
+      Compiler.install(normativeTypesOutput, csarsPath)
+      val sampleTypesOutput = gitPath.resolve("samples")
+      val alienExtendedTypes = gitPath.resolve("alien-extended-types")
       GitClient.clone("https://github.com/alien4cloud/alien4cloud-extended-types.git", alienExtendedTypes)
-      Compiler.install(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"), TestConstant.CSAR_REPOSITORY_PATH)
-      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"), TestConstant.CSAR_REPOSITORY_PATH)
+      Compiler.install(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"), csarsPath)
+      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"), csarsPath)
 
       GitClient.clone("https://github.com/alien4cloud/samples.git", sampleTypesOutput)
 
@@ -101,7 +101,7 @@ class CompilerSpec extends AbstractSpec {
 
       assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/")
       assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/")
-      assemblyDockerTopologyAndAssertCompilationResult("csars/topologyNodeCellar/")
+      assemblyDockerTopologyAndAssertCompilationResult("csars/topologyNodeCellarDocker/")
     }
   }
 }

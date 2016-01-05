@@ -46,7 +46,7 @@ object SyntaxAnalyzer extends YamlParser {
       nestedListEntryWithLineFeed(valid_target_types_token)(nestedTextValue) |
       nestedListEntryWithLineFeed(valid_sources_token)(nestedTextValue) |
       nestedListEntryWithLineFeed(valid_targets_token)(nestedTextValue) |
-      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) |
+      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) ^^ { case (token, list) => (token, list.toMap) } |
       mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
       ) | failure(s"Expecting one of '$derived_from_token', '$abstract_token', '$description_token', '$properties_token', '$attributes_token', '$valid_source_types_token', '$valid_target_types_token', '$artifacts_token', '$interfaces_token'")
 
@@ -345,7 +345,7 @@ object SyntaxAnalyzer extends YamlParser {
       }) |
       mapEntry(requirements_token)(requirementDefinitionsEntry)(indentLevel) |
       mapEntry(capabilities_token)(capabilityDefinitionsEntry)(indentLevel) |
-      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) |
+      listEntry(artifacts_token)(deploymentArtifactEntry)(indentLevel) ^^ { case (token, list) => (token, list.toMap) } |
       mapEntry(interfaces_token)(interfaceDefinitionsEntry)(indentLevel)
       ) | failure(s"Expecting one of '$abstract_token', '$derived_from_token', '$description_token', '$tags_token', '$properties_token', '$attributes_token', '$requirements_token', '$capabilities_token', '$artifacts_token', '$interfaces_token'")
 

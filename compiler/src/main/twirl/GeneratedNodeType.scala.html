@@ -9,6 +9,7 @@ package @nodeType.packageName;
 @Html("super();")
 @base.html.generateAttributes(nodeType.attributesDefinitions)
 @base.html.generateTypeProperties(nodeType.propertiesDefinitions)
+@base.html.generateDeploymentArtifacts(nodeType.csarName, nodeType.deploymentArtifacts)
 @Html("}")
 
 @nodeType.methods.map { method =>

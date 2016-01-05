@@ -1,23 +1,42 @@
-Basic commands:
+Getting started:
 
-Compile wordpress:
+1/ Install Alien CSARS:
 
-compile -p docker -o /Users/vuminhkh/Data/worpress.zip -cp /Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/apache:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/mysql:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/php:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/wordpress -t /Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/topologies/wordpress
+csars install /Users/vuminhkh/Projects/samples/apache/
+csars install /Users/vuminhkh/Projects/samples/mysql/
+csars install /Users/vuminhkh/Projects/samples/php/
+csars install /Users/vuminhkh/Projects/samples/wordpress/
+csars install /Users/vuminhkh/Projects/samples/topology-wordpress/
 
-compile -p openstack -o /Users/vuminhkh/Data/worpress-os.zip -cp /Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/apache:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/mysql:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/php:/Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/components/wordpress -t /Users/vuminhkh/Projects/tosca-runtime/test/src/test/resources/topologies/wordpress-os
+2/ Install specific docker topology:
 
-Package a compiled recipe to a docker image:
+csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyWordpressDocker/
 
-package -n wordpress-dk -r /Users/vuminhkh/Data/worpress.zip -p docker
+3/ List installed csars:
 
-package -n wordpress-os -r /Users/vuminhkh/Data/worpress-os.zip -p openstack -i /Users/vuminhkh/Projects/tosca-runtime/cli/target/universal/stage/bootstrap/openstack/default/inputs.yml
+csars list
 
-List deployment docker images:
+4/ Create deployment:
 
-deployments
+deployments create wordpress -c wordpress-template-docker:1.0.0-SNAPSHOT
 
-Create deployment agent:
+5/Run deployment:
 
-deployments run wordpress-dk
+deployments run wordpress
 
-deployments run wordpress-os
+6/See logs:
+
+agents log wordpress
+
+7/Check deployment status:
+
+agents info wordpress
+
+8/ Apache load balancer samples:
+
+csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-base-types-1.0-SNAPSHOT/
+csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-extended-storage-types-1.0-SNAPSHOT/
+csars install /Users/vuminhkh/Projects/samples/apache-load-balancer/
+csars install /Users/vuminhkh/Projects/samples/tomcat-war/
+csars install /Users/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
+csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyApacheLoadBalancerDocker/

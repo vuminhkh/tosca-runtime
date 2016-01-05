@@ -40,7 +40,8 @@ object CodeGenerator extends LazyLogging {
                                     derivedFrom: Option[String],
                                     methods: Seq[runtime.Method],
                                     properties: Map[String, runtime.Value],
-                                    attributes: Map[String, runtime.Value])
+                                    attributes: Map[String, runtime.Value],
+                                    deploymentArtifacts: Map[String, String])
 
   def parseRuntimeType(runtimeType: RuntimeType) = {
     val packageNameAndClassName = CompilerUtil.splitClassNameAndPackageName(runtimeType.name.value)
@@ -53,32 +54,35 @@ object CodeGenerator extends LazyLogging {
     val properties = runtimeType.properties.map(_.filter(_._2.isInstanceOf[EvaluableFieldValue]).map {
       case (name: ParsedValue[String], value: EvaluableFieldValue) => (name.value, parseValue(value))
     }).getOrElse(Map.empty)
-    RuntimeTypeParseResult(packageNameAndClassName._1, packageNameAndClassName._2, runtimeType.isAbstract.value, runtimeType.derivedFrom.map(_.value), methods, properties, attributes)
+    val deploymentArtifacts = runtimeType.artifacts.getOrElse(Map.empty).map {
+      case (ParsedValue(artifactName), deploymentArtifact: DeploymentArtifact) => (artifactName, deploymentArtifact.ref.value)
+    }
+    RuntimeTypeParseResult(packageNameAndClassName._1, packageNameAndClassName._2, runtimeType.isAbstract.value, runtimeType.derivedFrom.map(_.value), methods, properties, attributes, deploymentArtifacts)
   }
 
   def generateNodeType(csar: Csar, nodeType: NodeType, outputDir: Path) = {
     if (ClassLoaderUtil.isTypeDefined(nodeType.name.value)) {
-      logger.info(s"Ignoring node type ${nodeType.name.value} as it's part of SDK")
+      logger.debug(s"Ignoring node type ${nodeType.name.value} as it's part of SDK")
     } else {
-      logger.info(s"Generating node type class ${nodeType.name.value}")
+      logger.debug(s"Generating node type class ${nodeType.name.value}")
       val parsedType = parseRuntimeType(nodeType)
-      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.properties, parsedType.attributes)).body
+      val generatedText = html.GeneratedNodeType.render(runtime.NodeType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.deploymentArtifacts, parsedType.properties, parsedType.attributes)).body
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
-      logger.info(s"Generated node type class ${nodeType.name.value} to $generatedPath")
+      logger.debug(s"Generated node type class ${nodeType.name.value} to $generatedPath")
     }
   }
 
   def generateRelationshipType(csar: Csar, relationshipType: RelationshipType, outputDir: Path) = {
     if (ClassLoaderUtil.isTypeDefined(relationshipType.name.value)) {
-      logger.info(s"Ignoring relationship type ${relationshipType.name.value} as it's part of SDK")
+      logger.debug(s"Ignoring relationship type ${relationshipType.name.value} as it's part of SDK")
     } else {
-      logger.info(s"Generating relationship type class ${relationshipType.name.value}")
+      logger.debug(s"Generating relationship type class ${relationshipType.name.value}")
       val parsedType = parseRuntimeType(relationshipType)
-      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.properties, parsedType.attributes)).body
+      val generatedText = html.GeneratedRelationshipType.render(runtime.RelationshipType(parsedType.className, parsedType.packageName, parsedType.isAbstract, parsedType.derivedFrom, parsedType.methods, csar.csarName, parsedType.deploymentArtifacts, parsedType.properties, parsedType.attributes)).body
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
-      logger.info(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
+      logger.debug(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
     }
   }
 
@@ -101,6 +105,22 @@ object CodeGenerator extends LazyLogging {
     }
   }
 
+  def parseProperties(properties: Option[Map[ParsedValue[String], EvaluableFieldValue]], propertiesDefinitions: Option[Map[ParsedValue[String], FieldValue]]) = {
+    val propertiesValues = properties.map {
+      _.map {
+        case (propertyName: ParsedValue[String], propertyValue: FieldValue) => (propertyName.value, parseValue(propertyValue))
+      }
+    }.getOrElse(Map.empty)
+    val defaultProperties = propertiesDefinitions.map {
+      _.filter {
+        case (propertyName, propertyDefinition) => propertyDefinition.isInstanceOf[PropertyDefinition] && propertyDefinition.asInstanceOf[PropertyDefinition].default.isDefined
+      }.map {
+        case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, parseValue(propertyDefinition.default.get))
+      }
+    }.getOrElse(Map.empty)
+    defaultProperties ++ propertiesValues
+  }
+
   def parseTopology(topology: TopologyTemplate, topologyCsarName: String, csarPath: Seq[Csar], outputDir: Path) = {
     if (topology.nodeTemplates.isEmpty) {
       throw new InvalidTopologyException("Topology do not contain any node")
@@ -110,19 +130,8 @@ object CodeGenerator extends LazyLogging {
         val nodeName = nodeTemplate.name.value
         val nodeTypeName = nodeTemplate.typeName.get.value
         val nodeType = TypeLoader.loadPolymorphismResolvedNodeType(nodeTypeName, csarPath).get
-        val properties = nodeTemplate.properties.map {
-          _.map {
-            case (propertyName: ParsedValue[String], propertyValue: FieldValue) => (propertyName.value, parseValue(propertyValue))
-          }
-        }.getOrElse(Map.empty)
-        val defaultProperties = nodeType.properties.map {
-          _.filter {
-            case (propertyName, propertyDefinition) => propertyDefinition.isInstanceOf[PropertyDefinition] && propertyDefinition.asInstanceOf[PropertyDefinition].default.isDefined
-          }.map {
-            case (propertyName: ParsedValue[String], propertyDefinition: PropertyDefinition) => (propertyName.value, parseValue(propertyDefinition.default.get))
-          }
-        }.getOrElse(Map.empty)
-        (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, defaultProperties ++ properties))
+        val properties = parseProperties(nodeTemplate.properties, nodeType.properties)
+        (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, properties))
     }.toMap
 
     val topologyRelationships = topology.nodeTemplates.get.values.flatMap {
@@ -152,7 +161,8 @@ object CodeGenerator extends LazyLogging {
                 sourceNode.dependencies = sourceNode.dependencies :+ targetNode
               }
             }
-            new runtime.Relationship(sourceNode, targetNode, relationshipType.get.name.value)
+            val properties = parseProperties(requirement.properties, relationshipType.flatMap(_.properties))
+            new runtime.Relationship(sourceNode, targetNode, relationshipType.get.name.value, properties)
         }
       }.getOrElse(Seq.empty)
     }
