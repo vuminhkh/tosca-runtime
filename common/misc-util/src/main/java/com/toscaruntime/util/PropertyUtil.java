@@ -30,12 +30,27 @@ public class PropertyUtil {
     }
 
     public static String getMandatoryPropertyAsString(Map<String, ?> properties, String propertyName) {
-        String value = PropertyUtil.getPropertyAsString(properties, propertyName);
-        if (StringUtils.isEmpty(value)) {
-            throw new PropertyAccessException("Property <" + propertyName + "> is required but missing");
-        } else {
-            return value;
-        }
+        return propertyValueToString(getMandatoryProperty(properties, propertyName));
+    }
+
+    public static String getPropertyAsString(Map<String, ?> properties, String propertyName) {
+        return propertyValueToString(getProperty(properties, propertyName));
+    }
+
+    public static String getPropertyAsString(Map<String, ?> properties, String propertyName, String defaultValue) {
+        return propertyValueToString(getProperty(properties, propertyName, defaultValue));
+    }
+
+    public static Boolean getMandatoryPropertyAsBoolean(Map<String, ?> properties, String propertyName) {
+        return propertyValueToBoolean(getMandatoryProperty(properties, propertyName));
+    }
+
+    public static Boolean getPropertyAsBoolean(Map<String, ?> properties, String propertyName) {
+        return propertyValueToBoolean(getProperty(properties, propertyName));
+    }
+
+    public static Boolean getPropertyAsBoolean(Map<String, ?> properties, String propertyName, String defaultValue) {
+        return propertyValueToBoolean(getProperty(properties, propertyName, defaultValue));
     }
 
     public static String propertyValueToString(Object propertyValue) {
@@ -46,30 +61,38 @@ public class PropertyUtil {
         }
     }
 
-    public static String getPropertyAsString(Map<String, ?> properties, String propertyName) {
-        Object value = getProperty(properties, propertyName);
-        return propertyValueToString(value);
+    public static Boolean propertyValueToBoolean(Object propertyValue) {
+        return propertyValue != null ? Boolean.parseBoolean(String.valueOf(propertyValue)) : null;
     }
 
-    public static String getPropertyAsString(Map<String, ?> properties, String propertyName, String defaultValue) {
-        String value = getPropertyAsString(properties, propertyName);
-        if (StringUtils.isEmpty(value)) {
-            return defaultValue;
-        } else {
-            return value;
-        }
-    }
-
-    public static Object getProperty(Map<String, ?> properties, String path, Object defaultValue) {
+    public static Object getProperty(Map<String, ?> properties, String path) {
         Object propertyValue = properties.get(path);
         if (propertyValue != null) {
             return propertyValue;
         }
-        propertyValue = getProperty(properties, path);
+        propertyValue = getComplexProperty(properties, path);
+        if (propertyValue != null) {
+            return propertyValue;
+        } else {
+            return null;
+        }
+    }
+
+    public static Object getProperty(Map<String, ?> properties, String path, Object defaultValue) {
+        Object propertyValue = getProperty(properties, path);
         if (propertyValue != null) {
             return propertyValue;
         } else {
             return defaultValue;
+        }
+    }
+
+    public static Object getMandatoryProperty(Map<String, ?> properties, String path) {
+        Object propertyValue = getProperty(properties, path);
+        if (propertyValue != null) {
+            return propertyValue;
+        } else {
+            throw new PropertyAccessException("Property <" + path + "> is required but missing");
         }
     }
 
@@ -92,7 +115,7 @@ public class PropertyUtil {
      * @param object the map/list to search for path
      * @param path   keys in the map separated by '.'
      */
-    static Object getProperty(Object object, String path) {
+    static Object getComplexProperty(Object object, String path) {
         if (StringUtils.isBlank(path)) {
             throw new IllegalFunctionException("Path is empty, cannot evaluate property for object " + object);
         }

@@ -43,10 +43,10 @@ topology_template:
       value: { get_attribute: [ proxy, proxy_url ] }
     network_id:
       description: The id of the network the docker daemon connected to
-      value: { get_attribute: [ privateNetwork, tosca_id ] }
+      value: { get_attribute: [ privateNetwork, provider_resource_id ] }
     external_network_id:
       description: The id of the external network the docker daemon connected to
-      value: { get_attribute: [ publicNetwork, tosca_id ] }
+      value: { get_attribute: [ publicNetwork, provider_resource_id ] }
 
   node_templates:
     publicNetwork:

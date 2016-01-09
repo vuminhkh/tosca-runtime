@@ -108,7 +108,7 @@ public class Network extends tosca.nodes.Network {
             for (ExternalNetwork externalNetwork : externalNetworks.values()) {
                 createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getMandatoryPropertyAsString("network_id"));
             }
-            setAttribute("tosca_name", networkName);
+            setAttribute("provider_resource_name", networkName);
         } else {
             org.jclouds.openstack.neutron.v2.domain.Network existing = networkApi.get(networkId);
             if (existing == null) {
@@ -120,9 +120,9 @@ public class Network extends tosca.nodes.Network {
             } else {
                 throw new ResourcesNotFoundException("Network " + networkId + " does not have any subnet");
             }
-            setAttribute("tosca_name", existing.getName());
+            setAttribute("provider_resource_name", existing.getName());
         }
-        setAttribute("tosca_id", this.networkId);
+        setAttribute("provider_resource_id", this.networkId);
         log.info("Created network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
     }
 

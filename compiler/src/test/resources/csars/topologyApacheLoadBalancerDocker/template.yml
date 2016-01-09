@@ -16,6 +16,8 @@ topology_template:
       type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: toscaruntime/ubuntu-trusty
+      requirements:
+        - network: Internet
 
     LoadBalancerServer:
       type: com.toscaruntime.docker.nodes.Container
@@ -26,3 +28,12 @@ topology_template:
         port_mappings:
           - from: 80
             to: 51000
+      requirements:
+        - network: Internet
+
+# This is just to test a docker network, it's not the real public internet network
+    Internet:
+      type: com.toscaruntime.docker.nodes.Network
+      properties:
+        network_name: tomcatNet
+        cidr: 10.67.79.0/24

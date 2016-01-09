@@ -1,12 +1,12 @@
 /**
  * Copyright 2011 Adrian Witas
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,16 +16,16 @@
 package org.abstractmeta.toolbox.compilation.compiler.registry.impl;
 
 
-import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
-
-import javax.tools.JavaFileObject;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
+
+import javax.tools.JavaFileObject;
+
+import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 
 /**
  * Provides default implementation of JavaFileObjectRegistry.
@@ -35,12 +35,11 @@ import java.util.logging.Logger;
 
 public class JavaFileObjectRegistryImpl implements JavaFileObjectRegistry {
 
-    private final Logger logger = Logger.getLogger(JavaFileObjectRegistryImpl.class.getName());
     private final Map<URI, JavaFileObject> javaFileObjects = new ConcurrentHashMap<URI, JavaFileObject>();
 
     @Override
     public void register(JavaFileObject fileObject) {
-         this.javaFileObjects.put(fileObject.toUri(), fileObject);
+        this.javaFileObjects.put(fileObject.toUri(), fileObject);
     }
 
     @Override

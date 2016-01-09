@@ -268,8 +268,8 @@ public class Compute extends tosca.nodes.Compute {
             log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
         }
         setAttribute("ip_address", this.ipAddress);
-        setAttribute("tosca_id", server.getId());
-        setAttribute("tosca_name", server.getName());
+        setAttribute("provider_resource_id", server.getId());
+        setAttribute("provider_resource_name", server.getName());
         if (!this.config.isBootstrap()) {
             // If it's not in bootstrap mode initialize immediately ssh session
             initSshExecutor(ipAddress);
@@ -304,8 +304,8 @@ public class Compute extends tosca.nodes.Compute {
         log.info("Deleted server with id " + this.serverId);
         this.serverId = null;
         this.removeAttribute("ip_address");
-        this.removeAttribute("tosca_id");
-        this.removeAttribute("tosca_name");
+        this.removeAttribute("provider_resource_id");
+        this.removeAttribute("provider_resource_name");
         this.removeAttribute("public_ip_address");
     }
 }

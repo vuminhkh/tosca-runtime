@@ -22,6 +22,8 @@ public abstract class AbstractRuntimeType {
 
     protected Map<String, Object> attributes = new HashMap<>();
 
+    protected Deployment deployment;
+
     protected DeploymentConfig config;
 
     protected String state = "initial";
@@ -54,11 +56,11 @@ public abstract class AbstractRuntimeType {
         this.attributes = attributes;
     }
 
-    protected Object getProperty(String propertyName) {
+    public Object getProperty(String propertyName) {
         return PropertyUtil.getProperty(this.properties, propertyName, null);
     }
 
-    protected String getPropertyAsString(String propertyName) {
+    public String getPropertyAsString(String propertyName) {
         return PropertyUtil.getPropertyAsString(this.properties, propertyName);
     }
 
@@ -68,6 +70,18 @@ public abstract class AbstractRuntimeType {
 
     public String getMandatoryPropertyAsString(String propertyName) {
         return PropertyUtil.getMandatoryPropertyAsString(this.properties, propertyName);
+    }
+
+    public Boolean getPropertyAsBoolean(String propertyName) {
+        return PropertyUtil.getPropertyAsBoolean(this.properties, propertyName);
+    }
+
+    public Boolean getPropertyAsBoolean(String propertyName, String defaultValue) {
+        return PropertyUtil.getPropertyAsBoolean(this.properties, propertyName, defaultValue);
+    }
+
+    public Boolean getMandatoryPropertyAsBoolean(String propertyName) {
+        return PropertyUtil.getMandatoryPropertyAsBoolean(this.properties, propertyName);
     }
 
     public String getAttributeAsString(String attributeName) {
@@ -111,7 +125,7 @@ public abstract class AbstractRuntimeType {
         this.config = config;
     }
 
-    public void setAttribute(String key, String value) {
+    public void setAttribute(String key, Object value) {
         getAttributes().put(key, value);
     }
 
@@ -139,5 +153,13 @@ public abstract class AbstractRuntimeType {
 
     public void setDeploymentArtifacts(Map<String, String> deploymentArtifacts) {
         this.deploymentArtifacts = deploymentArtifacts;
+    }
+
+    public Deployment getDeployment() {
+        return deployment;
+    }
+
+    public void setDeployment(Deployment deployment) {
+        this.deployment = deployment;
     }
 }

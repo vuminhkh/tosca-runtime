@@ -53,3 +53,18 @@ node_types:
         entry_schema:
           type: string
 
+  com.toscaruntime.docker.nodes.Network:
+    derived_from: tosca.nodes.Network
+    properties:
+      ip_range:
+        type: string
+        required: false
+      driver:
+        type: string
+        required: false
+      options:
+        type: map
+        entry_schema:
+          type: string
+        required: false
+

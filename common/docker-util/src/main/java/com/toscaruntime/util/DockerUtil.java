@@ -49,19 +49,7 @@ public class DockerUtil {
     }
 
     public static void runCommand(DockerClient dockerClient, String containerId, String operationName, List<String> commands, Logger log) {
-        runCommand(dockerClient, containerId, commands, line -> {
-            switch (line.getStreamType()) {
-                case STD_IN:
-                    log.info("[" + operationName + "][stdin]: " + line.getData());
-                    break;
-                case STD_OUT:
-                    log.info("[" + operationName + "][stdout]: " + line.getData());
-                    break;
-                case STD_ERR:
-                    log.info("[" + operationName + "][stderr]: " + line.getData());
-                    break;
-            }
-        });
+        runCommand(dockerClient, containerId, commands, line -> log.info("[" + operationName + "][" + line.getStreamType() + "]: " + line.getData()));
     }
 
     /**
@@ -72,7 +60,11 @@ public class DockerUtil {
      * @param commands     commands to be executed on the container
      */
     public static void runCommand(DockerClient dockerClient, String containerId, List<String> commands, CommandLogger log) {
-        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId).withAttachStdout(true).withAttachStderr(true)
+        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(containerId)
+                .withAttachStdin(false)
+                .withTty(false)
+                .withAttachStdout(true)
+                .withAttachStderr(true)
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
         try (InputStream startResponse = dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec()) {

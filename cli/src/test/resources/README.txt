@@ -40,3 +40,12 @@ csars install /Users/vuminhkh/Projects/samples/apache-load-balancer/
 csars install /Users/vuminhkh/Projects/samples/tomcat-war/
 csars install /Users/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
 csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyApacheLoadBalancerDocker/
+deployments create tomcat -c apache-load-balancer-template-docker:1.0.0-SNAPSHOT
+deployments run tomcat
+agents log tomcat
+
+To clean up:
+
+agents undeploy tomcat
+agents delete tomcat
+deployments delete tomcat

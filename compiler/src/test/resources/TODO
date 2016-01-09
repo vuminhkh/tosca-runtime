@@ -1,27 +1,27 @@
 1.Documentation
 
 2.Tosca support:
+  - Semantic analyzer completion
   - Deployment artifacts for openstack
   - Version, Size, Frequency type support
   - Capabilities properties
   - Relationship properties - Test
   - Custom workflow
-  - Semantic analyzer completion
 
 3.Core:
   - Review class loading model
 
 4.Provider:
   - Error handling (Recoverable, non recoverable, retry ...)
-  - Manage docker volume, docker network
+  - Manage public_ip for docker
+  - Manage docker volume
   - Name - Id translation for resources
   - Manage openstack volume
-  - Manage public_ip for docker
   - Exploring using consul for service discovery
 
 5.Runtime:
-  - Scale
   - Custom command
+  - Scale
   - Persistence (persisted on file system per container basis ?)
   - Executions modelling (need to save execution with their state ?)
   - Deployment state (need a state machine here ?)

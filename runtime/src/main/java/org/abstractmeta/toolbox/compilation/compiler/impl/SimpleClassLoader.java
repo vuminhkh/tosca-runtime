@@ -28,13 +28,13 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.logging.Logger;
 
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
 import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 import org.abstractmeta.toolbox.compilation.compiler.util.URIUtil;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
@@ -57,7 +57,7 @@ import com.google.common.io.Files;
 
 public class SimpleClassLoader extends ClassLoader {
 
-    private final Logger logger = Logger.getLogger(SimpleClassLoader.class.getName());
+    private static org.slf4j.Logger logger = LoggerFactory.getLogger(SimpleClassLoader.class);
 
     private final List<JarFile> jarFiles = new ArrayList<JarFile>();
     private final List<File> classDirectories = new ArrayList<File>();
@@ -180,7 +180,7 @@ public class SimpleClassLoader extends ClassLoader {
             }
             return resource;
         } catch (IOException e) {
-            logger.warning("Unable to load resource <" + name + "> error " + e.getMessage());
+            logger.warn("Unable to load resource <" + name + "> error " + e.getMessage());
             return null;
         }
     }

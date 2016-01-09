@@ -1,12 +1,12 @@
 /**
  * Copyright 2011 Adrian Witas
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,20 +16,35 @@
 package org.abstractmeta.toolbox.compilation.compiler.impl;
 
 
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileManager;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+import org.abstractmeta.toolbox.compilation.compiler.CompilationException;
 import org.abstractmeta.toolbox.compilation.compiler.JavaSourceCompiler;
 import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 import org.abstractmeta.toolbox.compilation.compiler.registry.impl.JavaFileObjectRegistryImpl;
 import org.abstractmeta.toolbox.compilation.compiler.util.ClassPathUtil;
 import org.abstractmeta.toolbox.compilation.compiler.util.URIUtil;
-import com.google.common.io.Files;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import javax.tools.*;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.util.*;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 
 /**
  * Provides implementation of JavaSourceCompiler interface.
@@ -62,24 +77,24 @@ import java.util.logging.Logger;
 
 public class JavaSourceCompilerImpl implements JavaSourceCompiler {
 
-    private final Logger logger = Logger.getLogger(JavaSourceCompilerImpl.class.getName());
+    private static Logger logger = LoggerFactory.getLogger(JavaSourceCompilerImpl.class);
 
     private static final List<String> CLASS_PATH_OPTIONS = new ArrayList<String>(Arrays.asList("cp", "classpath"));
     private static final String CLASS_PATH_DELIMITER = ClassPathUtil.getClassPathSeparator();
 
     @Override
-    public ClassLoader compile(CompilationUnit compilationUnit, String... options) {
+    public ClassLoader compile(CompilationUnit compilationUnit, String... options) throws CompilationException {
         return compile(this.getClass().getClassLoader(), compilationUnit, options);
     }
 
     @Override
-    public ClassLoader compile(ClassLoader parentClassLoader, CompilationUnit compilationUnit, String... options) {
+    public ClassLoader compile(ClassLoader parentClassLoader, CompilationUnit compilationUnit, String... options) throws CompilationException {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         return compile(compiler, parentClassLoader, compilationUnit, options);
     }
 
 
-    protected ClassLoader compile(JavaCompiler compiler, ClassLoader parentClassLoader, CompilationUnit compilationUnit, String... options) {
+    protected ClassLoader compile(JavaCompiler compiler, ClassLoader parentClassLoader, CompilationUnit compilationUnit, String... options) throws CompilationException {
         if (compiler == null) {
             throw new IllegalStateException("Failed to find the system Java compiler. Check that your class path includes tools.jar");
         }
@@ -91,37 +106,21 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
         Iterable<JavaFileObject> sources = registry.get(JavaFileObject.Kind.SOURCE);
         Collection<String> compilationOptions = buildOptions(compilationUnit, result, options);
         JavaCompiler.CompilationTask task = compiler.getTask(null, javaFileManager, diagnostics, compilationOptions, null, sources);
-        StringBuilder diagnosticBuilder = new StringBuilder();
         task.call();
-        boolean compilationError = false;
-        for (Diagnostic diagnostic : diagnostics.getDiagnostics()) {
-            compilationError |= buildDiagnosticMessage(diagnostic, diagnosticBuilder, registry);
-        }
-        if (diagnosticBuilder.length() > 0) {
-            if (compilationError) {
-                throw new IllegalStateException(diagnosticBuilder.toString());
+        List<Diagnostic<? extends JavaFileObject>> errors = Lists.newArrayList();
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            if (diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+                errors.add(diagnostic);
+                logger.error(diagnostic.toString());
             } else {
-                logger.log(Level.WARNING, diagnosticBuilder.toString());
+                logger.warn(diagnostic.toString());
             }
+        }
+        if (!errors.isEmpty()) {
+            throw new CompilationException(diagnostics.getDiagnostics());
         }
         result.addClassPathEntries(compilationUnit.getClassPathsEntries());
         return result;
-    }
-
-    protected boolean buildDiagnosticMessage(Diagnostic diagnostic, StringBuilder diagnosticBuilder, JavaFileObjectRegistry registry) {
-        Object source = diagnostic.getSource();
-        String sourceErrorDetails = "";
-        if (source != null) {
-            JavaSourceFileObject sourceFile = JavaSourceFileObject.class.cast(source);
-            CharSequence sourceCode = sourceFile.getCharContent(true);
-            int startPosition = Math.max((int) diagnostic.getStartPosition() - 10, 0);
-            int endPosition = Math.min(sourceCode.length(), (int) diagnostic.getEndPosition() + 10);
-            sourceErrorDetails = sourceCode.subSequence(startPosition, endPosition) + "";
-        }
-        diagnosticBuilder.append(diagnostic.getMessage(null));
-        diagnosticBuilder.append("\n");
-        diagnosticBuilder.append(sourceErrorDetails);
-        return diagnostic.getKind().equals(Diagnostic.Kind.ERROR);
     }
 
     protected Collection<String> buildOptions(CompilationUnit compilationUnit, SimpleClassLoader classLoader, String... options) {
@@ -192,7 +191,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
         JavaFileObjectRegistry registry = compilationUnit.getRegistry();
         File classOutputDirectory = compilationUnit.getOutputClassDirectory();
         if (!classOutputDirectory.exists()) {
-            if(!classOutputDirectory.mkdirs()) throw new IllegalStateException("Failed to create directory " +classOutputDirectory.getAbsolutePath());
+            if (!classOutputDirectory.mkdirs()) throw new IllegalStateException("Failed to create directory " + classOutputDirectory.getAbsolutePath());
         }
         for (JavaFileObject javaFileObject : registry.get(JavaFileObject.Kind.CLASS)) {
             String internalName = javaFileObject.getName().substring(1);

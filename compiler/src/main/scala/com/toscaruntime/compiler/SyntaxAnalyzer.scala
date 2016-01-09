@@ -376,8 +376,8 @@ object SyntaxAnalyzer extends YamlParser {
     }
 
   def policyTypesEntry(indentLevel: Int) =
-    (keyValue into (polictyTypeName => keyComplexSeparatorPattern ~> policyType(polictyTypeName)(indentLevel + 1))) ^^ {
-      case polictyType => (polictyType.name, polictyType)
+    (keyValue into (policyTypeName => keyComplexSeparatorPattern ~> policyType(policyTypeName)(indentLevel + 1))) ^^ {
+      case policyType => (policyType.name, policyType)
     }
 
   def groupTypesEntry(indentLevel: Int) =

@@ -7,5 +7,5 @@ package com.toscaruntime.sdk;
  */
 public interface AttributeDefinition {
 
-    String evaluateAttribute();
+    Object evaluateAttribute();
 }

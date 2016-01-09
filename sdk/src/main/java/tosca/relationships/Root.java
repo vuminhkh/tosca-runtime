@@ -116,7 +116,7 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     @Override
-    public void setAttribute(String key, String value) {
+    public void setAttribute(String key, Object value) {
         super.setAttribute(key, value);
         // Attribute of the relationship is copied to the node
         getSource().setAttribute(key, value);

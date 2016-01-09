@@ -12,6 +12,8 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.InternetProtocol;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.toscaruntime.sdk.DeploymentConfig;
 import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerUtil;
@@ -20,8 +22,7 @@ public class ContainerTest {
 
     private Logger logger = LoggerFactory.getLogger(ContainerTest.class);
 
-    @Test
-    public void testCreateContainer() {
+    private Container createContainer(String imageId) {
         Container container = new Container();
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
@@ -33,10 +34,9 @@ public class ContainerTest {
         container.setId("testContainerId");
         container.setName("testContainerName");
         container.setConfig(deploymentConfig);
-        container.setDeploymentArtifacts(ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
         container.setDockerClient(DockerUtil.buildDockerClient("https://192.168.99.100:2376", System.getProperty("user.home") + "/.docker/machine/machines/default"));
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()
-                .put("image_id", "ubuntu")
+                .put("image_id", imageId)
                 .put("tag", "latest")
                 .put("interactive", "true")
                 .put("commands", Lists.newArrayList("bash", "-l"))
@@ -49,6 +49,51 @@ public class ContainerTest {
         Assert.assertEquals(80, container.getExposedPorts().get(0).getPort());
         Assert.assertEquals(InternetProtocol.TCP, container.getExposedPorts().get(0).getProtocol());
         Assert.assertEquals(50000, (int) container.getPortsMapping().get(80));
+        return container;
+    }
+
+    private void cleanContainer(Container container) {
+        try {
+            container.stop();
+        } catch (Exception e) {
+            // Ignore
+        }
+        try {
+            container.delete();
+        } catch (Exception e) {
+            // Ignore
+        }
+    }
+
+    @Test
+    public void testContainerWithNetwork() {
+        Container container = createContainer("java");
+        Network network = new Network();
+        network.setDockerClient(container.getDockerClient());
+        network.setId("dockerNetId");
+        network.setName("dockerNet");
+        network.setProperties(ImmutableMap.<String, Object>builder().put("network_name", "dockerNet").put("cidr", "10.67.79.0/24").build());
+        container.setNetworks(Sets.newHashSet(network));
+        try {
+            network.create();
+            container.create();
+            container.start();
+            Map<String, String> outputs = container.execute("test", "javaHelp.sh", Maps.newHashMap());
+            Assert.assertNotNull(outputs.get("JAVA_HELP"));
+            Assert.assertNotNull(network.getNetworkId());
+        } catch (Exception e) {
+            logger.error("Error in test", e);
+            throw e;
+        } finally {
+            cleanContainer(container);
+            network.delete();
+        }
+    }
+
+    @Test
+    public void testCreateContainer() {
+        Container container = createContainer("ubuntu");
+        container.setDeploymentArtifacts(ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
         try {
             container.create();
             container.start();
@@ -64,16 +109,7 @@ public class ContainerTest {
             logger.error("Error in test", e);
             throw e;
         } finally {
-            try {
-                container.stop();
-            } catch (Exception e) {
-                // Ignore
-            }
-            try {
-                container.delete();
-            } catch (Exception e) {
-                // Ignore
-            }
+            cleanContainer(container);
         }
     }
 }

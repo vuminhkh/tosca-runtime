@@ -76,7 +76,10 @@ public abstract class Deployment {
     }
 
     protected void initializeInstance(tosca.nodes.Root instance) {
+        instance.setDeployment(this);
         instance.setConfig(this.config);
+        instance.setAttribute("tosca_id", instance.getId());
+        instance.setAttribute("tosca_name", instance.getName());
         this.nodes.get(instance.getName()).getInstances().add(instance);
     }
 
@@ -110,6 +113,8 @@ public abstract class Deployment {
                     tosca.relationships.Root relationshipInstance = relationshipType.newInstance();
                     relationshipInstance.setSource(sourceInstance);
                     relationshipInstance.setTarget(targetInstance);
+                    relationshipInstance.setAttribute("tosca_id", "rel_" + relationshipInstance.getSource().getId() + "_to_" + relationshipInstance.getTarget().getId());
+                    relationshipInstance.setAttribute("tosca_name", "rel_" + relationshipInstance.getSource().getName() + "_to_" + relationshipInstance.getTarget().getName());
                     relationshipInstances.add(relationshipInstance);
                     relationshipNode.getRelationshipInstances().add(relationshipInstance);
                 } catch (InstantiationException | IllegalAccessException e) {

@@ -59,7 +59,7 @@ topology_template:
       value: { get_attribute: [ proxy, proxy_url ] }
     network_id:
       description: The id of the openstack network that the host of docker daemon is connected to
-      value: { get_attribute: [ privateNetwork, tosca_id ] }
+      value: { get_attribute: [ privateNetwork, provider_resource_id ] }
     docker_network_id:
       description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
       value: { get_attribute: [ swarmManager, docker_network_id ] }
@@ -68,7 +68,7 @@ topology_template:
       value: { get_attribute: [ swarmManager, docker_network_name ] }
     external_network_id:
       description: The id of the external network that the host of docker daemon is connected to
-      value: { get_attribute: [ publicNetwork, tosca_id ] }
+      value: { get_attribute: [ publicNetwork, provider_resource_id ] }
 
   node_templates:
 
