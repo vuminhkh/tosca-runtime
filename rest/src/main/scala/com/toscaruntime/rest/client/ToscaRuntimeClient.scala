@@ -105,7 +105,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   private def saveBootstrapContext[T](proxyUrl: String, context: JsObject, result: T): Future[T] = {
     wsClient.url(proxyUrl).post(context).map(_ => result).recoverWith {
       case e: ConnectException =>
-        logger.info("Proxy is not yet up at " + proxyUrl + " retry in 2 seconds")
+        logger.info(s"Proxy is not yet up at [$proxyUrl] retry in 2 seconds")
         after(2 seconds, system.scheduler)(saveBootstrapContext(proxyUrl, context, result))
     }
   }

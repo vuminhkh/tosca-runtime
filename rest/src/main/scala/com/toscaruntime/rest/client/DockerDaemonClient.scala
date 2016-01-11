@@ -1,7 +1,7 @@
 package com.toscaruntime.rest.client
 
 import java.io.{FileWriter, PrintStream}
-import java.net.URL
+import java.net.{MalformedURLException, URL}
 import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.github.dockerjava.api.DockerClient
@@ -15,6 +15,7 @@ import com.toscaruntime.rest.model.DeploymentInfo
 import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.impl.ConfigImpl
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
+import com.typesafe.scalalogging.LazyLogging
 import org.yaml.snakeyaml.Yaml
 
 import scala.collection.JavaConverters._
@@ -24,7 +25,7 @@ import scala.collection.JavaConverters._
   *
   * @author Minh Khang VU
   */
-class DockerDaemonClient(var url: String, var certPath: String) {
+class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogging {
 
   var dockerClient: DockerClient = DockerUtil.buildDockerClient(url, certPath)
 
@@ -67,10 +68,14 @@ class DockerDaemonClient(var url: String, var certPath: String) {
 
   def getBootstrapAgentURL(deploymentId: String) = {
     getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
-      // TODO We dot not manage bootstrap with swarm daemon ?
-      val daemonHost = new URL(url).getHost
+      var daemonHost = "localhost"
+      try {
+        daemonHost = new URL(url).getHost
+      } catch {
+        case e: MalformedURLException => logger.info(s"Get bootstrap agent encountered [${e.getMessage}] for [$url], will use localhost as agent url")
+      }
       val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPort
-      "http://" + daemonHost + ":" + port + "/deployment"
+      s"http://$daemonHost:$port/deployment"
     }
   }
 

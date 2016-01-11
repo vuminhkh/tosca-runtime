@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,16 +16,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentConfig;
 import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerUtil;
 
+@RunWith(JUnit4.class)
 public class ContainerTest {
 
     private Logger logger = LoggerFactory.getLogger(ContainerTest.class);
 
     private Container createContainer(String imageId) {
         Container container = new Container();
+        container.setDeployment(new Deployment() {
+        });
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
         deploymentConfig.setBootstrap(true);

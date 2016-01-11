@@ -32,6 +32,8 @@ public abstract class Root extends AbstractRuntimeType {
             case "pre_configure_target":
             case "post_configure_target":
             case "add_source":
+            case "source_changed":
+            case "remove_source":
                 return executeTargetOperation(operationArtifactPath, inputs);
             default:
                 if (operationName.endsWith("_source")) {
