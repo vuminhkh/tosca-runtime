@@ -25,7 +25,6 @@ project/plugins/project/
 
 # Package Files #
 *.jar
-*.war
 *.ear
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
@@ -33,5 +32,9 @@ hs_err_pid*
 
 
 cli/src/main/resources/bootstrap/openstack/default/inputs.yml
+cli/src/main/resources/bootstrap/openstack/swarm/inputs.yml
 cli/src/main/resources/bootstrap/openstack/default/archive/toscaruntime.pem
-toscaruntime.pem
+cli/src/main/resources/bootstrap/openstack/swarm/archive/toscaruntime.pem
+
+cli/src/main/resources/conf/providers/openstack/default/provider.conf
+cli/src/main/resources/conf/providers/openstack/swarm/provider.conf

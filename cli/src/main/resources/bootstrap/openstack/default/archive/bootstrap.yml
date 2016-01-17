@@ -23,11 +23,15 @@ topology_template:
     key_path:
       type: string
     security_group_names:
-      type: string
+      type: list
+      entry_schema:
+        type: string
     external_network_id:
       type: string
     dns_name_servers:
-      type: string
+      type: list
+      entry_schema:
+        type: string
   outputs:
     public_daemon_url:
       description: The URL to access the docker daemon

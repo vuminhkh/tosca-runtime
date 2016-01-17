@@ -1,0 +1,5 @@
+keystone_url = "http://128.136.179.2:5000/v2.0"
+tenant = "facebook1389662728"
+user = "facebook1389662728"
+region = "RegionOne"
+password = "mqAgNPA2c6VDjoOD"
