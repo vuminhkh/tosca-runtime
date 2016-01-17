@@ -5,13 +5,13 @@ package com.toscaruntime.exception;
  * 
  * @author Minh Khang VU
  */
-public class NonRecoverableException extends DeploymentException {
+public class ToscaRuntimeException extends DeploymentException {
 
-    public NonRecoverableException(String message) {
+    public ToscaRuntimeException(String message) {
         super(message);
     }
 
-    public NonRecoverableException(String message, Throwable cause) {
+    public ToscaRuntimeException(String message, Throwable cause) {
         super(message, cause);
     }
 }

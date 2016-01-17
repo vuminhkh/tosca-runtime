@@ -12,10 +12,8 @@
   - Review class loading model
 
 4.Provider:
-  - Error handling (Recoverable, non recoverable, retry ...)
-  - Manage public_ip for docker
+  - Manage public_ip for docker on swarm
   - Manage docker volume
-  - Name - Id translation for resources
   - Manage openstack volume
   - Exploring using consul for service discovery
 
@@ -28,7 +26,6 @@
   - Policy handling (auto-healing, dynamic scaling ... )
 
 6.Testing:
-  - Provider test
   - Integration end to end test
   - Perform cli test on linux system (Ubuntu)
 

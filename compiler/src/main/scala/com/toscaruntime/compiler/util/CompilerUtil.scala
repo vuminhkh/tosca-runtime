@@ -4,7 +4,6 @@ import java.nio.file.{Files, Path}
 
 import com.google.common.base.CaseFormat
 import com.toscaruntime.compiler.tosca.ParsedValue
-import com.toscaruntime.exception.NotSupportedGenerationException
 import com.toscaruntime.util.FileUtil
 
 import scala.util.parsing.json._
@@ -14,11 +13,12 @@ object CompilerUtil {
   def splitClassNameAndPackageName(typeName: String) = {
     val indexClassName = typeName.lastIndexOf('.')
     if (indexClassName < 0) {
-      throw new NotSupportedGenerationException("Package is mandatory, please prefix " + typeName + " with a package")
+      ("", typeName)
+    } else {
+      val className = typeName.substring(indexClassName + 1)
+      val packageName = typeName.substring(0, indexClassName)
+      (packageName, className)
     }
-    val className = typeName.substring(indexClassName + 1)
-    val packageName = typeName.substring(0, indexClassName)
-    (packageName, className)
   }
 
   def getGeneratedClassRelativePath(outputPath: Path, typeName: String) = {

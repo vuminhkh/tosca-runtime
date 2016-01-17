@@ -40,7 +40,7 @@ public class ContainerTest {
         container.setId("testContainerId");
         container.setName("testContainerName");
         container.setConfig(deploymentConfig);
-        container.setDockerClient(DockerUtil.buildDockerClient("https://192.168.99.100:2376", System.getProperty("user.home") + "/.docker/machine/machines/default"));
+        container.setDockerClient(DockerUtil.buildDockerClient());
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put("image_id", imageId)
                 .put("tag", "latest")

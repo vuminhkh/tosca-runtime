@@ -1,10 +1,11 @@
 package com.toscaruntime.openstack.nodes;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.common.RuntimeSshException;
@@ -20,11 +21,14 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.util.PropertyUtil;
 import com.toscaruntime.util.RetryUtil;
 import com.toscaruntime.util.SSHExecutor;
 
+@SuppressWarnings("unchecked")
 public class Compute extends tosca.nodes.Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
@@ -45,7 +49,7 @@ public class Compute extends tosca.nodes.Compute {
 
     private Set<FloatingIP> createdFloatingIPs = Sets.newHashSet();
 
-    private String serverId;
+    private Server server;
 
     private String ipAddress;
 
@@ -73,10 +77,6 @@ public class Compute extends tosca.nodes.Compute {
         this.networks = networks;
     }
 
-    public String getServerId() {
-        return serverId;
-    }
-
     private Map<String, String> doExecute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
         // Convert complex properties to JSON format before execute operation by SSH
         Map<String, String> inputTexts = new HashMap<>();
@@ -89,14 +89,14 @@ public class Compute extends tosca.nodes.Compute {
                     operationArtifactPath, 12, 30000L, RuntimeSshException.class, SshException.class
             );
         } catch (Throwable e) {
-            throw new NonRecoverableException("Unable to execute operation " + operationArtifactPath, e);
+            throw new OperationExecutionException("Unable to execute operation " + operationArtifactPath, e);
         }
     }
 
     @Override
     public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
-        if (this.serverId == null) {
-            throw new NonRecoverableException("Must create the server before executing operation on it");
+        if (this.server == null) {
+            throw new ProviderResourcesNotFoundException("Must create the server before executing operation on it");
         }
         if (this.config.isBootstrap()) {
             // Synchronize in bootstrap mode to not create multiple floating ip in the same time
@@ -109,7 +109,7 @@ public class Compute extends tosca.nodes.Compute {
                             // In bootstrap mode if the VM does not have any floating ip assigned
                             // We assign to it a floating ip before executing operation
                             floatingIP = floatingIPApi.allocateFromPool(this.externalNetworkId);
-                            floatingIPApi.addToServer(floatingIP.getIp(), this.serverId);
+                            floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
                             destroySshExecutor();
                             initSshExecutor(floatingIP.getIp());
                             log.info("Bootstrap mode : for node {} created new floating ip {} in bootstrap mode in order to access to the machine", getId(), floatingIP.getIp());
@@ -144,8 +144,8 @@ public class Compute extends tosca.nodes.Compute {
     @Override
     public void create() {
         String userData = getPropertyAsString("user_data");
-        String networksProperty = getPropertyAsString("networks");
-        String securityGroups = getPropertyAsString("security_group_names");
+        List<String> networksProperty = (List<String>) getProperty("networks");
+        List<String> securityGroups = (List<String>) getProperty("security_group_names");
         String adminPass = getPropertyAsString("admin_pass");
         String availabilityZone = getPropertyAsString("availability_zone");
         String configDrive = getPropertyAsString("config_drive");
@@ -171,8 +171,8 @@ public class Compute extends tosca.nodes.Compute {
             createServerOptions.userData(userData.getBytes(Charsets.UTF_8));
         }
         Set<String> internalNetworks = Sets.newHashSet();
-        if (StringUtils.isNotBlank(networksProperty)) {
-            internalNetworks.addAll(Arrays.asList(networksProperty.trim().split("\\s*,\\s*")));
+        if (networksProperty != null) {
+            internalNetworks.addAll(networksProperty);
         }
         for (Network internalNetwork : networks) {
             internalNetworks.add(internalNetwork.getNetworkId());
@@ -183,8 +183,8 @@ public class Compute extends tosca.nodes.Compute {
         if (!internalNetworks.isEmpty()) {
             createServerOptions.networks(internalNetworks);
         }
-        if (StringUtils.isNotBlank(securityGroups)) {
-            createServerOptions.securityGroupNames(securityGroups.trim().split("\\s*,\\s*"));
+        if (securityGroups != null) {
+            createServerOptions.securityGroupNames(securityGroups);
         }
         log.info("Creating server with info:\n- AVZ: {}\n- Config drive: {}\n- Disk config: {}\n- Key pair: {}\n- Networks: {}\n- Security groups: {}\n- User data: {}",
                 createServerOptions.getAvailabilityZone(),
@@ -195,8 +195,8 @@ public class Compute extends tosca.nodes.Compute {
                 createServerOptions.getSecurityGroupNames(),
                 userData);
         ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryPropertyAsString("image"), getMandatoryPropertyAsString("flavor"), createServerOptions);
-        this.serverId = serverCreated.getId();
-        log.info("Created server with id " + this.serverId);
+        this.server = serverApi.get(serverCreated.getId());
+        log.info("Created server with id " + this.server);
     }
 
     private void destroySshExecutor() {
@@ -212,7 +212,7 @@ public class Compute extends tosca.nodes.Compute {
 
     private void initSshExecutor(String ipForSSSHSession) {
         if (StringUtils.isBlank(ipForSSSHSession)) {
-            throw new NonRecoverableException("IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
+            throw new ToscaRuntimeException("IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
         }
         String user = getMandatoryPropertyAsString("login");
         String keyPath = getMandatoryPropertyAsString("key_path");
@@ -228,43 +228,34 @@ public class Compute extends tosca.nodes.Compute {
             RetryUtil.doActionWithRetry(action, operationName, 240, 5000L, RuntimeSshException.class, SshException.class);
         } catch (Throwable e) {
             log.error("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
-            throw new NonRecoverableException("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
+            throw new OperationExecutionException("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
         }
     }
 
     @Override
     public void start() {
         super.start();
-        if (this.serverId == null) {
-            throw new NonRecoverableException("Must create the server before starting it");
+        if (this.server == null) {
+            throw new ToscaRuntimeException("Must create the server before starting it");
         }
-        Server server;
-        while (!Server.Status.ACTIVE.equals((server = serverApi.get(this.serverId)).getStatus())) {
-            log.info("Waiting for compute " + getId() + " with openstack id " + getServerId() + " to become active");
-            try {
-                Thread.sleep(2 * 1000L);
-            } catch (InterruptedException e) {
-                throw new NonRecoverableException("Start interrupted");
+        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+            boolean isUp = Server.Status.ACTIVE.equals(server.getStatus())
+                    && server.getAddresses() != null
+                    && !server.getAddresses().isEmpty();
+            if (!isUp) {
+                log.info("Compute [{}]: Waiting for server [{}] to be up, current state [{}]", getId(), server.getId(), server.getStatus());
+                server = serverApi.get(server.getId());
+                return false;
+            } else {
+                return true;
             }
-        }
-        while (server.getAddresses() == null || server.getAddresses().isEmpty()) {
-            log.info("Waiting for compute " + getId() + " with openstack id " + getServerId() + " has a private IP assigned");
-            try {
-                Thread.sleep(2 * 1000L);
-            } catch (InterruptedException e) {
-                throw new NonRecoverableException("Start interrupted");
-            }
-            server = serverApi.get(this.serverId);
-        }
+        }, 2, TimeUnit.SECONDS);
         this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
         for (ExternalNetwork externalNetwork : this.externalNetworks) {
             FloatingIP floatingIP = this.floatingIPApi.allocateFromPool(externalNetwork.getNetworkId());
-            if (floatingIP == null) {
-                throw new NonRecoverableException("Could not allocate floating ip from pool " + externalNetwork.getNetworkId());
-            }
-            this.floatingIPApi.addToServer(floatingIP.getIp(), this.serverId);
-            setAttribute("public_ip_address", floatingIP.getIp());
             this.createdFloatingIPs.add(floatingIP);
+            this.floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
+            setAttribute("public_ip_address", floatingIP.getIp());
             log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
         }
         setAttribute("ip_address", this.ipAddress);
@@ -280,19 +271,29 @@ public class Compute extends tosca.nodes.Compute {
     @Override
     public void stop() {
         super.stop();
-        if (this.serverId == null) {
+        if (this.server == null) {
             log.warn("Server has not been started yet");
             return;
         }
         destroySshExecutor();
-        this.serverApi.stop(this.serverId);
-        log.info("Stopped server with id " + this.serverId);
+        this.serverApi.stop(this.server.getId());
+        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+            boolean isShutOff = Server.Status.SHUTOFF.equals(server.getStatus());
+            if (!isShutOff) {
+                log.info("Compute [{}]: Waiting for server [{}] to be shutdown, current state [{}]", getId(), server.getId(), server.getStatus());
+                server = serverApi.get(server.getId());
+                return false;
+            } else {
+                return true;
+            }
+        }, 2, TimeUnit.SECONDS);
+        log.info("Stopped server with id " + this.server);
     }
 
     @Override
     public void delete() {
         super.delete();
-        if (this.serverId == null) {
+        if (this.server == null) {
             log.warn("Server has not been started yet");
             return;
         }
@@ -300,9 +301,20 @@ public class Compute extends tosca.nodes.Compute {
             this.floatingIPApi.delete(floatingIP.getId());
         }
         this.createdFloatingIPs.clear();
-        this.serverApi.delete(this.serverId);
-        log.info("Deleted server with id " + this.serverId);
-        this.serverId = null;
+        String serverId = this.server.getId();
+        this.serverApi.delete(this.server.getId());
+        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+            boolean isDeleted = Server.Status.DELETED.equals(server.getStatus());
+            if (!isDeleted) {
+                log.info("Compute [{}]: Waiting for server [{}] to be deleted, current state [{}]", getId(), server.getId(), server.getStatus());
+                server = serverApi.get(server.getId());
+                return server == null;
+            } else {
+                return true;
+            }
+        }, 2, TimeUnit.SECONDS);
+        log.info("Deleted server with id " + serverId);
+        this.server = null;
         this.removeAttribute("ip_address");
         this.removeAttribute("provider_resource_id");
         this.removeAttribute("provider_resource_name");

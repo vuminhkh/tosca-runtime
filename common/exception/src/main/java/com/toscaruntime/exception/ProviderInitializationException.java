@@ -1,6 +1,9 @@
 package com.toscaruntime.exception;
 
-public class ProviderInitializationException extends NonRecoverableException {
+/**
+ * Provider cannot be initialized
+ */
+public class ProviderInitializationException extends DeploymentException {
 
     public ProviderInitializationException(String message) {
         super(message);

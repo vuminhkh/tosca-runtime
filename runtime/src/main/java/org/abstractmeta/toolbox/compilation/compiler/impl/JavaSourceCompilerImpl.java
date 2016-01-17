@@ -19,6 +19,7 @@ package org.abstractmeta.toolbox.compilation.compiler.impl;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,9 +43,6 @@ import org.abstractmeta.toolbox.compilation.compiler.util.ClassPathUtil;
 import org.abstractmeta.toolbox.compilation.compiler.util.URIUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
-import com.google.common.io.Files;
 
 /**
  * Provides implementation of JavaSourceCompiler interface.
@@ -107,7 +105,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
         Collection<String> compilationOptions = buildOptions(compilationUnit, result, options);
         JavaCompiler.CompilationTask task = compiler.getTask(null, javaFileManager, diagnostics, compilationOptions, null, sources);
         task.call();
-        List<Diagnostic<? extends JavaFileObject>> errors = Lists.newArrayList();
+        List<Diagnostic<? extends JavaFileObject>> errors = new ArrayList<>();
         for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
             if (diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
                 errors.add(diagnostic);
@@ -202,7 +200,7 @@ public class JavaSourceCompilerImpl implements JavaSourceCompiler {
                 }
             }
             try {
-                Files.write(JavaCodeFileObject.class.cast(javaFileObject).getByteCode(), compiledClassFile);
+                Files.write(compiledClassFile.toPath(), JavaCodeFileObject.class.cast(javaFileObject).getByteCode());
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to write to file " + compiledClassFile, e);
             }

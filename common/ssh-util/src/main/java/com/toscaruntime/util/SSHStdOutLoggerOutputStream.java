@@ -1,12 +1,11 @@
 package com.toscaruntime.util;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
-
-import com.google.common.collect.Maps;
 
 /**
  * An output stream which take a logger and log everything with it. It also captures environment variables
@@ -25,7 +24,7 @@ public class SSHStdOutLoggerOutputStream extends SSHOutputStream {
 
     private String endOfOutputToken;
 
-    private Map<String, String> capturedEnvVars = Maps.newHashMap();
+    private Map<String, String> capturedEnvVars = new HashMap<>();
 
     public SSHStdOutLoggerOutputStream(String operationName, String scriptName, Logger logger, String endOfOutputToken) {
         this.operationName = operationName;

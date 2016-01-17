@@ -1,7 +1,7 @@
 package com.toscaruntime.rest.client
 
 import java.io.{FileWriter, PrintStream}
-import java.net.{MalformedURLException, URL}
+import java.net.URL
 import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.github.dockerjava.api.DockerClient
@@ -10,7 +10,7 @@ import com.github.dockerjava.api.model._
 import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContainerResultCallback}
 import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
-import com.toscaruntime.exception.ResourcesNotFoundException
+import com.toscaruntime.exception.DaemonResourcesNotFoundException
 import com.toscaruntime.rest.model.DeploymentInfo
 import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.impl.ConfigImpl
@@ -68,12 +68,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
 
   def getBootstrapAgentURL(deploymentId: String) = {
     getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
-      var daemonHost = "localhost"
-      try {
-        daemonHost = new URL(url).getHost
-      } catch {
-        case e: MalformedURLException => logger.info(s"Get bootstrap agent encountered [${e.getMessage}] for [$url], will use localhost as agent url")
-      }
+      val daemonHost = DockerUtil.getDockerHostIP(url)
       val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPort
       s"http://$daemonHost:$port/deployment"
     }
@@ -183,7 +178,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   def deleteDeploymentImage(deploymentId: String) = {
     getAgentImage(deploymentId).map { agentImage =>
       dockerClient.removeImageCmd(agentImage.getId).exec()
-    }.orElse(throw new ResourcesNotFoundException(s"Deployment image $deploymentId not found"))
+    }.orElse(throw new DaemonResourcesNotFoundException(s"Deployment image $deploymentId not found"))
   }
 
   def cleanDanglingImages() = {
@@ -194,7 +189,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   private def createAgent(deploymentId: String, labels: Map[String, String], bootstrapContext: Map[String, Any]) = {
-    val deploymentImageId = getAgentImage(deploymentId).getOrElse(throw new ResourcesNotFoundException(s"Deployment image $deploymentId not found")).getId
+    val deploymentImageId = getAgentImage(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException(s"Deployment image $deploymentId not found")).getId
     val labels = Maps.newHashMap[String, String]()
     labels.put(RuntimeConstant.ORGANIZATION_LABEL, RuntimeConstant.ORGANIZATION_VALUE)
     labels.put(RuntimeConstant.DEPLOYMENT_ID_LABEL, deploymentId)
@@ -259,7 +254,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def tailLog(deploymentId: String, output: PrintStream) = {
-    val containerId = getAgent(deploymentId).getOrElse(throw new ResourcesNotFoundException("Deployment " + deploymentId + " not found")).getId
+    val containerId = getAgent(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException("Deployment " + deploymentId + " not found")).getId
     tailContainerLog(containerId, output)
   }
 

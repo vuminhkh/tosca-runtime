@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * A composite action is an action that holds multiple nested actions
+ *
  * @author Minh Khang VU
  */
 public abstract class CompositeAction implements Action {

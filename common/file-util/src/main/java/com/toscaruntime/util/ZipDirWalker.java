@@ -10,8 +10,6 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.google.common.io.Closeables;
-
 public class ZipDirWalker extends SimpleFileVisitor<Path> {
 
     private Path inputPath;
@@ -46,7 +44,10 @@ public class ZipDirWalker extends SimpleFileVisitor<Path> {
 
     @Override
     public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-        Closeables.close(zipOutputStream, true);
+        try {
+            zipOutputStream.close();
+        } catch (IOException ignored) {
+        }
         throw exc;
     }
 }

@@ -38,13 +38,21 @@ object BootStrapCommand {
     val target = argsMap.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET)
     val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
     val bootstrapInputPath = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("inputs.yml")
+    val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(target)
+
+    if (!Files.exists(bootstrapInputPath)) {
+      println(s"WARNING: No input found at [$bootstrapInputPath] for provider [$providerName] and target [$target]")
+      println(s"WARNING: It's either bad practice or the bootstrap operation will fail due to missing inputs")
+    }
     if (!Files.exists(bootstrapTopology)) {
-      println(s"Invalid target $target, no topology found at [$bootstrapTopology]")
+      println(s"Invalid provider [$providerName] or target [$target], no topology found at [$bootstrapTopology]")
+      fail = true
+    } else if(!Files.exists(providerConfigurationPath)) {
+      println(s"Provider configuration is missing for [$providerName] or target [$target]")
       fail = true
     } else {
       val compilationResult = Compiler.assembly(bootstrapTopology, outputPath, basedir.resolve("repository"))
       if (compilationResult.isSuccessful) {
-        val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(target)
         val image = client.createBootstrapImage(
           providerName,
           outputPath,

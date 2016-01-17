@@ -1,10 +1,10 @@
 package tosca.nodes;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
-import com.google.common.collect.Maps;
 import com.toscaruntime.sdk.AbstractRuntimeType;
 
 /**
@@ -15,7 +15,7 @@ public abstract class Compute extends Root {
     public abstract Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs);
 
     public Map<String, String> getHostDeploymentArtifacts() {
-        Map<String, String> allArtifacts = Maps.newHashMap();
+        Map<String, String> allArtifacts = new HashMap<>();
         Queue<AbstractRuntimeType> childrenQueue = new LinkedList<>();
         childrenQueue.add(this);
         while (!childrenQueue.isEmpty()) {

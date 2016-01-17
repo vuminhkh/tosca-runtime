@@ -15,7 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.ToscaRuntimeException;
+import com.toscaruntime.exception.WorkflowExecutionException;
 import com.toscaruntime.sdk.workflow.Parallel;
 import com.toscaruntime.sdk.workflow.Sequence;
 import com.toscaruntime.sdk.workflow.Task;
@@ -113,12 +114,10 @@ public abstract class Deployment {
                     tosca.relationships.Root relationshipInstance = relationshipType.newInstance();
                     relationshipInstance.setSource(sourceInstance);
                     relationshipInstance.setTarget(targetInstance);
-                    relationshipInstance.setAttribute("tosca_id", "rel_" + relationshipInstance.getSource().getId() + "_to_" + relationshipInstance.getTarget().getId());
-                    relationshipInstance.setAttribute("tosca_name", "rel_" + relationshipInstance.getSource().getName() + "_to_" + relationshipInstance.getTarget().getName());
                     relationshipInstances.add(relationshipInstance);
                     relationshipNode.getRelationshipInstances().add(relationshipInstance);
                 } catch (InstantiationException | IllegalAccessException e) {
-                    throw new NonRecoverableException("Could not create relationship instance of type " + relationshipType.getName(), e);
+                    throw new ToscaRuntimeException("Could not create relationship instance of type " + relationshipType.getName(), e);
                 }
             }
         }
@@ -211,22 +210,26 @@ public abstract class Deployment {
         while (waitForCreatedQueueSize > 0 || waitForStartedQueueSize > 0) {
             installSequence.getActionList().add(buildInstallWorkflowStep(waitForCreatedQueue, waitForStartedQueue));
             if (waitForCreatedQueue.size() >= waitForCreatedQueueSize && waitForStartedQueue.size() >= waitForStartedQueueSize) {
-                throw new NonRecoverableException("Detected cyclic dependencies in topology");
+                throw new ToscaRuntimeException("Detected cyclic dependencies in topology");
             } else {
                 waitForStartedQueueSize = waitForStartedQueue.size();
                 waitForCreatedQueueSize = waitForCreatedQueue.size();
             }
         }
-        TaskExecutorFactory.getSequenceExecutor().execute(installSequence);
-        log.info("Finished to run install workflow");
-        Map<String, Object> outputs = getOutputs();
-        if (outputs != null && !outputs.isEmpty()) {
-            log.info("Deployment produced following outputs:");
-            for (Map.Entry<String, Object> outputEntry : outputs.entrySet()) {
-                log.info(outputEntry.getKey() + " : " + PropertyUtil.propertyValueToString(outputEntry.getValue()));
+        try {
+            TaskExecutorFactory.getSequenceExecutor().execute(installSequence);
+            log.info("Finished to run install workflow");
+            Map<String, Object> outputs = getOutputs();
+            if (outputs != null && !outputs.isEmpty()) {
+                log.info("Deployment produced following outputs:");
+                for (Map.Entry<String, Object> outputEntry : outputs.entrySet()) {
+                    log.info(outputEntry.getKey() + " : " + PropertyUtil.propertyValueToString(outputEntry.getValue()));
+                }
+            } else {
+                log.info("Deployment does not have any output");
             }
-        } else {
-            log.info("Deployment does not have any output");
+        } catch (WorkflowExecutionException e) {
+            log.error("Workflow install execution failed", e);
         }
     }
 
@@ -322,7 +325,7 @@ public abstract class Deployment {
         while (waitForStoppedQueueSize > 0 || waitForDeletedQueueSize > 0) {
             uninstallSequence.getActionList().add(buildUnInstallWorkflowStep(waitForStoppedQueue, waitForDeletedQueue));
             if (waitForStoppedQueue.size() >= waitForStoppedQueueSize && waitForDeletedQueue.size() >= waitForDeletedQueueSize) {
-                throw new NonRecoverableException("Detected cyclic dependencies in topology");
+                throw new ToscaRuntimeException("Detected cyclic dependencies in topology");
             } else {
                 waitForDeletedQueueSize = waitForDeletedQueue.size();
                 waitForStoppedQueueSize = waitForStoppedQueue.size();

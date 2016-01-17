@@ -1,6 +1,6 @@
 package com.toscaruntime.sdk.workflow;
 
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.ToscaRuntimeException;
 
 public class TaskExecutorFactory {
 
@@ -31,7 +31,7 @@ public class TaskExecutorFactory {
         } else if (action instanceof Task) {
             return (Executor<T>) TASK_EXECUTOR;
         } else {
-            throw new NonRecoverableException("Action of type [" + action.getClass() + "] is not supported");
+            throw new ToscaRuntimeException("Action of type [" + action.getClass() + "] is not supported");
         }
     }
 }

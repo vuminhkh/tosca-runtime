@@ -1,5 +1,7 @@
 package com.toscaruntime.util;
 
+import java.util.concurrent.TimeUnit;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,6 +27,39 @@ public class RetryUtil {
             }
         }
         return false;
+    }
+
+    public interface Predicate {
+
+        boolean isSatisfied();
+    }
+
+    public static boolean waitUntilPredicateIsSatisfied(Predicate predicate, long coolDown, TimeUnit timeUnit) {
+        return waitUntilPredicateIsSatisfied(predicate, coolDown, -1, timeUnit);
+    }
+
+    public static boolean waitUntilPredicateIsSatisfied(Predicate predicate, long coolDown, long timeout, TimeUnit timeUnit) {
+        long before = System.currentTimeMillis();
+        long maxWait;
+        if (timeout > 0) {
+            maxWait = before + timeUnit.toMillis(timeout);
+        } else {
+            maxWait = Long.MAX_VALUE;
+        }
+        while (true) {
+            if (predicate.isSatisfied()) {
+                return true;
+            } else {
+                if (System.currentTimeMillis() > maxWait) {
+                    return false;
+                }
+                try {
+                    Thread.sleep(timeUnit.toMillis(coolDown));
+                } catch (InterruptedException e) {
+                    return false;
+                }
+            }
+        }
     }
 
     @SafeVarargs

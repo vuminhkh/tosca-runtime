@@ -1,6 +1,9 @@
 package com.toscaruntime.exception;
 
-public class PropertyAccessException extends NonRecoverableException {
+/**
+ * Cannot access to property value of a deployment
+ */
+public class PropertyAccessException extends DeploymentException {
 
     public PropertyAccessException(String message) {
         super(message);

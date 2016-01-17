@@ -2,6 +2,10 @@ package com.toscaruntime.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -16,8 +20,15 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.google.common.collect.Maps;
+import com.toscaruntime.exception.OperationExecutionException;
 
 public class DockerUtil {
+
+    public static final String DEFAULT_DOCKER_URL = "unix:///var/run/docker.sock";
+
+    public static final String DOCKER_URL_KEY = "docker.io.url";
+
+    public static final String DOCKER_CERT_PATH_KEY = "docker.io.dockerCertPath";
 
     static {
         // TODO more elegant way to handle connection limit for the docker client ?
@@ -31,11 +42,24 @@ public class DockerUtil {
         return DockerClientBuilder.getInstance(config).build();
     }
 
+    public static DockerClient buildDockerClient() {
+        return DockerClientBuilder.getInstance().build();
+    }
+
+    public static String getDockerURL(Map<String, String> providerProperties) {
+        return providerProperties.getOrDefault(DOCKER_URL_KEY, DEFAULT_DOCKER_URL);
+    }
+
+    public static String getDockerHostIP(Map<String, String> providerProperties) {
+        String dockerURL = getDockerURL(providerProperties);
+        return getDockerHostIP(dockerURL);
+    }
+
     public static DockerClient buildDockerClient(String url, String certPath) {
         Map<String, String> providerProperties = Maps.newHashMap();
-        providerProperties.put("docker.io.url", url);
+        providerProperties.put(DOCKER_URL_KEY, url);
         if (StringUtils.isNotBlank(certPath)) {
-            providerProperties.put("docker.io.dockerCertPath", certPath);
+            providerProperties.put(DOCKER_CERT_PATH_KEY, certPath);
         }
         return buildDockerClient(providerProperties);
     }
@@ -74,12 +98,27 @@ public class DockerUtil {
                 lines.forEach(log::log);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Script " + commands + " exec encountered error while reading for output ", e);
+            throw new OperationExecutionException("Script " + commands + " exec encountered error while reading for output ", e);
         }
         InspectExecResponse response = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
         int exitStatus = response.getExitCode();
         if (exitStatus != 0) {
-            throw new RuntimeException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
+            throw new OperationExecutionException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
+        }
+    }
+
+    /**
+     * Retrieve the docker host from the URL
+     *
+     * @param url url of docker
+     * @return the ip address of the docker host
+     */
+    public static String getDockerHostIP(String url) {
+        try {
+            URL parsed = new URL(url);
+            return InetAddress.getByName(parsed.getHost()).getHostAddress();
+        } catch (MalformedURLException | UnknownHostException e) {
+            return "127.0.0.1";
         }
     }
 }

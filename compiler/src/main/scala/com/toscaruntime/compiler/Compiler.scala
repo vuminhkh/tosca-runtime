@@ -55,6 +55,13 @@ object Compiler extends LazyLogging {
     } else None
   }
 
+  def resolveDependency(csarName: String,
+                        csarVersion: String,
+                        repository: Path) = {
+    val dependencyResolver = resolveDependenciesForCompilationWithRepository(repository)
+    dependencyResolver(csarName + ":" + csarVersion, None).map(_._2)
+  }
+
   def compile(csarName: String,
               csarVersion: String,
               repository: Path): CompilationResult = {

@@ -29,10 +29,14 @@ node_types:
         type: integer
         default: 22
       networks:
-        type: string
+        type: list
+        entry_schema:
+          type: string
         required: false
       security_group_names:
-        type: string
+        type: list
+        entry_schema:
+          type: string
         required: false
       availability_zone:
         type: string
@@ -46,6 +50,12 @@ node_types:
 
   com.toscaruntime.openstack.nodes.Network:
     derived_from: tosca.nodes.Network
+    properties:
+      dns_name_servers:
+        type: list
+        entry_schema:
+          type: string
+        required: false
 
   com.toscaruntime.openstack.nodes.ExternalNetwork:
     derived_from: tosca.nodes.Network

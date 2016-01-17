@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.{BadConfigurationException, ResourcesNotFoundException}
+import com.toscaruntime.exception.{BadClientConfigurationException, DaemonResourcesNotFoundException}
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.JsObject
@@ -47,7 +47,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   private def getDeploymentAgentURL(deploymentId: String) = {
-    proxyURLOpt.map(_ + "/deployments/" + deploymentId).getOrElse(daemonClient.getBootstrapAgentURL(deploymentId).getOrElse(throw new ResourcesNotFoundException("Deployment agent " + deploymentId + " is not running")))
+    proxyURLOpt.map(_ + "/deployments/" + deploymentId).getOrElse(daemonClient.getBootstrapAgentURL(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException("Deployment agent " + deploymentId + " is not running")))
   }
 
   def listDeploymentAgents() = {
@@ -98,7 +98,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   def updateBootstrapContext(context: Map[String, String]) = {
-    val proxyUrl = proxyURLOpt.getOrElse(throw new BadConfigurationException("Try to update bootstrap context but proxy url not configured"))
+    val proxyUrl = proxyURLOpt.getOrElse(throw new BadClientConfigurationException("Try to update bootstrap context but proxy url not configured"))
     wsClient.url(proxyUrl + "/context").post(JSONMapStringAnyFormat.convertMapToJsValue(context))
   }
 

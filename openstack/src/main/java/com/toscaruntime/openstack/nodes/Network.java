@@ -1,6 +1,7 @@
 package com.toscaruntime.openstack.nodes;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,9 +17,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.toscaruntime.exception.ResourcesNotFoundException;
+import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.openstack.util.NetworkUtil;
 import com.toscaruntime.util.RetryUtil;
 
+@SuppressWarnings("unchecked")
 public class Network extends tosca.nodes.Network {
 
     private static final Logger log = LoggerFactory.getLogger(Network.class);
@@ -80,47 +83,56 @@ public class Network extends tosca.nodes.Network {
         this.createdRouters.add(router);
     }
 
+    private void initializeWithExistingNetwork(org.jclouds.openstack.neutron.v2.domain.Network existing) {
+        this.networkId = existing.getId();
+        if (existing.getSubnets() != null && !existing.getSubnets().isEmpty()) {
+            this.subnetId = existing.getSubnets().iterator().next();
+        } else {
+            throw new ProviderResourcesNotFoundException("Network " + networkId + " does not have any subnet");
+        }
+        setAttribute("provider_resource_name", existing.getName());
+    }
+
     @Override
     public void create() {
         super.create();
         String networkId = getPropertyAsString("network_id");
-        String dnsNameServers = getPropertyAsString("dns_name_servers");
+        List<String> dnsNameServers = (List<String>) getProperty("dns_name_servers");
         if (StringUtils.isBlank(networkId)) {
             String networkName = getMandatoryPropertyAsString("network_name");
-            String cidr = getPropertyAsString("cidr");
-            int ipVersion = Integer.parseInt(getPropertyAsString("ip_version", "4"));
-            this.createdNetwork = networkApi.create(org.jclouds.openstack.neutron.v2.domain.Network.createBuilder(networkName).build());
-            this.networkId = this.createdNetwork.getId();
-            Subnet.CreateBuilder subnetCreateBuilder =
-                    Subnet.createBuilder(this.createdNetwork.getId(), cidr)
-                            .ipVersion(ipVersion)
-                            .name(networkName + "-Subnet");
-            if (StringUtils.isNotBlank(dnsNameServers)) {
-                subnetCreateBuilder.dnsNameServers(ImmutableSet.copyOf(dnsNameServers.trim().split("\\s*,\\s*")));
+            org.jclouds.openstack.neutron.v2.domain.Network existing = NetworkUtil.findNetworkByName(networkApi, networkName, false);
+            if (existing != null) {
+                initializeWithExistingNetwork(existing);
+            } else {
+                String cidr = getPropertyAsString("cidr");
+                int ipVersion = Integer.parseInt(getPropertyAsString("ip_version", "4"));
+                this.createdNetwork = networkApi.create(org.jclouds.openstack.neutron.v2.domain.Network.createBuilder(networkName).build());
+                this.networkId = this.createdNetwork.getId();
+                Subnet.CreateBuilder subnetCreateBuilder =
+                        Subnet.createBuilder(this.createdNetwork.getId(), cidr)
+                                .ipVersion(ipVersion)
+                                .name(networkName + "-Subnet");
+                if (dnsNameServers != null) {
+                    subnetCreateBuilder.dnsNameServers(ImmutableSet.copyOf(dnsNameServers));
+                }
+                this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
+                this.subnetId = this.createdSubnet.getId();
+                // Check that we won't create twice router for the same external network
+                if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.containsKey(externalNetworkId)) {
+                    // If no external network is found then use the default one if configured
+                    createRouter(networkName + "-Router", externalNetworkId);
+                }
+                for (ExternalNetwork externalNetwork : externalNetworks.values()) {
+                    createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId());
+                }
+                setAttribute("provider_resource_name", networkName);
             }
-            this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
-            this.subnetId = this.createdSubnet.getId();
-            // Check that we won't create twice router for the same external network
-            if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.containsKey(externalNetworkId)) {
-                // If no external network is found then use the default one if configured
-                createRouter(networkName + "-Router", externalNetworkId);
-            }
-            for (ExternalNetwork externalNetwork : externalNetworks.values()) {
-                createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getMandatoryPropertyAsString("network_id"));
-            }
-            setAttribute("provider_resource_name", networkName);
         } else {
             org.jclouds.openstack.neutron.v2.domain.Network existing = networkApi.get(networkId);
             if (existing == null) {
-                throw new ResourcesNotFoundException("Network not found " + networkId);
+                throw new ProviderResourcesNotFoundException("Network not found " + networkId);
             }
-            this.networkId = existing.getId();
-            if (existing.getSubnets() != null && !existing.getSubnets().isEmpty()) {
-                this.subnetId = existing.getSubnets().iterator().next();
-            } else {
-                throw new ResourcesNotFoundException("Network " + networkId + " does not have any subnet");
-            }
-            setAttribute("provider_resource_name", existing.getName());
+            initializeWithExistingNetwork(existing);
         }
         setAttribute("provider_resource_id", this.networkId);
         log.info("Created network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
@@ -136,29 +148,29 @@ public class Network extends tosca.nodes.Network {
                     routerApi.delete(router.getId());
                 }
                 return null;
-            }, "delete routers", 3, 2000L, Throwable.class);
+            }, "delete routers", 30, 2000L, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete routers " + createdRouters, e);
         }
-        try {
-            RetryUtil.doActionWithRetry(() -> {
-                if (createdSubnet != null) {
+        if (createdSubnet != null) {
+            try {
+                RetryUtil.doActionWithRetry(() -> {
                     subnetApi.delete(createdSubnet.getId());
-                }
-                return null;
-            }, "delete subnet " + createdSubnet.getName(), 3, 2000L, Throwable.class);
-        } catch (Throwable e) {
-            log.warn("Could not delete subnet " + this.createdSubnet, e);
+                    return null;
+                }, "delete subnet " + createdSubnet.getName(), 30, 2000L, Throwable.class);
+            } catch (Throwable e) {
+                log.warn("Could not delete subnet " + this.createdSubnet, e);
+            }
         }
-        try {
-            RetryUtil.doActionWithRetry(() -> {
-                if (createdNetwork != null) {
+        if (createdNetwork != null) {
+            try {
+                RetryUtil.doActionWithRetry(() -> {
                     networkApi.delete(createdNetwork.getId());
-                }
-                return null;
-            }, "delete network " + createdNetwork.getName(), 3, 2000L, Throwable.class);
-        } catch (Throwable e) {
-            log.warn("Could not delete network " + this.createdNetwork, e);
+                    return null;
+                }, "delete network " + createdNetwork.getName(), 30, 2000L, Throwable.class);
+            } catch (Throwable e) {
+                log.warn("Could not delete network " + this.createdNetwork, e);
+            }
         }
         log.info("Deleted network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
     }

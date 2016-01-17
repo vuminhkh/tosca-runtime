@@ -1,8 +1,8 @@
 package com.toscaruntime.util;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-import com.google.common.collect.Lists;
 
 /**
  * Utilities to evaluate functions
@@ -20,7 +20,7 @@ public class FunctionUtil {
     }
 
     public static String[] setEntityToSelf(String[] paths) {
-        List<String> newPaths = Lists.newArrayList(paths);
+        List<String> newPaths = new ArrayList<>(Arrays.asList(paths));
         newPaths.set(0, "SELF");
         return newPaths.toArray(new String[newPaths.size()]);
     }

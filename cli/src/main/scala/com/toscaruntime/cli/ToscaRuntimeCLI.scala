@@ -7,7 +7,7 @@ import java.util.function.{Consumer, Predicate}
 import com.toscaruntime.cli.command._
 import com.toscaruntime.cli.util.CompilationUtil
 import com.toscaruntime.compiler.Compiler
-import com.toscaruntime.exception.BadConfigurationException
+import com.toscaruntime.exception.BadClientConfigurationException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import sbt._
 
@@ -34,7 +34,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       val daemonUrlSystemProperty = "toscaruntime.docker.daemon.url"
       System.getProperty(daemonUrlSystemProperty) match {
         case url: String =>
-          println(s"Using daemon url configured from system property $daemonUrlSystemProperty")
+          println(s"Using daemon url configured from system property [$daemonUrlSystemProperty]")
           val cert = System.getProperty("toscaruntime.docker.daemon.cert")
           UseCommand.switchConfiguration(url, cert, basedir)
           new ToscaRuntimeClient(url, cert)
@@ -49,13 +49,13 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
               // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
               UseCommand.switchConfiguration(url, certificatePath, basedir)
             }
-            println(s"Using docker daemon with url <$url> and certificate at <$certificatePath>")
+            println(s"Using docker daemon with url [$url] and certificate at [$certificatePath]")
             new ToscaRuntimeClient(url, certificatePath)
           case other: String =>
-            println(s"Using default docker daemon configuration for $other")
+            println(s"Using default docker daemon configuration for [$other]")
             val url = "unix:///var/run/docker.sock"
             UseCommand.switchConfiguration(url, null, basedir)
-            println(s"Using docker daemon with url <$url> and no certificate")
+            println(s"Using docker daemon with url [$url] and no certificate")
             new ToscaRuntimeClient(url, null)
         }
       }
@@ -67,7 +67,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val compilationResult = Compiler.install(path, repositoryDir)
     CompilationUtil.showErrors(compilationResult)
     if (!compilationResult.isSuccessful) {
-      throw new BadConfigurationException(s"Csar compilation failed for $path")
+      throw new BadClientConfigurationException(s"Csar compilation failed for $path")
     } else {
       println(s"Installed csar ${path.getFileName} to repository $repositoryDir")
     }

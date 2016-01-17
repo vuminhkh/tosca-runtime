@@ -21,6 +21,7 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
     @Override
     public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
         DockerClient dockerClient = DockerUtil.buildDockerClient(providerProperties);
+        String dockerHostIP = DockerUtil.getDockerHostIP(providerProperties);
         Set<Container> containers = deployment.getNodeInstancesByType(Container.class);
         // This is the default network that the container must be connected to in order to be able to communicate with others
         // This property is set if docker daemon has been bootstrapped as a swarm cluster
@@ -37,6 +38,7 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
             container.setBootstrapNetworkName(dockerNetworkName);
             Set<Network> connectedNetworks = deployment.getNodeInstancesByRelationship(container.getId(), tosca.relationships.Network.class, Network.class);
             container.setNetworks(connectedNetworks);
+            container.setDockerHostIP(dockerHostIP);
         }
         Set<Network> networks = deployment.getNodeInstancesByType(Network.class);
         for (Network network : networks) {

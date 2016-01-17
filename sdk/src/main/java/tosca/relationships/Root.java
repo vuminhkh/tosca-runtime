@@ -3,7 +3,7 @@ package tosca.relationships;
 import java.util.Map;
 
 import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.sdk.AbstractRuntimeType;
 import com.toscaruntime.util.FunctionUtil;
 
@@ -41,21 +41,21 @@ public abstract class Root extends AbstractRuntimeType {
                 } else if (operationName.endsWith("_target")) {
                     return executeTargetOperation(operationArtifactPath, inputs);
                 } else {
-                    throw new NonRecoverableException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
+                    throw new ToscaRuntimeException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
                 }
         }
     }
 
     protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (source == null || source.getHost() == null) {
-            throw new NonRecoverableException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
+            throw new ToscaRuntimeException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
         return source.getHost().execute(source.getId(), operationArtifactPath, inputs);
     }
 
     protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (target == null) {
-            throw new NonRecoverableException("The relationship's target is not hosted on a compute, operation cannot be executed");
+            throw new ToscaRuntimeException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
         return target.getHost().execute(target.getId(), operationArtifactPath, inputs);
     }

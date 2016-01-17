@@ -14,6 +14,7 @@ val commonSettings: Seq[Setting[_]] = Seq(
   ),
   parallelExecution in Test := false,
   parallelExecution in IntegrationTest := false,
+  parallelExecution in ThisBuild := false,
   fork in Test := false,
   javacOptions in doc := Seq("-source", "1.8"),
   scalacOptions ++= Seq(
@@ -45,15 +46,18 @@ lazy val root = project.in(file("."))
   ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
-  "junit" % "junit" % "4.12" % "test",
+  "junit" % "junit" % "4.12" % Test,
+  "com.novocode" % "junit-interface" % "0.11" % Test exclude("junit", "junit-dep")
+)
+
+val scalaTestDependencies: Seq[ModuleID] = Seq(
   "org.scalatestplus" % "play_2.11" % "1.4.0-M4" % "test"
 )
 
 val commonDependencies: Seq[ModuleID] = Seq(
   "commons-lang" % "commons-lang" % "2.6",
   "org.slf4j" % "slf4j-api" % "1.7.12",
-  "ch.qos.logback" % "logback-classic" % "1.1.3",
-  "com.google.guava" % "guava" % "18.0"
+  "ch.qos.logback" % "logback-classic" % "1.1.3"
 )
 
 lazy val common = project
@@ -124,6 +128,7 @@ lazy val restModel = project.in(file("common/rest-model"))
   .settings(
     name := "rest-model",
     libraryDependencies ++= testDependencies,
+    libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ).enablePlugins(UniversalPlugin)
@@ -141,6 +146,7 @@ lazy val compiler = project
   .settings(
     name := "compiler",
     libraryDependencies ++= testDependencies,
+    libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "com.typesafe" % "config" % "1.3.0"
@@ -151,6 +157,7 @@ lazy val runtime = project
   .settings(
     name := "runtime",
     libraryDependencies ++= testDependencies,
+    libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
     sources in doc in Compile := List()
   ).dependsOn(sdk, compiler % "test->test;test->compile", docker % "test").enablePlugins(UniversalPlugin)
@@ -201,6 +208,7 @@ lazy val openstack = project
     libraryDependencies += "org.apache.jclouds.api" % "openstack-nova" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-cinder" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1",
+    libraryDependencies ++= testDependencies,
     mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
       val dir = base / "src" / "main"
       dir.*** pair relativeTo(base)

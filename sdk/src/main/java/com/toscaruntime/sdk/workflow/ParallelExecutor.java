@@ -9,7 +9,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.WorkflowExecutionException;
 
 public class ParallelExecutor implements Executor<Parallel> {
 
@@ -24,7 +24,7 @@ public class ParallelExecutor implements Executor<Parallel> {
             public Thread newThread(Runnable r) {
                 Thread t = new Thread(r);
                 t.setDaemon(true);
-                t.setName("WorkflowThread" + count.incrementAndGet());
+                t.setName("WorkflowThread_" + count.incrementAndGet());
                 return t;
             }
         });
@@ -45,7 +45,7 @@ public class ParallelExecutor implements Executor<Parallel> {
             try {
                 future.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new NonRecoverableException("Encounter error while executing task in parallel", e);
+                throw new WorkflowExecutionException("Encounter error while executing task in parallel", e);
             }
         }
     }

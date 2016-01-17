@@ -1,6 +1,6 @@
 package com.toscaruntime.cli.command
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.cli.parser.Parsers
 import com.toscaruntime.cli.util.{CompilationUtil, DeployUtil, TabulatorUtil}
@@ -62,6 +62,26 @@ object DeploymentsCommand {
     """.stripMargin
   )
 
+  def getTopologyPath(createArgs: Map[String, Any], repository: Path): Option[Path] = {
+    if (createArgs.contains(topologyPathOpt) && createArgs.contains(csarOpt)) {
+      println(s"Only one of $topologyPathOpt or $csarOpt is required to create a deployment")
+      return None
+    }
+    if (createArgs.contains(topologyPathOpt)) {
+      val topologyPath = createArgs(topologyPathOpt).asInstanceOf[String]
+      if (!Files.exists(Paths.get(topologyPath))) {
+        println(s"Topology file $topologyPath do not exist")
+        return None
+      }
+    }
+    if (createArgs.contains(csarOpt)) {
+      return createArgs.get(csarOpt).flatMap {
+        case (csarName: String, csarVersion: String) => Compiler.resolveDependency(csarName, csarVersion, repository)
+      }
+    }
+    None
+  }
+
   lazy val instance = Command(commandName, deploymentActionsHelp)(_ => deploymentsArgsParser) { (state, args) =>
 
     val client = state.attributes.get(Attributes.clientAttribute).get
@@ -84,13 +104,11 @@ object DeploymentsCommand {
         val repository = basedir.resolve("repository")
         val workDir = basedir.resolve("work")
         val createArgs = createOpts.toMap
-        if (createArgs.contains(topologyPathOpt) && createArgs.contains(csarOpt)) {
+        val topologyPathOpt = getTopologyPath(createArgs, repository)
+        if (topologyPathOpt.isEmpty) {
           fail = true
         } else {
-          val topologyPathFromCsar = createArgs.get(csarOpt).map {
-            case (csarName: String, csarVersion: String) => repository.resolve(csarName).resolve(csarVersion)
-          }
-          val topologyPath = createArgs.get(topologyPathOpt).map(t => Paths.get(t.asInstanceOf[String])).getOrElse(topologyPathFromCsar.get)
+          val topologyPath = topologyPathOpt.get
           val deploymentWorkDir = workDir.resolve(deploymentId)
           if (Files.exists(deploymentWorkDir)) {
             FileUtil.delete(deploymentWorkDir)

@@ -12,6 +12,7 @@ import com.github.dockerjava.api.command.CreateNetworkCmd;
 import com.github.dockerjava.api.model.NetworkFilters;
 import com.github.dockerjava.api.model.NetworkIPAM;
 import com.toscaruntime.exception.PropertyRequiredException;
+import com.toscaruntime.exception.ProviderResourcesNotFoundException;
 
 /**
  * Docker network implementation
@@ -51,6 +52,9 @@ public class Network extends tosca.nodes.Network {
         networkName = getPropertyAsString("network_name");
         com.github.dockerjava.api.model.Network existing = findNetwork(networkId, networkName);
         if (existing == null) {
+            if (!StringUtils.isEmpty(networkId)) {
+                throw new ProviderResourcesNotFoundException("Network [" + getId() + "] provider resource id [" + networkId + "] does not exist");
+            }
             if (StringUtils.isEmpty(networkName)) {
                 throw new PropertyRequiredException("network_name is required to create new network");
             }

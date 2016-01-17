@@ -16,12 +16,13 @@
 package org.abstractmeta.toolbox.compilation.compiler.impl;
 
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -35,10 +36,6 @@ import javax.tools.StandardLocation;
 import org.abstractmeta.toolbox.compilation.compiler.registry.JavaFileObjectRegistry;
 import org.abstractmeta.toolbox.compilation.compiler.util.URIUtil;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
-import com.google.common.io.Files;
 
 /**
  * <p>This implementation uses the following mechanism to lookup requested class.
@@ -124,7 +121,7 @@ public class SimpleClassLoader extends ClassLoader {
             File classFile = new File(classDirectory, qualifiedClassName.replace('.', '/') + ".class");
             if (classFile.exists()) {
                 try {
-                    byte[] byteCode = Files.toByteArray(classFile);
+                    byte[] byteCode = Files.readAllBytes(classFile.toPath());
                     return defineClass(qualifiedClassName, byteCode, 0, byteCode.length);
                 } catch (IOException e) {
                     throw new IllegalStateException("Failed to read class file " + classFile, e);
@@ -144,13 +141,10 @@ public class SimpleClassLoader extends ClassLoader {
                 jarFile = jarFiles.get(i);
                 JarEntry jarEntry = jarFile.getJarEntry(internalClassName);
                 if (jarEntry != null) {
-                    InputStream inputStream = jarFile.getInputStream(jarEntry);
-                    try {
+                    try (DataInputStream inputStream = new DataInputStream(jarFile.getInputStream(jarEntry))) {
                         byte[] byteCode = new byte[(int) jarEntry.getSize()];
-                        ByteStreams.read(inputStream, byteCode, 0, byteCode.length);
+                        inputStream.readFully(byteCode);
                         return defineClass(qualifiedClassName, byteCode, 0, byteCode.length);
-                    } finally {
-                        Closeables.closeQuietly(inputStream);
                     }
                 }
             }

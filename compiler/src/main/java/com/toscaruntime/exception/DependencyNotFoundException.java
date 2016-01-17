@@ -5,7 +5,7 @@ package com.toscaruntime.exception;
  *
  * @author Minh Khang VU
  */
-public class DependencyNotFoundException extends NonRecoverableException {
+public class DependencyNotFoundException extends CompilationException {
 
     public DependencyNotFoundException(String message) {
         super(message);

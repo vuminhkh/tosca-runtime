@@ -6,7 +6,7 @@ import com.google.common.io.Closeables
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{InvalidTopologyException, NonRecoverableException, NotSupportedGenerationException}
+import com.toscaruntime.exception.{InvalidTopologyException, NotSupportedGenerationException}
 import com.toscaruntime.util.{ClassLoaderUtil, CodeGeneratorUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -152,7 +152,7 @@ object CodeGenerator extends LazyLogging {
               TypeLoader.loadRelationshipType(sourceNodeTypeName, targetNode.typeName, requirement.targetCapability.map(_.value).getOrElse(sourceNodeType.requirements.get(requirement.name).capabilityType.get.value), csarPath)
             }
             if (relationshipType.isEmpty) {
-              throw new NonRecoverableException(s"Missing relationship type for requirement ${requirement.name.value} of node $sourceNodeTypeName")
+              throw new InvalidTopologyException(s"Missing relationship type for requirement ${requirement.name.value} of node $sourceNodeTypeName")
             } else {
               if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.HostedOn", csarPath)) {
                 sourceNode.parent = Some(targetNode)

@@ -5,6 +5,7 @@ import javax.inject.Inject
 import com.github.dockerjava.api.command.InspectContainerResponse
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfo, RestResponse}
+import com.toscaruntime.util.DockerUtil
 import play.api.cache._
 import play.api.libs.json.{JsObject, JsString, Json}
 import play.api.libs.ws.WSClient
@@ -23,7 +24,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
     if (url != null && url.nonEmpty) {
       new DockerDaemonClient(url, null)
     } else {
-      new DockerDaemonClient("unix:///var/run/docker.sock", null)
+      new DockerDaemonClient(DockerUtil.DEFAULT_DOCKER_URL, null)
     }
   }
 

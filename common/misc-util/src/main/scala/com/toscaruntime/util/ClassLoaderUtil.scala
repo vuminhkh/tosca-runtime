@@ -1,8 +1,7 @@
 package com.toscaruntime.util
 
 import java.nio.file.{FileSystems, Paths}
-
-import com.google.common.collect.Maps
+import java.util
 
 /**
   * Utility to deal with class loader
@@ -26,12 +25,16 @@ object ClassLoaderUtil {
 
   def getPathForResource(resource: String) = {
     val resourcesUrl = Thread.currentThread().getContextClassLoader.getResource(resource)
-    val resourcesUri = resourcesUrl.toURI
-    if (!"file".equals(resourcesUrl.getProtocol)) {
-      val env = Maps.newHashMap[String, String]()
-      env.put("create", "true")
-      FileSystems.newFileSystem(resourcesUri, env)
+    if (resourcesUrl == null) {
+      null
+    } else {
+      val resourcesUri = resourcesUrl.toURI
+      if (!"file".equals(resourcesUrl.getProtocol)) {
+        val env = new util.HashMap[String, String]()
+        env.put("create", "true")
+        FileSystems.newFileSystem(resourcesUri, env)
+      }
+      Paths.get(resourcesUri)
     }
-    Paths.get(resourcesUri)
   }
 }

@@ -1,6 +1,9 @@
 package com.toscaruntime.exception;
 
-public class IllegalFunctionException extends NonRecoverableException {
+/**
+ * Tosca Function is invalid
+ */
+public class IllegalFunctionException extends DeploymentException {
 
     public IllegalFunctionException(String message, Throwable cause) {
         super(message, cause);

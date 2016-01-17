@@ -18,24 +18,18 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.compress.utils.Charsets;
+import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Closeables;
 
 public final class FileUtil {
-
-    private static final Logger log = LoggerFactory.getLogger(FileUtil.class);
 
     private FileUtil() {
     }
@@ -43,7 +37,7 @@ public final class FileUtil {
     static void putZipEntry(ZipOutputStream zipOutputStream, ZipEntry zipEntry, Path file) throws IOException {
         zipOutputStream.putNextEntry(zipEntry);
         try (InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
-            ByteStreams.copy(input, zipOutputStream);
+            IOUtils.copy(input, zipOutputStream);
             zipOutputStream.closeEntry();
         }
     }
@@ -73,16 +67,13 @@ public final class FileUtil {
             throw new FileNotFoundException("File not found " + inputPath);
         }
         touch(outputPath);
-        ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputPath)));
-        try {
+        try (ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputPath)))) {
             if (!Files.isDirectory(inputPath)) {
                 putZipEntry(zipOutputStream, new ZipEntry(outputPrefix + "/" + inputPath.getFileName().toString()), inputPath);
             } else {
                 Files.walkFileTree(inputPath, new ZipDirWalker(inputPath, zipOutputStream, outputPrefix));
             }
             zipOutputStream.flush();
-        } finally {
-            Closeables.close(zipOutputStream, true);
         }
     }
 
@@ -258,7 +249,7 @@ public final class FileUtil {
      * @throws IOException
      */
     public static List<Path> listFiles(final Path path, final String... extensions) throws IOException {
-        final List<Path> allFiles = Lists.newArrayList();
+        final List<Path> allFiles = new ArrayList<>();
         Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -287,7 +278,7 @@ public final class FileUtil {
      * @throws IOException
      */
     public static List<Path> listChildrenDirectories(final Path path, String... dirNameFilters) throws IOException {
-        final List<Path> allDirs = Lists.newArrayList();
+        final List<Path> allDirs = new ArrayList<>();
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
             for (Path child : directoryStream) {
                 if (Files.isDirectory(child)) {
@@ -317,7 +308,7 @@ public final class FileUtil {
         if (!Files.isDirectory(path)) {
             throw new IOException("Not a directory " + path);
         }
-        final List<String> allFiles = Lists.newArrayList();
+        final List<String> allFiles = new ArrayList<>();
         try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(path)) {
             for (Path child : directoryStream) {
                 if (Files.isDirectory(child)) {

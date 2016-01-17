@@ -27,6 +27,8 @@ import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.exception.ProviderResourcesNotFoundException;
 import com.toscaruntime.util.DockerStreamDecoder;
 import com.toscaruntime.util.DockerUtil;
 import com.toscaruntime.util.PropertyUtil;
@@ -63,6 +65,8 @@ public class Container extends Compute {
      * Those are networks explicitly defined by user in the recipe
      */
     private Set<Network> networks;
+
+    private String dockerHostIP;
 
     public String getImageId() {
         return getMandatoryPropertyAsString("image_id");
@@ -131,7 +135,7 @@ public class Container extends Compute {
     public void start() {
         super.start();
         if (containerId == null) {
-            throw new RuntimeException("Container [" + getId() + "] : Container has not been created yet");
+            throw new ProviderResourcesNotFoundException("Container [" + getId() + "] : Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Starting container with id " + containerId);
         dockerClient.startContainerCmd(containerId).exec();
@@ -165,6 +169,7 @@ public class Container extends Compute {
         }
         setAttribute("ip_addresses", ipAddresses);
         setAttribute("ip_address", ipAddress);
+        setAttribute("public_ip_address", dockerHostIP);
         setAttribute("provider_resource_id", containerId);
         setAttribute("provider_resource_name", response.getName());
         log.info("Container [" + getId() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
@@ -176,7 +181,7 @@ public class Container extends Compute {
     public void stop() {
         super.stop();
         if (containerId == null) {
-            throw new RuntimeException("Container has not been created yet");
+            throw new ProviderResourcesNotFoundException("Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
@@ -189,7 +194,7 @@ public class Container extends Compute {
     public void delete() {
         super.delete();
         if (containerId == null) {
-            throw new RuntimeException("Container has not been created yet");
+            throw new ProviderResourcesNotFoundException("Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Deleting container with id " + containerId);
         dockerClient.removeContainerCmd(containerId).exec();
@@ -261,7 +266,7 @@ public class Container extends Compute {
             });
             return envVars;
         } catch (IOException e) {
-            throw new RuntimeException("Unable to create generated script for " + operationArtifactPath, e);
+            throw new OperationExecutionException("Unable to create generated script for " + operationArtifactPath, e);
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }
@@ -293,5 +298,9 @@ public class Container extends Compute {
 
     public void setNetworks(Set<Network> networks) {
         this.networks = networks;
+    }
+
+    public void setDockerHostIP(String dockerHostIP) {
+        this.dockerHostIP = dockerHostIP;
     }
 }

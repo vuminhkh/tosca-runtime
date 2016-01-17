@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.NonRecoverableException;
+import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.sdk.AbstractRuntimeType;
 import com.toscaruntime.util.FunctionUtil;
 
@@ -90,7 +90,7 @@ public abstract class Root extends AbstractRuntimeType {
     protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, Object> inputs) {
         Compute host = getHost();
         if (host == null) {
-            throw new NonRecoverableException("Non hosted node cannot have operation");
+            throw new ToscaRuntimeException("Non hosted node cannot have operation");
         }
         return host.execute(getId(), operationArtifactPath, inputs);
     }

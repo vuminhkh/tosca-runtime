@@ -23,11 +23,35 @@ import com.toscaruntime.exception.ProviderInitializationException;
 import com.toscaruntime.openstack.nodes.Compute;
 import com.toscaruntime.openstack.nodes.ExternalNetwork;
 import com.toscaruntime.openstack.nodes.Network;
+import com.toscaruntime.openstack.util.NetworkUtil;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.PropertyUtil;
 
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
+
+    private String getNetworkIdFromContext(NetworkApi networkApi, Map<String, String> providerProperties, Map<String, Object> bootstrapContext, boolean isExternal) {
+        String networkIdPropertyName;
+        String networkNamePropertyName;
+        if (isExternal) {
+            networkIdPropertyName = "external_network_id";
+            networkNamePropertyName = "external_network_name";
+        } else {
+            networkIdPropertyName = "network_id";
+            networkNamePropertyName = "network_name";
+        }
+        String networkId = PropertyUtil.getPropertyAsString(providerProperties, networkIdPropertyName,
+                PropertyUtil.getPropertyAsString(bootstrapContext, networkIdPropertyName));
+        if (StringUtils.isEmpty(networkId)) {
+            String networkName = PropertyUtil.getPropertyAsString(providerProperties, networkNamePropertyName,
+                    PropertyUtil.getPropertyAsString(bootstrapContext, networkNamePropertyName));
+            org.jclouds.openstack.neutron.v2.domain.Network found = NetworkUtil.findNetworkByName(networkApi, networkName, isExternal);
+            if (found != null) {
+                return found.getId();
+            }
+        }
+        return networkId;
+    }
 
     @Override
     public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
@@ -37,16 +61,6 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         String user = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "user");
         String password = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "password");
         String region = PropertyUtil.getMandatoryPropertyAsString(providerProperties, "region");
-        /**
-         * Network Id and External Network Id here are just default value that will be used in bootstrap mode or when no value is defined for the node
-         * We search first in provider configuration, if not found then we'll look into bootstrap context
-         */
-        String networkId =
-                PropertyUtil.getPropertyAsString(providerProperties, "network_id",
-                        PropertyUtil.getPropertyAsString(bootstrapContext, "network_id"));
-        String externalNetworkId =
-                PropertyUtil.getPropertyAsString(providerProperties, "external_network_id",
-                        PropertyUtil.getPropertyAsString(bootstrapContext, "external_network_id"));
         Properties overrideProperties = PropertyUtil.toProperties(providerProperties, "keystone_url", "tenant", "user", "password", "region");
         NovaApi novaApi = ContextBuilder
                 .newBuilder(new NovaApiMetadata())
@@ -75,8 +89,19 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         SubnetApi subnetApi = neutronApi.getSubnetApi(region);
         FloatingIPApi floatingIPApi = novaApi.getFloatingIPApi(region).get();
         RouterApi routerApi = neutronApi.getRouterApi(region).get();
+
         Set<ExternalNetwork> externalNetworks = deployment.getNodeInstancesByType(ExternalNetwork.class);
         Set<Compute> computes = deployment.getNodeInstancesByType(Compute.class);
+        Set<Network> networks = deployment.getNodeInstancesByType(Network.class);
+        /**
+         * Network Id and External Network Id if defined are default values that will be injected into every compute
+         * We search first in provider configuration, if not found then we'll look into bootstrap context
+         */
+        String networkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, false);
+        String externalNetworkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, true);
+        for (ExternalNetwork externalNetwork : externalNetworks) {
+            externalNetwork.setNetworkApi(networkApi);
+        }
         for (Compute compute : computes) {
             compute.setServerApi(serverApi);
             if (StringUtils.isNotBlank(externalNetworkId)) {
@@ -92,7 +117,6 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             compute.setNetworks(connectedInternalNetworks);
             compute.setExternalNetworks(connectedExternalNetworks);
         }
-        Set<Network> networks = deployment.getNodeInstancesByType(Network.class);
         for (Network network : networks) {
             network.setNetworkApi(networkApi);
             network.setSubnetApi(subnetApi);

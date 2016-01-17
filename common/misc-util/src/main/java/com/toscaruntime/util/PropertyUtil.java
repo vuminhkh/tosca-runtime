@@ -10,6 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.PropertyAccessException;
+import com.toscaruntime.exception.PropertyRequiredException;
 
 public class PropertyUtil {
 
@@ -92,7 +93,7 @@ public class PropertyUtil {
         if (propertyValue != null) {
             return propertyValue;
         } else {
-            throw new PropertyAccessException("Property <" + path + "> is required but missing");
+            throw new PropertyRequiredException("Property <" + path + "> is required but missing");
         }
     }
 
