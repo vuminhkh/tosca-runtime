@@ -10,6 +10,11 @@ imports:
 
 topology_template:
 
+  outputs:
+    load_balancer_url:
+      description: The Load Balancer URL here with exposed port mapped
+      value: { concat: ["http://", get_attribute: [LoadBalancerServer, public_ip_address], ":", get_property: [LoadBalancerServer, "port_mappings[0].to"]] }
+
   node_templates:
 
     WebServer:

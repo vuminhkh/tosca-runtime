@@ -1,5 +1,6 @@
 package com.toscaruntime.docker;
 
+import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.Set;
 
@@ -10,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import com.github.dockerjava.api.DockerClient;
 import com.toscaruntime.docker.nodes.Container;
 import com.toscaruntime.docker.nodes.Network;
+import com.toscaruntime.exception.ProviderInitializationException;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.DockerUtil;
@@ -21,7 +23,12 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
     @Override
     public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
         DockerClient dockerClient = DockerUtil.buildDockerClient(providerProperties);
-        String dockerHostIP = DockerUtil.getDockerHostIP(providerProperties);
+        String dockerHostIP;
+        try {
+            dockerHostIP = DockerUtil.getDockerHostIP(providerProperties);
+        } catch (UnknownHostException e) {
+            throw new ProviderInitializationException("Unable to resolve docker host", e);
+        }
         Set<Container> containers = deployment.getNodeInstancesByType(Container.class);
         // This is the default network that the container must be connected to in order to be able to communicate with others
         // This property is set if docker daemon has been bootstrapped as a swarm cluster

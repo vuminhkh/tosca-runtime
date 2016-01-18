@@ -4,7 +4,7 @@ echo "Installing docker"
 
 curl -sSL https://get.docker.com/ | sudo sh
 
-if [ -d "/usr/lib/systemd" ]; then
+if hash systemctl 2>/dev/null; then
   sudo systemctl stop docker
   sudo mkdir /etc/systemd/system/docker.service.d
   echo -e "[Service]\n""EnvironmentFile=-/etc/default/docker\n""ExecStart=\n""ExecStart=/usr/bin/docker daemon \$DOCKER_OPTS -H fd://\n" | sudo tee -a /etc/systemd/system/docker.service.d/docker.conf

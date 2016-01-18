@@ -24,7 +24,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
     if (url != null && url.nonEmpty) {
       new DockerDaemonClient(url, null)
     } else {
-      new DockerDaemonClient(DockerUtil.DEFAULT_DOCKER_URL, null)
+      new DockerDaemonClient(DockerUtil.DEFAULT_DOCKER_URL_FOR_LINUX, null)
     }
   }
 

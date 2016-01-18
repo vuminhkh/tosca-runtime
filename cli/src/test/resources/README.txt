@@ -18,7 +18,7 @@ csars list
 
 4/ Create deployment:
 
-deployments create wordpress -c wordpress-template-docker:1.0.0-SNAPSHOT
+deployments create wordpress -c wordpress-template-docker:*
 
 5/Run deployment:
 
@@ -40,7 +40,7 @@ csars install /Users/vuminhkh/Projects/samples/apache-load-balancer/
 csars install /Users/vuminhkh/Projects/samples/tomcat-war/
 csars install /Users/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
 csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyApacheLoadBalancerDocker/
-deployments create tomcat -c apache-load-balancer-template-docker:1.0.0-SNAPSHOT
+deployments create tomcat -c apache-load-balancer-template-docker:*
 deployments run tomcat
 agents log tomcat
 

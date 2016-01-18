@@ -101,6 +101,7 @@ lazy val dockerUtil = project.in(file("common/docker-util"))
   .settings(
     name := "docker-util",
     libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= testDependencies,
     libraryDependencies += "com.github.docker-java" % "docker-java" % "3.0.0-SNAPSHOT" exclude("org.glassfish.hk2", "hk2-api") exclude("org.glassfish.hk2.external", "javax.inject") exclude("org.glassfish.hk2", "hk2-locator"),
     libraryDependencies += "org.glassfish.hk2" % "hk2-api" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2.external" % "javax.inject" % "2.4.0-b32",

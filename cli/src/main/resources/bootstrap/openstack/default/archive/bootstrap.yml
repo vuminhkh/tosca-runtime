@@ -6,6 +6,7 @@ template_author: MKV
 
 imports:
   - toscaruntime-bootstrap-type:*
+  - openstack-provider-types:*
 
 topology_template:
   description: Wordpress deployment template for openstack
@@ -35,10 +36,10 @@ topology_template:
   outputs:
     public_daemon_url:
       description: The URL to access the docker daemon
-      value: { get_attribute: [ managerDaemon, public_docker_url ] }
+      value: { get_attribute: [ dockerDaemon, public_docker_url ] }
     daemon_url:
       description: The URL to access the docker daemon
-      value: { get_attribute: [ managerDaemon, docker_url ] }
+      value: { get_attribute: [ dockerDaemon, docker_url ] }
     public_proxy_url:
       description: The URL to access the proxy
       value: { get_attribute: [ proxy, public_proxy_url ] }
@@ -56,7 +57,7 @@ topology_template:
     publicNetwork:
       type: com.toscaruntime.openstack.nodes.ExternalNetwork
       properties:
-        network_id: { get_input: external_network_id}
+        network_name: { get_input: external_network_name}
     privateNetwork:
       type: com.toscaruntime.openstack.nodes.Network
       properties:

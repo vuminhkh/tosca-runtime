@@ -68,7 +68,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
 
   def getBootstrapAgentURL(deploymentId: String) = {
     getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
-      val daemonHost = DockerUtil.getDockerHostIP(url)
+      val daemonHost = DockerUtil.getDockerHost(url)
       val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPort
       s"http://$daemonHost:$port/deployment"
     }

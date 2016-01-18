@@ -9,6 +9,7 @@ import com.toscaruntime.cli.util.CompilationUtil
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.exception.BadClientConfigurationException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
+import com.toscaruntime.util.DockerUtil
 import sbt._
 
 /**
@@ -27,38 +28,17 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
   def buildDockerClient(basedir: Path) = {
     val existingConfiguration = UseCommand.getConfiguration(basedir)
     if (existingConfiguration.nonEmpty) {
-      val url = existingConfiguration.get("docker.io.url").get
-      val cert = existingConfiguration.getOrElse("docker.io.dockerCertPath", null)
+      val url = existingConfiguration.get(DockerUtil.DOCKER_URL_KEY).get
+      val cert = existingConfiguration.getOrElse(DockerUtil.DOCKER_CERT_PATH_KEY, null)
       new ToscaRuntimeClient(url, cert)
     } else {
-      val daemonUrlSystemProperty = "toscaruntime.docker.daemon.url"
-      System.getProperty(daemonUrlSystemProperty) match {
-        case url: String =>
-          println(s"Using daemon url configured from system property [$daemonUrlSystemProperty]")
-          val cert = System.getProperty("toscaruntime.docker.daemon.cert")
-          UseCommand.switchConfiguration(url, cert, basedir)
-          new ToscaRuntimeClient(url, cert)
-        case null => System.getProperty("os.name") match {
-          case windowsOrMac if windowsOrMac.startsWith("Windows") || windowsOrMac.startsWith("Mac") =>
-            val url = "https://192.168.99.100:2376"
-            println(s"Using default docker daemon configuration for $windowsOrMac")
-            val certificatePath = System.getProperty("user.home") + "/.docker/machine/machines/default"
-            if ("true".equals(System.getProperty("toscaruntime.initConf"))) {
-              // For mac and windows, auto configure by copying default machine's certificates to provider default conf
-              // Just in case the flag toscaruntime.initConf is set, try to copy certificates for default configuration
-              // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
-              UseCommand.switchConfiguration(url, certificatePath, basedir)
-            }
-            println(s"Using docker daemon with url [$url] and certificate at [$certificatePath]")
-            new ToscaRuntimeClient(url, certificatePath)
-          case other: String =>
-            println(s"Using default docker daemon configuration for [$other]")
-            val url = "unix:///var/run/docker.sock"
-            UseCommand.switchConfiguration(url, null, basedir)
-            println(s"Using docker daemon with url [$url] and no certificate")
-            new ToscaRuntimeClient(url, null)
-        }
+      val defaultConfig = DockerUtil.getDefaultDockerDaemonConfig
+      if ("true".equals(System.getProperty("toscaruntime.clientMode"))) {
+        // Auto configure by copying default machine's certificates to provider default conf only when the flag toscaruntime.clientMode is set
+        // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
+        UseCommand.switchConfiguration(defaultConfig.getUrl, defaultConfig.getCertPath, basedir)
       }
+      new ToscaRuntimeClient(defaultConfig.getUrl, defaultConfig.getCertPath)
     }
   }
 
@@ -80,6 +60,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       CsarsCommand.instance,
       DeploymentsCommand.instance,
       UseCommand.instance,
+      UseCommand.useDefaultInstance,
       BootStrapCommand.instance,
       TeardownCommand.instance,
       LogCommand.instance,
@@ -98,7 +79,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     )
     // FIXME Installing normative types and bootstrap types in repository should be done in the build and not in the code
     val repositoryDir = basedir.resolve("repository")
-    if (!Files.exists(repositoryDir.resolve("tosca-normative-types"))) {
+    if (!"true".equals(System.getProperty("toscaruntime.clientMode"))) {
       val csarsDir = basedir.resolve("csars")
       installCsar(csarsDir.resolve("tosca-normative-types-master"), repositoryDir)
       Files.list(csarsDir).filter(new Predicate[Path] {

@@ -6,6 +6,7 @@ template_author: MKV
 
 imports:
   - toscaruntime-bootstrap-type:*
+  - openstack-provider-types:*
 
 node_types:
 
@@ -79,7 +80,7 @@ topology_template:
     publicNetwork:
       type: com.toscaruntime.openstack.nodes.ExternalNetwork
       properties:
-        network_id: { get_input: external_network_id }
+        network_name: { get_input: external_network_name}
 
     privateNetwork:
       type: com.toscaruntime.openstack.nodes.Network

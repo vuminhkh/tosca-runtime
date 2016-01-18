@@ -35,7 +35,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def switchConnection(url: String, certPath: String) = {
     daemonClient.setDockerClient(url, certPath)
     proxyURLOpt = daemonClient.getProxyURL
-    logger.info("New proxy url detected " + proxyURLOpt.getOrElse("none"))
+    logger.info(s"New proxy url detected [${proxyURLOpt.getOrElse("none")}]")
   }
 
   private val wsClient = {

@@ -9,6 +9,10 @@ imports:
   - docker-provider-types:*
 
 topology_template:
+  outputs:
+    wordpress_url:
+      description: The Wordpress URL here with exposed port mapped
+      value: { concat: ["http://", get_attribute: [computeWww, public_ip_address], ":", get_property: [computeWww, "port_mappings[0].to"], get_property: [wordpress, context_root] ] }
 
   node_templates:
 

@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import org.apache.commons.lang.StringUtils
 import sbt.complete.DefaultParsers._
@@ -20,6 +20,8 @@ import scala.collection.JavaConverters._
 object UseCommand {
 
   val commandName = "use"
+
+  val useDefaultCommandName = "use-default"
 
   private val dockerUrlOpt = "-u"
 
@@ -38,6 +40,26 @@ object UseCommand {
        |$dockerCertOpt    : (optional if https is not used) path to the the certificate to connect to the docker daemon
     """.stripMargin
   )
+
+  private lazy val useDefaultHelp = Help(useDefaultCommandName, (useDefaultCommandName, "Use the default docker daemon url"),
+    s"""Use the default docker daemon configuration, this order will be respected to detect the configuration:
+        |1. Read from DOCKER_HOST, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH
+        |2. If not found, read from system properties ${DockerUtil.DOCKER_URL_KEY} and ${DockerUtil.DOCKER_CERT_PATH_KEY}
+        |3. If not found, assign default values based on OS:
+        |    - Mac, Windows => ${DockerUtil.DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS}
+        |    - Others => ${DockerUtil.DEFAULT_DOCKER_URL_FOR_LINUX}
+     """.stripMargin
+  )
+
+  lazy val useDefaultInstance = Command.command(useDefaultCommandName, useDefaultHelp) { state =>
+    val basedir = state.attributes.get(Attributes.basedirAttribute).get
+    val defaultConfig = DockerUtil.getDefaultDockerDaemonConfig
+    val client = state.attributes.get(Attributes.clientAttribute).get
+    client.switchConnection(defaultConfig.getUrl, defaultConfig.getCertPath)
+    switchConfiguration(defaultConfig.getUrl, defaultConfig.getCertPath, basedir)
+    println(s"Begin to use docker daemon at [${defaultConfig.getUrl}] with api version [${client.dockerVersion}]")
+    state
+  }
 
   lazy val instance = Command(commandName, useHelp)(_ => useArgsParser) { (state, args) =>
     val argsMap = args.toMap
@@ -69,7 +91,7 @@ object UseCommand {
     if (StringUtils.isNotBlank(cert)) {
       Files.createDirectories(dockerCertPath)
       val certPath = Paths.get(cert)
-      println("Copy certificates from <" + certPath + "> to <" + dockerCertPath + ">")
+      println(s"Copy certificates from [$certPath] to [$dockerCertPath]")
       Files.copy(certPath.resolve("key.pem"), dockerCertPath.resolve("key.pem"))
       Files.copy(certPath.resolve("cert.pem"), dockerCertPath.resolve("cert.pem"))
       Files.copy(certPath.resolve("ca.pem"), dockerCertPath.resolve("ca.pem"))
@@ -89,7 +111,7 @@ object UseCommand {
     val dockerConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
     val dockerConfigFilePath = dockerConfigPath.resolve("provider.conf")
     if (Files.exists(dockerConfigFilePath)) {
-      println(s"Found existing configuration at <$dockerConfigPath>")
+      println(s"Found existing configuration at [$dockerConfigPath]")
       val providerConfig = ConfigFactory.parseFile(dockerConfigFilePath.toFile).resolveWith(
         ConfigFactory.empty().withValue("com.toscaruntime.provider.dir", ConfigValueFactory.fromAnyRef(dockerConfigPath.toString))
       )

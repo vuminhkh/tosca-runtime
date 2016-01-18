@@ -6,6 +6,7 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -24,7 +25,9 @@ import com.toscaruntime.exception.OperationExecutionException;
 
 public class DockerUtil {
 
-    public static final String DEFAULT_DOCKER_URL = "unix:///var/run/docker.sock";
+    public static final String DEFAULT_DOCKER_URL_FOR_LINUX = "unix:///var/run/docker.sock";
+
+    public static final String DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS = "https://192.168.99.100:2376";
 
     public static final String DOCKER_URL_KEY = "docker.io.url";
 
@@ -47,12 +50,36 @@ public class DockerUtil {
     }
 
     public static String getDockerURL(Map<String, String> providerProperties) {
-        return providerProperties.getOrDefault(DOCKER_URL_KEY, DEFAULT_DOCKER_URL);
+        return providerProperties.getOrDefault(DOCKER_URL_KEY, DEFAULT_DOCKER_URL_FOR_LINUX);
     }
 
-    public static String getDockerHostIP(Map<String, String> providerProperties) {
+    public static DockerDaemonConfig getDefaultDockerDaemonConfig() throws MalformedURLException {
+        String dockerHostFromEnv = System.getenv("DOCKER_HOST");
+        String dockerURLFromProperty = System.getProperty(DOCKER_URL_KEY);
+        if (StringUtils.isNotBlank(dockerHostFromEnv)) {
+            String useTLSFromEnv = System.getenv("DOCKER_TLS_VERIFY");
+            String protocol = "1".equals(useTLSFromEnv) ? "https" : "http";
+            URL parsed = new URL(dockerHostFromEnv.replace("tcp", protocol));
+            String host = parsed.getHost();
+            int port = parsed.getPort();
+            return new DockerDaemonConfig(protocol + "://" + host + ":" + port, System.getenv("DOCKER_CERT_PATH"));
+        } else if (StringUtils.isNotBlank(dockerURLFromProperty)) {
+            return new DockerDaemonConfig(dockerURLFromProperty, System.getProperty(DOCKER_CERT_PATH_KEY));
+        } else {
+            String osName = System.getProperty("os.name");
+            if (osName.startsWith("Windows") || osName.startsWith("Mac")) {
+                String url = DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS;
+                String certPath = Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString();
+                return new DockerDaemonConfig(url, certPath);
+            } else {
+                return new DockerDaemonConfig(DEFAULT_DOCKER_URL_FOR_LINUX, null);
+            }
+        }
+    }
+
+    public static String getDockerHostIP(Map<String, String> providerProperties) throws UnknownHostException {
         String dockerURL = getDockerURL(providerProperties);
-        return getDockerHostIP(dockerURL);
+        return InetAddress.getByName(getDockerHost(dockerURL)).getHostAddress();
     }
 
     public static DockerClient buildDockerClient(String url, String certPath) {
@@ -113,11 +140,11 @@ public class DockerUtil {
      * @param url url of docker
      * @return the ip address of the docker host
      */
-    public static String getDockerHostIP(String url) {
+    public static String getDockerHost(String url) {
         try {
             URL parsed = new URL(url);
-            return InetAddress.getByName(parsed.getHost()).getHostAddress();
-        } catch (MalformedURLException | UnknownHostException e) {
+            return parsed.getHost();
+        } catch (MalformedURLException e) {
             return "127.0.0.1";
         }
     }

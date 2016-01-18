@@ -2,7 +2,7 @@
 
 echo "Stopping docker"
 
-if [ -d "/usr/lib/systemd" ]; then
+if hash systemctl 2>/dev/null; then
   sudo systemctl stop docker
 else
   sudo service docker stop
