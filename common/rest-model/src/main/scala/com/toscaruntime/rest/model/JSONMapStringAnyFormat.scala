@@ -21,6 +21,7 @@ object JSONMapStringAnyFormat {
       case string: JsString => string.value
       case number: JsNumber => number.value
       case bool: JsBoolean => bool.value
+      case JsNull => None
     }
   }
 

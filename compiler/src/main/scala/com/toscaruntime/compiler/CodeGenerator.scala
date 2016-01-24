@@ -129,7 +129,7 @@ object CodeGenerator extends LazyLogging {
       nodeTemplate =>
         val nodeName = nodeTemplate.name.value
         val nodeTypeName = nodeTemplate.typeName.get.value
-        val nodeType = TypeLoader.loadPolymorphismResolvedNodeType(nodeTypeName, csarPath).get
+        val nodeType = TypeLoader.loadNodeTypeWithHierarchy(nodeTypeName, csarPath).get
         val properties = parseProperties(nodeTemplate.properties, nodeType.properties)
         (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, properties))
     }.toMap
@@ -140,17 +140,11 @@ object CodeGenerator extends LazyLogging {
           requirement =>
             val sourceNodeName = nodeTemplate.name.value
             val sourceNodeTypeName = nodeTemplate.typeName.get.value
-            val sourceNodeType = TypeLoader.loadPolymorphismResolvedNodeType(sourceNodeTypeName, csarPath).get
+            val sourceNodeType = TypeLoader.loadNodeTypeWithHierarchy(sourceNodeTypeName, csarPath).get
             val sourceNode = topologyNodes(sourceNodeName)
             val targetNodeName = requirement.targetNode.get.value
             val targetNode = topologyNodes(targetNodeName)
-
-            val relationshipTypeNameOpt = requirement.relationshipType.orElse(sourceNodeType.requirements.get(requirement.name).relationshipType)
-            val relationshipType = relationshipTypeNameOpt.map {
-              relationshipTypeName => TypeLoader.loadRelationshipType(relationshipTypeName.value, csarPath)
-            }.getOrElse {
-              TypeLoader.loadRelationshipType(sourceNodeTypeName, targetNode.typeName, requirement.targetCapability.map(_.value).getOrElse(sourceNodeType.requirements.get(requirement.name).capabilityType.get.value), csarPath)
-            }
+            val relationshipType = TypeLoader.loadRelationshipWithHierarchy(requirement, sourceNodeType.requirements.get(requirement.name), sourceNodeTypeName, targetNode.typeName, csarPath)
             if (relationshipType.isEmpty) {
               throw new InvalidTopologyException(s"Missing relationship type for requirement ${requirement.name.value} of node $sourceNodeTypeName")
             } else {
@@ -181,13 +175,13 @@ object CodeGenerator extends LazyLogging {
 
   def parseValue(fieldValue: EvaluableFieldValue): runtime.Value = {
     fieldValue match {
-      case scalarFieldValue: ScalarValue => runtime.ScalarValue(scalarFieldValue.value.value)
-      case listFieldValue: ListValue => runtime.ListValue(CompilerUtil.serializeToJson(listFieldValue.value))
-      case complexFieldValue: ComplexValue => runtime.ComplexValue(CompilerUtil.serializeToJson(complexFieldValue.value))
+      case scalarFieldValue: ScalarValue => runtime.ScalarValue(scalarFieldValue.value)
+      case listFieldValue: ListValue => runtime.ListValue(CompilerUtil.serializePropertyValueToJson(listFieldValue))
+      case complexFieldValue: ComplexValue => runtime.ComplexValue(CompilerUtil.serializePropertyValueToJson(complexFieldValue))
       case functionFieldValue: Function => runtime.Function(functionFieldValue.function.value, functionFieldValue.paths.map(_.value))
       case compositeFunctionFieldValue: CompositeFunction =>
         runtime.CompositeFunction(compositeFunctionFieldValue.function.value, compositeFunctionFieldValue.members.map {
-          case scalarMemberValue: ScalarValue => runtime.ScalarValue(scalarMemberValue.value.value)
+          case scalarMemberValue: ScalarValue => runtime.ScalarValue(scalarMemberValue.value)
           case functionMemberValue: Function => runtime.Function(functionMemberValue.function.value, functionMemberValue.paths.map(_.value))
         })
     }

@@ -84,6 +84,7 @@ lazy val miscUtil = project.in(file("common/misc-util"))
     name := "misc-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies ++= testDependencies,
+    libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4"
   ).dependsOn(exception).enablePlugins(UniversalPlugin)
 
@@ -140,7 +141,7 @@ lazy val rest = project.in(file("rest"))
     name := "rest",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
-  ).dependsOn(restModel, dockerUtil, fileUtil, constant, exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, constant, exception).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
   .settings(commonSettings: _*)

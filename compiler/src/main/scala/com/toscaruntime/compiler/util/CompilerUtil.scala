@@ -3,7 +3,7 @@ package com.toscaruntime.compiler.util
 import java.nio.file.{Files, Path}
 
 import com.google.common.base.CaseFormat
-import com.toscaruntime.compiler.tosca.ParsedValue
+import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.util.FileUtil
 
 import scala.util.parsing.json._
@@ -34,6 +34,7 @@ object CompilerUtil {
 
   /**
     * Try to create file system if the path is a zip file
+    *
     * @param paths the path list to create file systems
     * @return map of path --> file system
     */
@@ -42,17 +43,15 @@ object CompilerUtil {
       if (!Files.isDirectory(path)) {
         val zipPath = FileUtil.createZipFileSystem(path)
         (zipPath, Some(zipPath.getFileSystem))
-      } else {
-        (path, None)
-      }
+      } else (path, None)
     }
   }
 
   private def convertObject(item: Any): Any = {
     item match {
-      case map: Map[ParsedValue[String], Any] => convertMap(map)
-      case list: Iterable[Any] => convertList(list)
-      case value: ParsedValue[String] => value.value
+      case map: ComplexValue => convertMap(map.value)
+      case list: ListValue => convertList(list.value)
+      case value: ScalarValue => value.value
       case other: Any => throw new UnsupportedOperationException(s"Type not supported ${other.getClass}")
     }
   }
@@ -69,7 +68,7 @@ object CompilerUtil {
     }.toList)
   }
 
-  def serializeToJson(obj: Any) = {
+  def serializePropertyValueToJson(obj: PropertyValue[_]) = {
     convertObject(obj).toString
   }
 }

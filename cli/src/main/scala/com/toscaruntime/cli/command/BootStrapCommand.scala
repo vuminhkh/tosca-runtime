@@ -59,12 +59,13 @@ object BootStrapCommand {
       println(s"Provider configuration is missing for [$providerName] or target [$target]")
       fail = true
     } else {
-      val compilationResult = Compiler.assembly(bootstrapTopology, deploymentWorkDir, basedir.resolve("repository"))
+      val inputsPath = if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None
+      val compilationResult = Compiler.assembly(bootstrapTopology, deploymentWorkDir, basedir.resolve("repository"), inputsPath)
       if (compilationResult.isSuccessful) {
         val image = client.createBootstrapImage(
           providerName,
           deploymentWorkDir,
-          if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None,
+          inputsPath,
           providerConfigurationPath, target).awaitImageId()
         println(s"Packaged bootstrap configuration as docker image [$image]")
         val containerId = client.createBootstrapAgent(providerName, target).getId

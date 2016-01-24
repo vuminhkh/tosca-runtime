@@ -1,23 +1,16 @@
 package com.toscaruntime.compiler.tosca
 
-import java.text.DateFormat
-import java.util.Locale
+import com.toscaruntime.compiler.Tokens
 
 import scala.util.parsing.input.Positional
 
 case class Csar(path: String, definitions: Map[String, Definition]) {
 
-  def csarName = {
-    definitions.values.head.name.get.value
-  }
+  def csarName = definitions.values.head.name.get.value
 
-  def csarVersion = {
-    definitions.values.head.version.get.value
-  }
+  def csarVersion = definitions.values.head.version.get.value
 
-  def csarId = {
-    csarName + ":" + csarVersion
-  }
+  def csarId = csarName + ":" + csarVersion
 }
 
 case class ParsedValue[T](value: T) extends Positional
@@ -127,11 +120,20 @@ case class CapabilityType(name: ParsedValue[String],
                           description: Option[ParsedValue[String]],
                           properties: Option[Map[ParsedValue[String], PropertyDefinition]]) extends Positional with Type
 
-case class ScalarValue(value: ParsedValue[String]) extends PropertyValue[ParsedValue[String]]
+case class ScalarValue(value: String) extends PropertyValue[String]
 
-case class ListValue(value: List[Any]) extends PropertyValue[List[Any]]
+object ScalarValue {
 
-case class ComplexValue(value: Map[ParsedValue[String], Any]) extends PropertyValue[Map[ParsedValue[String], Any]]
+  def apply(parsedValue: ParsedValue[String]): ScalarValue = {
+    val scalarValue = ScalarValue(parsedValue.value)
+    scalarValue.setPos(parsedValue.pos)
+    scalarValue
+  }
+}
+
+case class ListValue(value: List[FieldValue]) extends PropertyValue[List[FieldValue]]
+
+case class ComplexValue(value: Map[ParsedValue[String], FieldValue]) extends PropertyValue[Map[ParsedValue[String], FieldValue]]
 
 trait FieldValue extends Positional
 
@@ -143,8 +145,11 @@ trait PropertyValue[T] extends EvaluableFieldValue {
 
 trait FieldDefinition extends FieldValue {
   val valueType: ParsedValue[String]
-  val description: Option[ParsedValue[String]]
+  val required: ParsedValue[Boolean]
   val default: Option[EvaluableFieldValue]
+  val constraints: Option[List[PropertyConstraint]]
+  val description: Option[ParsedValue[String]]
+  val entrySchema: Option[PropertyDefinition]
 }
 
 case class PropertyDefinition(valueType: ParsedValue[String],
@@ -155,8 +160,11 @@ case class PropertyDefinition(valueType: ParsedValue[String],
                               entrySchema: Option[PropertyDefinition]) extends FieldDefinition
 
 case class AttributeDefinition(valueType: ParsedValue[String],
+                               required: ParsedValue[Boolean],
+                               default: Option[EvaluableFieldValue],
+                               constraints: Option[List[PropertyConstraint]],
                                description: Option[ParsedValue[String]],
-                               default: Option[EvaluableFieldValue]) extends FieldDefinition
+                               entrySchema: Option[PropertyDefinition]) extends FieldDefinition
 
 trait FilterDefinition extends Positional {
   val properties: Map[ParsedValue[String], List[PropertyConstraint]]
@@ -191,35 +199,105 @@ case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String
 
 case class CompositeFunction(function: ParsedValue[String], members: Seq[FieldValue]) extends EvaluableFieldValue
 
+// reference can be a ParsedValue[String] or a List[ParsedValue[String]]
 case class PropertyConstraint(operator: ParsedValue[String], reference: Any) extends Positional
 
-case class Version(version: String)
+object PropertyConstraint {
 
-trait ScalarUnitType {
-  val value: Double
-  val unit: String
-}
-
-case class Size(value: Double, unit: String)
-
-case class Frequency(value: Double, unit: String)
-
-object Evaluator {
-  def eval[T](value: String, propType: String): T = {
-    (propType match {
-      case FieldDefinition.STRING => value
-      case FieldDefinition.INTEGER => value.toLong
-      case FieldDefinition.FLOAT => value.toDouble
-      case FieldDefinition.BOOLEAN => value.toBoolean
-      case FieldDefinition.TIMESTAMP => DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, Locale.US).parse(value)
-      case FieldDefinition.VERSION => Version(value)
-      case FieldDefinition.SIZE =>
-        val tokens = value.split("\\s+")
-        Size(tokens(0).toDouble, tokens(1))
-      case FieldDefinition.FREQUENCY =>
-        val tokens = value.split("\\s+")
-        Frequency(tokens(0).toDouble, tokens(1))
-    }).asInstanceOf[T]
+  def isValueValid(value: String, valueType: String, constraint: PropertyConstraint): Boolean = {
+    val parsedValue = FieldDefinition.toToscaPrimitiveType(value, valueType)
+    if (!parsedValue.isValid) {
+      return false
+    }
+    constraint.operator.value match {
+      case Tokens.equal_token =>
+        if (!constraint.reference.isInstanceOf[ParsedValue[String]]) {
+          false
+        } else {
+          val reference = FieldDefinition.toToscaPrimitiveType(constraint.reference.asInstanceOf[ParsedValue[String]].value, valueType)
+          if (!reference.isValid) {
+            false
+          } else {
+            parsedValue.value.get == reference.value.get
+          }
+        }
+      case Tokens.valid_values_token =>
+        if (!constraint.reference.isInstanceOf[List[ParsedValue[String]]]) {
+          false
+        } else {
+          val listReference = constraint.reference.asInstanceOf[List[ParsedValue[String]]].map {
+            case ParsedValue(referenceValue) => FieldDefinition.toToscaPrimitiveType(referenceValue, valueType)
+          }
+          if (listReference.exists(!_.isValid)) {
+            false
+          } else {
+            listReference.exists(parsedValue.value.get == _.value.get)
+          }
+        }
+      case Tokens.greater_than_token | Tokens.greater_or_equal_token | Tokens.less_than_token | Tokens.less_or_equal_token =>
+        if (!FieldDefinition.isComparableType(valueType) || !constraint.reference.isInstanceOf[ParsedValue[String]]) {
+          false
+        } else {
+          val toBeCompared = parsedValue.asInstanceOf[ToscaComparableType[Any]]
+          val reference = FieldDefinition.toToscaPrimitiveType(constraint.reference.asInstanceOf[ParsedValue[String]].value, valueType).asInstanceOf[ToscaComparableType[Any]]
+          if (!reference.isValid) {
+            false
+          } else {
+            constraint.operator.value match {
+              case Tokens.greater_than_token => toBeCompared > reference
+              case Tokens.greater_or_equal_token => toBeCompared >= reference
+              case Tokens.less_than_token => toBeCompared < reference
+              case Tokens.less_or_equal_token => toBeCompared <= reference
+            }
+          }
+        }
+      case Tokens.in_range_token =>
+        if (!FieldDefinition.isComparableType(valueType) || !constraint.reference.isInstanceOf[List[ParsedValue[String]]]) {
+          false
+        } else {
+          val toBeCompared = parsedValue.asInstanceOf[ToscaComparableType[Any]]
+          val listReference = constraint.reference.asInstanceOf[List[ParsedValue[String]]].map {
+            case ParsedValue(referenceValue) => FieldDefinition.toToscaPrimitiveType(referenceValue, valueType).asInstanceOf[ToscaComparableType[Any]]
+          }
+          if (listReference.exists(!_.isValid)) {
+            false
+          } else {
+            val minReference = listReference.head
+            val maxReference = listReference.last
+            minReference < toBeCompared && toBeCompared < maxReference
+          }
+        }
+      case Tokens.length_token | Tokens.min_length_token | Tokens.max_length_token =>
+        if (valueType != FieldDefinition.STRING) {
+          false
+        } else {
+          val toBeCompared = parsedValue.asInstanceOf[ToscaString].value.get
+          val referenceOpt = ToscaInteger(constraint.reference.asInstanceOf[ParsedValue[String]].value)
+          if (!referenceOpt.isValid) {
+            false
+          } else {
+            val reference = referenceOpt.value.get
+            constraint.operator.value match {
+              case Tokens.length_token => toBeCompared.length == reference
+              case Tokens.min_length_token => toBeCompared.length >= reference
+              case Tokens.max_length_token => toBeCompared.length <= reference
+            }
+          }
+        }
+      case Tokens.pattern_token =>
+        if (valueType != FieldDefinition.STRING) {
+          false
+        } else {
+          val toBeCompared = parsedValue.asInstanceOf[ToscaString].value.get
+          val referenceOpt = ToscaString(constraint.reference.asInstanceOf[ParsedValue[String]].value)
+          if (!referenceOpt.isValid) {
+            false
+          } else {
+            val reference = referenceOpt.value.get
+            toBeCompared.matches(reference)
+          }
+        }
+    }
   }
 }
 
@@ -231,21 +309,62 @@ object FieldDefinition {
   val TIMESTAMP = "timestamp"
   val VERSION = "version"
   val SIZE = "scalar-unit.size"
+  val TIME = "scalar-unit.time"
   val FREQUENCY = "scalar-unit.frequency"
   val LIST = "list"
   val MAP = "map"
 
-  def isToscaNativeType(propType: String) = {
-    propType match {
-      case STRING | INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY | LIST | MAP => true
+  /**
+    * Check if given type is native, native types are primitives + list and map
+    *
+    * @param valueType type to check
+    * @return true if it's tosca native type (not complex data type)
+    */
+  def isToscaNativeType(valueType: String) = {
+    isToscaPrimitiveType(valueType) || valueType == LIST || valueType == MAP
+  }
+
+  /**
+    * Check if given type is primitive
+    *
+    * @param valueType type to check
+    * @return true if it's tosca native type (not complex data type)
+    */
+  def isToscaPrimitiveType(valueType: String) = {
+    valueType match {
+      case STRING | INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | TIME | FREQUENCY => true
       case _ => false
     }
   }
 
-  def isComparableType(propType: String) = {
-    propType match {
+  /**
+    * Type whom values can be compared
+    *
+    * @param valueType type to check
+    * @return true if it's of type whom values can be compared
+    */
+  def isComparableType(valueType: String) = {
+    valueType match {
       case INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY => true
       case _ => false
+    }
+  }
+
+  def isValidPrimitiveValue(valueAsText: String, valueType: String) = {
+    toToscaPrimitiveType(valueAsText, valueType).isValid
+  }
+
+  def toToscaPrimitiveType(valueAsText: String, valueType: String) = {
+    valueType match {
+      case STRING => ToscaString(valueAsText)
+      case INTEGER => ToscaInteger(valueAsText)
+      case BOOLEAN => ToscaBoolean(valueAsText)
+      case FLOAT => ToscaFloat(valueAsText)
+      case TIMESTAMP => ToscaTimestamp(valueAsText)
+      case TIME => ToscaTime(valueAsText)
+      case SIZE => ToscaSize(valueAsText)
+      case FREQUENCY => ToscaFrequency(valueAsText)
+      case VERSION => ToscaVersion(valueAsText)
     }
   }
 }

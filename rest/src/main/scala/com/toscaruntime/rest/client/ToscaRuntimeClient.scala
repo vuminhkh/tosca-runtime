@@ -15,6 +15,7 @@ import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 
 /**
   * Entry point to use toscaruntime service. Offer all available toscaruntime command.
@@ -123,11 +124,6 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String) = {
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
     daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath, bootstrapContext)
-  }
-
-  def createImage(deploymentPath: Path) = {
-    val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(deploymentPath, bootstrapContext)
   }
 
   def listDeploymentImages() = {

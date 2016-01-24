@@ -12,8 +12,7 @@ import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
 import com.toscaruntime.exception.DaemonResourcesNotFoundException
 import com.toscaruntime.rest.model.DeploymentInfo
-import com.toscaruntime.util.{DockerUtil, FileUtil}
-import com.typesafe.config.impl.ConfigImpl
+import com.toscaruntime.util.{DockerUtil, FileUtil, JavaScalaConversionUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.yaml.snakeyaml.Yaml
@@ -28,6 +27,8 @@ import scala.collection.JavaConverters._
 class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogging {
 
   var dockerClient: DockerClient = DockerUtil.buildDockerClient(url, certPath)
+
+  val yaml = new Yaml()
 
   def setDockerClient(newUrl: String, newCertPath: String) = {
     dockerClient.close()
@@ -91,43 +92,16 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
 
   def copyDockerFile(outputPath: Path, deploymentId: String) = {
     Files.copy(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), outputPath)
-    Files.write(outputPath, ("LABEL " + RuntimeConstant.DEPLOYMENT_ID_LABEL + "=" + deploymentId + "\n").getBytes("UTF-8"), StandardOpenOption.APPEND)
-  }
-
-  val yaml = new Yaml()
-
-  /**
-    * Create a deployment agent's docker image. This method suppose that the deployment has been constructed following the tosca-runtime format.
-    *
-    * @param deploymentPath the path to the deployment
-    * @return id of the created docker image
-    */
-  def createAgentImage(deploymentPath: Path, bootstrapContext: Map[String, Any]) = {
-    var realDeploymentPath = deploymentPath
-    val deploymentIsZipped = Files.isRegularFile(deploymentPath)
-    if (deploymentIsZipped) {
-      realDeploymentPath = Files.createTempDirectory("toscaruntime")
-      FileUtil.unzip(deploymentPath, realDeploymentPath)
-    }
-    val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
-    val deploymentId = ConfigFactory
-      .parseFile(realDeploymentPath.resolve("deployment").resolve("deployment.conf").toFile).resolveWith(ConfigImpl.systemPropertiesAsConfig())
-      .getString(DeployerConstant.DEPLOYMENT_NAME_KEY)
-    FileUtil.copy(realDeploymentPath, tempDockerImageBuildDir)
-    copyDockerFile(tempDockerImageBuildDir.resolve("Dockerfile"), deploymentId)
-    if (bootstrapContext.nonEmpty) {
-      yaml.dump(bootstrapContext.asJava, new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
-    }
-    (dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag("toscaruntime/deployment_" + deploymentId).withNoCache(true).exec(new BuildImageResultCallback).awaitImageId, deploymentId)
+    Files.write(outputPath, s"LABEL ${RuntimeConstant.DEPLOYMENT_ID_LABEL}=$deploymentId\n".getBytes("UTF-8"), StandardOpenOption.APPEND)
   }
 
   /**
     * Create a deployment agent's docker image with custom setup
     *
-    * @param deploymentId the name of the deployment
-    * @param recipePath the path of the recipe
+    * @param deploymentId       the name of the deployment
+    * @param recipePath         the path of the recipe
     * @param providerConfigPath the path for the configuration of the provider
-    * @param inputsPath inputs for the deployment
+    * @param inputsPath         inputs for the deployment
     * @return id of the created docker image
     */
   def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrapContext: Map[String, Any]) = {
@@ -155,13 +129,13 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
       FileUtil.copy(inputsPath.get, tempDockerImageBuildDir.resolve("deployment").resolve("inputs.yaml"))
     }
     if (bootstrapContext.nonEmpty) {
-      yaml.dump(bootstrapContext.asJava, new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
+      yaml.dump(JavaScalaConversionUtil.toJavaMap(bootstrapContext), new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
     }
-    dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag("toscaruntime/deployment_" + deploymentId).withNoCache(true).exec(new BuildImageResultCallback)
+    dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(s"toscaruntime/deployment_$deploymentId").withNoCache(true).exec(new BuildImageResultCallback)
   }
 
   def getAgentImage(deploymentId: String) = {
-    val images = dockerClient.listImagesCmd().withFilters("{\"label\":[\"" + RuntimeConstant.DEPLOYMENT_ID_LABEL + "=" + deploymentId + "\"]}").exec().asScala
+    val images = dockerClient.listImagesCmd().withFilters(s"""{"label":["${RuntimeConstant.DEPLOYMENT_ID_LABEL}=$deploymentId"]}""").exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
     images.headOption
   }
@@ -182,7 +156,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def cleanDanglingImages() = {
-    val images = dockerClient.listImagesCmd.withFilters("{\"dangling\":[\"true\"]}").withShowAll(true).exec.asScala
+    val images = dockerClient.listImagesCmd.withFilters("""{"dangling":["true"]}""").withShowAll(true).exec.asScala
     images.foreach { image =>
       dockerClient.removeImageCmd(image.getId).exec()
     }
@@ -201,12 +175,12 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
       .createContainerCmd(deploymentImageId)
       .withExposedPorts(portHttp)
       .withPortBindings(portBindings)
-      .withName("toscaruntime_" + deploymentId + "_agent")
+      .withName(s"toscaruntime_${deploymentId}_agent")
       .withLabels(labels).exec
     dockerClient.startContainerCmd(createdContainer.getId).exec()
     bootstrapContext.get("docker_network_id").map {
       case networkId: String =>
-        // If it's a swarm cluster with a swarm network overly then connect to it
+        // If it's a swarm cluster with a swarm network overlay then connect to it
         dockerClient.connectContainerToNetworkCmd(createdContainer.getId, networkId).exec()
     }
     createdContainer
@@ -254,7 +228,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def tailLog(deploymentId: String, output: PrintStream) = {
-    val containerId = getAgent(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException("Deployment " + deploymentId + " not found")).getId
+    val containerId = getAgent(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException(s"Deployment $deploymentId not found")).getId
     tailContainerLog(containerId, output)
   }
 

@@ -5,6 +5,7 @@ import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
 import scala.io.{Source, StdIn}
+import scala.language.postfixOps
 
 /**
   * Showing container's log

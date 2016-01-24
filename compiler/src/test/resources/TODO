@@ -2,8 +2,11 @@
 
 2.Tosca support:
   - Semantic analyzer completion
+    + Requirement satisfaction validation
+    + Validate outputs
+    + Function validation
+    + Node filter
   - Deployment artifacts for openstack
-  - Version, Size, Frequency type support
   - Capabilities properties
   - Relationship properties - Test
   - Custom workflow

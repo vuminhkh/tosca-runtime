@@ -11,6 +11,7 @@ import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
 import scala.collection.JavaConverters._
+import scala.language.postfixOps
 
 /**
   * Register new docker daemon url

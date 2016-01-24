@@ -9,7 +9,7 @@ object CompilationUtil {
       case (path, errors) =>
         println(s"Error at [${path.toString}]:")
         errors.foreach { error =>
-          println(s"- [L${error.startPosition.line}][C${error.startPosition.column}] : ${error.error}")
+          println(s"- Line [${error.startPosition.line}:${error.startPosition.column}] : ${error.error}")
         }
     }
   }

@@ -1,6 +1,7 @@
 package com.toscaruntime.compiler
 
 import java.nio.file._
+import java.util.Comparator
 import java.util.regex.Pattern
 
 import com.toscaruntime.compiler.tosca._
@@ -40,10 +41,12 @@ object Compiler extends LazyLogging {
       } else {
         val dependencyVersion = matcher.group(2)
         if ("*" == dependencyVersion) {
-          val firstVersionFound = Files.list(repository.resolve(dependencyName)).findAny()
-          if (firstVersionFound.isPresent) {
-            logger.debug(s"Wildcard dependency $dependencyDefinition resolved to ${firstVersionFound.get()}")
-            Some((dependencyName, firstVersionFound.get().getFileName.toString, firstVersionFound.get()))
+          val maxVersionFound = Files.list(repository.resolve(dependencyName)).max(new Comparator[Path] {
+            override def compare(o1: Path, o2: Path): Int = ToscaVersion(o1.getFileName.toString).compare(ToscaVersion(o2.getFileName.toString))
+          })
+          if (maxVersionFound.isPresent) {
+            logger.debug(s"Wildcard dependency $dependencyDefinition resolved to ${maxVersionFound.get()}")
+            Some((dependencyName, maxVersionFound.get().getFileName.toString, maxVersionFound.get()))
           } else None
         } else {
           val resolvedDependency = repository.resolve(dependencyName).resolve(dependencyVersion)
@@ -162,31 +165,24 @@ object Compiler extends LazyLogging {
     }
   }
 
-  def assembly(topologyName: String,
-               topologyVersion: String,
-               outputPath: Path,
-               repositoryPath: Path): CompilationResult = {
-    val dependencyResolver = resolveDependenciesForAssemblyWithRepository(repositoryPath)
-    val topologyPathOpt = dependencyResolver(topologyName + ":" + topologyVersion, None)
-    topologyPathOpt.map { topologyPath =>
-      assembly(topologyPath._3, outputPath, repositoryPath, dependencyResolver)
-    }.getOrElse {
-      throw new DependencyNotFoundException(s"Topology $topologyName:$topologyVersion not found in repository $repositoryPath")
-    }
-  }
-
   def assembly(topologyPath: Path,
                outputPath: Path,
-               repositoryPath: Path): CompilationResult = {
-    assembly(topologyPath, outputPath, repositoryPath, resolveDependenciesForAssemblyWithRepository(repositoryPath))
+               repositoryPath: Path,
+               inputs: Option[Path]): CompilationResult = {
+    assembly(topologyPath, outputPath, repositoryPath, inputs, resolveDependenciesForAssemblyWithRepository(repositoryPath))
   }
 
   def assembly(topologyPath: Path,
                outputPath: Path,
                repositoryPath: Path,
+               inputs: Option[Path],
                assemblyDependenciesResolver: (String, Option[Path]) => Option[(String, String, Path)]): CompilationResult = {
     val topologyCompilationResult = compile(topologyPath, repositoryPath)
-    if (topologyCompilationResult.isSuccessful) {
+    val inputsParseResult = inputs.map { inputsPath =>
+      SyntaxAnalyzer.parse(SyntaxAnalyzer.topologyExternalInputs, FileUtil.readTextFile(inputsPath))
+    }
+    if (topologyCompilationResult.isSuccessful && (inputsParseResult.isEmpty || (inputsParseResult.isDefined && inputsParseResult.get.successful))) {
+      val inputsValues = inputsParseResult.map(_.get).getOrElse(Map.empty)
       val definitionWithTopologyEntry = topologyCompilationResult.csar.definitions.find(definition => definition._2.topologyTemplate.isDefined)
       if (definitionWithTopologyEntry.isEmpty) {
         throw new InvalidTopologyException(s"No topology found at ${topologyPath.toAbsolutePath.toString} for assembly")
@@ -208,16 +204,28 @@ object Compiler extends LazyLogging {
         val mergedNodeTemplates = merged.nodeTemplates.get ++ current.nodeTemplates.getOrElse(Map.empty)
         TopologyTemplate(merged.description, Some(mergedInputs), Some(mergedOutputs), Some(mergedNodeTemplates))
       }
-      val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
-      val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
-      CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
-      topologyCompilationResult.dependencies.foreach {
-        case (csarId, csar) =>
-          val assemblyDependency = assemblyDependenciesResolver(csarId, None).get._3
-          FileUtil.copy(assemblyDependency, outputPath, StandardCopyOption.REPLACE_EXISTING)
+      val inputErrors = mergedTopology.inputs.getOrElse(Map.empty).flatMap {
+        case (inputName, inputDefinition) =>
+          if (inputDefinition.required.value && !inputsValues.contains(inputName)) {
+            List(CompilationError(s"Input [${inputName.value}] required but not defined", inputName.pos, Some(inputName.value)))
+          } else List.empty
+      }.toList
+      if (inputErrors.isEmpty) {
+        val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
+        val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
+        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
+        topologyCompilationResult.dependencies.foreach {
+          case (csarId, csar) =>
+            val assemblyDependency = assemblyDependenciesResolver(csarId, None).get._3
+            FileUtil.copy(assemblyDependency, outputPath, StandardCopyOption.REPLACE_EXISTING)
+        }
+        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
+        topologyCompilationResult.copy(csar = mergedCsar)
+      } else {
+        val errorKeyForTopology = topologyPath.toAbsolutePath.toString
+        val allErrors = inputErrors ++ topologyCompilationResult.errors.getOrElse(errorKeyForTopology, List.empty)
+        topologyCompilationResult.copy(errors = topologyCompilationResult.errors + (errorKeyForTopology -> allErrors))
       }
-      CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
-      topologyCompilationResult.copy(csar = mergedCsar)
     } else {
       logger.debug(s"Topology ${topologyPath.toString} has compilation errors")
       topologyCompilationResult

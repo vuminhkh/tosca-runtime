@@ -3,6 +3,7 @@ package com.toscaruntime.cli.parser
 import com.toscaruntime.cli.parser.completion.FileCompletion
 import sbt.complete.DefaultParsers._
 import sbt.complete._
+import scala.language.postfixOps
 
 /**
  * Custom parsers for cli command

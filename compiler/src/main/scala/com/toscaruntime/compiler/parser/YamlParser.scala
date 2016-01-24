@@ -1,6 +1,6 @@
 package com.toscaruntime.compiler.parser
 
-import com.toscaruntime.compiler.tosca.ParsedValue
+import com.toscaruntime.compiler.tosca._
 
 import scala.util.parsing.combinator.{JavaTokenParsers, PackratParsers}
 
@@ -8,7 +8,7 @@ trait YamlParser extends JavaTokenParsers with PackratParsers {
 
   override def skipWhitespace = false
 
-  val keyPattern = regex( """\p{Alnum}+[^:\[\]\{\}>|\p{Blank},]*""".r).withFailureMessage("Expecting yaml key")
+  val keyPattern = regex( """\w+[^:\[\]\{\}>|\p{Blank},]*""".r).withFailureMessage("Expecting yaml key")
 
   val nestedListStartPattern = regex( """\[ *""".r).withFailureMessage("Expecting '[' to start an inline list")
 
@@ -201,89 +201,121 @@ trait YamlParser extends JavaTokenParsers with PackratParsers {
 
   def wrapTextWithPosition[T](text: String) = positioned(text ^^ wrapValueWithPosition) | failure(s"Expecting token '$text'")
 
-  def yamlNode(indentLevel: Int): PackratParser[Any] = {
-    (mapWithoutFirstIndentation(yamlEntry)(indentLevel) |
-      listWithoutFirstIndentation(yamlNode)(indentLevel) |
-      textValueWithSeparator(indentLevel) |
+  def wrapMapEntryParserWithPosition(parser: Parser[(ParsedValue[String], Map[ParsedValue[String], FieldValue])]) = {
+    parser ^^ {
+      case (key: ParsedValue[String], value: Map[ParsedValue[String], FieldValue]) => (key, ComplexValue(value))
+    }
+  }
+
+  def wrapListEntryParserWithPosition(parser: Parser[(ParsedValue[String], List[FieldValue])]) = {
+    parser ^^ {
+      case (key: ParsedValue[String], value: List[FieldValue]) => (key, ListValue(value))
+    }
+  }
+
+  def wrapMapValue(parser: Parser[Map[ParsedValue[String], FieldValue]]) = parser ^^ { map => ComplexValue(map) }
+
+  def wrapListValue(parser: Parser[List[FieldValue]]) = parser ^^ { list => ListValue(list) }
+
+  def wrapScalarValue(parser: Parser[ParsedValue[String]]) = parser ^^ { value => ScalarValue(value) }
+
+  def yamlNode(indentLevel: Int): PackratParser[FieldValue] = {
+    (wrapMapValue(mapWithoutFirstIndentation(yamlEntry)(indentLevel)) |
+      wrapListValue(listWithoutFirstIndentation(yamlNode)(indentLevel)) |
+      wrapScalarValue(textValueWithSeparator(indentLevel)) |
       nestedYamlNodeWithLineFeed) | failure(s"Expecting yaml node")
   }
 
-  def nestedYamlNode: PackratParser[Any] = {
-    (nestedMap(nestedYamlEntry) | nestedList(nestedYamlNode) | nestedTextValue) | failure(s"Expecting nested yaml node")
+  def nestedYamlNode: PackratParser[FieldValue] = {
+    (wrapMapValue(nestedMap(nestedYamlEntry)) |
+      wrapListValue(nestedList(nestedYamlNode)) |
+      wrapScalarValue(nestedTextValue)) | failure(s"Expecting nested yaml node")
   }
 
-  def nestedYamlNodeWithLineFeed: PackratParser[Any] = {
+  def nestedYamlNodeWithLineFeed: PackratParser[FieldValue] = {
     (nestedYamlNode <~ lineEndingPattern) | failure(s"Expecting nested yaml node with line feed")
   }
 
-  def yamlEntry(indentLevel: Int): PackratParser[(ParsedValue[String], Any)] = {
+  def yamlEntry(indentLevel: Int): PackratParser[(ParsedValue[String], FieldValue)] = {
     (yamlMapEntry(indentLevel) |
       yamlListEntry(indentLevel) |
       yamlTextEntry(indentLevel) |
       nestedYamlEntryWithLineFeed) | failure(s"Expecting a (key,value) yaml entry")
   }
 
-  def nestedYamlEntry: PackratParser[(ParsedValue[String], Any)] = {
-    (nestedYamlMapEntry | nestedYamlListEntry | nestedTextEntry(keyValue)) | failure(s"Expecting a nested (key,value) yaml entry")
+  def nestedYamlEntry: PackratParser[(ParsedValue[String], FieldValue)] = {
+    (nestedYamlMapEntry | nestedYamlListEntry | nestedYamlTextEntry(keyValue)) | failure(s"Expecting a nested (key,value) yaml entry")
   }
 
-  def nestedYamlEntryWithLineFeed: PackratParser[(ParsedValue[String], Any)] = {
+  def nestedYamlEntryWithLineFeed: PackratParser[(ParsedValue[String], FieldValue)] = {
     (nestedYamlEntry <~ lineEndingPattern) | failure(s"Expecting a nested (key,value) yaml entry with line feed")
   }
 
-  def yamlMapEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
-    mapEntry(keyParser)(yamlEntry)(indentLevel) | failure(s"Expecting a (key,value) yaml entry, value of type complex")
+  def yamlMapEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], ComplexValue)] = {
+    wrapMapEntryParserWithPosition(mapEntry(keyParser)(yamlEntry)(indentLevel)) | failure(s"Expecting a (key,value) yaml entry, value of type complex")
   }
 
-  def yamlMapEntry(indentLevel: Int): PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+  def yamlMapEntry(indentLevel: Int): PackratParser[(ParsedValue[String], ComplexValue)] = {
     yamlMapEntry(keyValue)(indentLevel) | failure(s"Expecting a (key,value) yaml entry, value of type complex")
   }
 
-  def nestedYamlMapEntry: PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+  def nestedYamlMapEntry: PackratParser[(ParsedValue[String], ComplexValue)] = {
     nestedYamlMapEntry(keyValue) | failure(s"Expecting a nested (key,value) yaml entry, value of type complex")
   }
 
-  def nestedYamlMapEntry(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
-    nestedMapEntry(keyParser)(nestedYamlEntry) | failure(s"Expecting a nested (key,value) yaml entry, value of type complex")
+  def nestedYamlMapEntry(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], ComplexValue)] = {
+    wrapMapEntryParserWithPosition(nestedMapEntry(keyParser)(nestedYamlEntry)) | failure(s"Expecting a nested (key,value) yaml entry, value of type complex")
   }
 
-  def nestedYamlMapEntryWithLineFeed: PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+  def nestedYamlMapEntryWithLineFeed: PackratParser[(ParsedValue[String], ComplexValue)] = {
     (nestedYamlMapEntryWithLineFeed(keyValue) <~ lineEndingPattern) | failure(s"Expecting a nested (key,value) yaml entry, value of type complex, with line feed")
   }
 
-  def nestedYamlMapEntryWithLineFeed(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], Map[ParsedValue[String], Any])] = {
+  def nestedYamlMapEntryWithLineFeed(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], ComplexValue)] = {
     (nestedYamlMapEntry(keyParser) <~ lineEndingPattern) | failure(s"Expecting a nested (key,value) yaml entry, value of type complex, with line feed")
   }
 
-  def yamlListEntry(indentLevel: Int): PackratParser[(ParsedValue[String], List[Any])] = {
+  def yamlListEntry(indentLevel: Int): PackratParser[(ParsedValue[String], ListValue)] = {
     yamlListEntry(keyValue)(indentLevel) | failure(s"Expecting a (key,value) yaml entry, value of type list")
   }
 
-  def yamlListEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], List[Any])] = {
-    listEntry(keyParser)(yamlNode)(indentLevel) | failure(s"Expecting a (key,value) yaml entry, value of type list")
+  def yamlListEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], ListValue)] = {
+    wrapListEntryParserWithPosition(listEntry(keyParser)(yamlNode)(indentLevel)) | failure(s"Expecting a (key,value) yaml entry, value of type list")
   }
 
-  def nestedYamlListEntry: PackratParser[(ParsedValue[String], List[Any])] = {
+  def nestedYamlListEntry: PackratParser[(ParsedValue[String], ListValue)] = {
     nestedYamlListEntry(keyValue) | failure(s"Expecting a nested (key,value) yaml entry, value of type list")
   }
 
-  def nestedYamlListEntry(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], List[Any])] = {
-    nestedListEntry(keyParser)(nestedYamlNode) | failure(s"Expecting a nested (key,value) yaml entry, value of type list")
+  def nestedYamlListEntry(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], ListValue)] = {
+    wrapListEntryParserWithPosition(nestedListEntry(keyParser)(nestedYamlNode)) | failure(s"Expecting a nested (key,value) yaml entry, value of type list")
   }
 
-  def nestedYamlListEntryWithLineFeed: PackratParser[(ParsedValue[String], List[Any])] = {
+  def nestedYamlListEntryWithLineFeed: PackratParser[(ParsedValue[String], ListValue)] = {
     nestedYamlListEntryWithLineFeed(keyValue) | failure(s"Expecting a nested (key,value) yaml entry, value of type list, with line feed")
   }
 
-  def nestedYamlListEntryWithLineFeed(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], List[Any])] = {
+  def nestedYamlListEntryWithLineFeed(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], ListValue)] = {
     (nestedYamlListEntry(keyParser) <~ lineEndingPattern) | failure(s"Expecting a nested (key,value) yaml entry, value of type list, with line feed")
   }
 
-  def yamlTextEntry(indentLevel: Int): PackratParser[(ParsedValue[String], ParsedValue[String])] = {
+  def yamlTextEntry(indentLevel: Int): PackratParser[(ParsedValue[String], ScalarValue)] = {
     yamlTextEntry(keyValue)(indentLevel) | failure(s"Expecting a yaml text entry")
   }
 
-  def yamlTextEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], ParsedValue[String])] = {
-    textEntry(keyParser)(indentLevel) | failure(s"Expecting a yaml text entry")
+  def yamlTextEntry(keyParser: Parser[ParsedValue[String]])(indentLevel: Int): PackratParser[(ParsedValue[String], ScalarValue)] = {
+    textEntry(keyParser)(indentLevel) ^^ {
+      case (key, value: ParsedValue[String]) => (key, ScalarValue(value))
+    } | failure(s"Expecting a yaml text entry")
+  }
+
+  def nestedYamlTextEntry: PackratParser[(ParsedValue[String], ScalarValue)] = {
+    nestedYamlTextEntry(keyValue) | failure(s"Expecting a yaml text entry")
+  }
+
+  def nestedYamlTextEntry(keyParser: Parser[ParsedValue[String]]): PackratParser[(ParsedValue[String], ScalarValue)] = {
+    nestedTextEntry(keyParser) ^^ {
+      case (key, value: ParsedValue[String]) => (key, ScalarValue(value))
+    } | failure(s"Expecting a nested yaml text entry")
   }
 }

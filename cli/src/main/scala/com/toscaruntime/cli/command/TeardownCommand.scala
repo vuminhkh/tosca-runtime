@@ -6,6 +6,8 @@ import com.toscaruntime.constant.ProviderConstant
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
+import scala.language.postfixOps
+
 /**
   * Teardown bootstrap installation
   */

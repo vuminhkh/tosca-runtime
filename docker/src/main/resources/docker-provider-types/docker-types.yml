@@ -50,6 +50,7 @@ node_types:
         required: false
       commands:
         type: list
+        required: false
         entry_schema:
           type: string
 

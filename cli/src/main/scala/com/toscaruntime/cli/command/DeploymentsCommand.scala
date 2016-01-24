@@ -120,14 +120,22 @@ object DeploymentsCommand {
             realTopologyPath = FileUtil.createZipFileSystem(topologyPath)
           }
           try {
-            val compilationResult = Compiler.assembly(realTopologyPath, deploymentWorkDir, repository)
+            val inputsPath = createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String]))
+            val compilationResult = Compiler.assembly(realTopologyPath, deploymentWorkDir, repository, inputsPath)
             if (compilationResult.isSuccessful) {
+              val providerName = createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String]
+              val providerTarget = createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String]
               val providerConf = state.attributes.get(Attributes.basedirAttribute).get
                 .resolve("conf").resolve("providers")
-                .resolve(createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String])
-                .resolve(createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String])
-              client.createDeploymentImage(deploymentId, deploymentWorkDir, createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String])), providerConf).awaitImageId()
-              println(s"Deployment $deploymentId has been created, 'deployments run $deploymentId' to deploy it")
+                .resolve(providerName)
+                .resolve(providerTarget)
+              if (Files.exists(providerConf)) {
+                client.createDeploymentImage(deploymentId, deploymentWorkDir, inputsPath, providerConf).awaitImageId()
+                println(s"Deployment [$deploymentId] has been created, 'deployments run $deploymentId' to deploy it")
+              } else {
+                println(s"No configuration found for [$providerName], target [$providerTarget] at [$providerConf]")
+                fail = true
+              }
             } else {
               CompilationUtil.showErrors(compilationResult)
               fail = true
@@ -143,12 +151,12 @@ object DeploymentsCommand {
         println("Cleaned all dangling images")
       case ("delete", deploymentId: String) =>
         client.deleteDeploymentImage(deploymentId)
-        println(s"Deleted deployment image $deploymentId")
+        println(s"Deleted deployment image [$deploymentId]")
       case ("run", deploymentId: String) =>
         val containerId = client.createDeploymentAgent(deploymentId).getId
         DeployUtil.waitForDeploymentAgent(client, deploymentId)
         client.deploy(deploymentId)
-        println(s"Agent with id $containerId has been created for deployment $deploymentId")
+        println(s"Agent with id [$containerId] has been created for deployment [$deploymentId]")
         println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
     }
     if (fail) state.fail else state

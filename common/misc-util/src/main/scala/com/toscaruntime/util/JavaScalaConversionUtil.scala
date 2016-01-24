@@ -1,5 +1,7 @@
 package com.toscaruntime.util
 
+import java.util
+
 import org.apache.commons.lang.StringUtils
 
 import scala.collection.JavaConverters._
@@ -32,5 +34,27 @@ object JavaScalaConversionUtil {
       case map: java.util.Map[String, AnyRef] => toScalaMap(map)
       case other: Any => other
     }
+  }
+
+  def toJava(obj: Any): AnyRef = {
+    obj match {
+      case list: List[Any] => toJavaList(list)
+      case map: Map[String, Any] => toJavaMap(map)
+      case other: Any => other.asInstanceOf[AnyRef]
+    }
+  }
+
+  def toJavaList(scalaList: Seq[Any]): util.ArrayList[AnyRef] = {
+    val javaList = new util.ArrayList[AnyRef]()
+    scalaList.map { e => javaList.add(toJava(e)) }
+    javaList
+  }
+
+  def toJavaMap(scalaMap: Map[String, Any]): java.util.Map[String, AnyRef] = {
+    val javaMap = new util.HashMap[String, AnyRef]()
+    scalaMap.map {
+      case (key: String, value: Any) => javaMap.put(key, toJava(value))
+    }
+    javaMap
   }
 }
