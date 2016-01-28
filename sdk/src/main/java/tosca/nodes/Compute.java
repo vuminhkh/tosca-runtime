@@ -5,7 +5,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 
-import com.toscaruntime.sdk.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.AbstractRuntimeType;
 
 /**
  * A compute is a node that can execute an artifact locally on it-self

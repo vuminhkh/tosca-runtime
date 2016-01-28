@@ -80,10 +80,12 @@ case class Input(name: String)
 class Node(var name: String,
            var typeName: String,
            var properties: Map[String, Value],
+           // Map of capability key to capability properties (string to value map)
+           var capabilityProperties: Map[String, Map[String, Value]],
+           var host: Option[Node] = None,
            var parent: Option[Node] = None,
            var children: Seq[Node] = Seq.empty,
-           var dependencies: Seq[Node] = Seq.empty,
-           var instanceCount: Int = 1)
+           var dependencies: Seq[Node] = Seq.empty)
 
 class Relationship(var source: Node,
                    var target: Node,

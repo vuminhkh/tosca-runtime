@@ -10,6 +10,8 @@ import com.toscaruntime.util.FileUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
+import scala.language.postfixOps
+
 /**
   * Bootstrap docker infrastructure
   *

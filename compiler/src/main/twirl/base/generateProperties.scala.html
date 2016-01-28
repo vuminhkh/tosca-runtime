@@ -1,6 +1,6 @@
 @import com.toscaruntime.compiler.runtime.Value
 @(nodeName: String, properties: Map[String, Value])
-@Html("java.util.Map<String, Object> properties" + nodeName + " = new java.util.HashMap<>();")
+@Html("java.util.Map<String, Object> properties_" + nodeName + " = new java.util.HashMap<>();")
 @properties.map { property =>
-  @Html("properties" + nodeName + ".put(\"" + property._1 + "\", " + base.html.evaluateValue(property._2) + ");")
+  @Html("properties_" + nodeName + ".put(\"" + property._1 + "\", " + base.html.evaluateValue(property._2) + ");")
 }

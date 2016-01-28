@@ -1,9 +1,9 @@
 package com.toscaruntime.compiler.tosca
 
 import com.toscaruntime.compiler.Tokens
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{MustMatchers, WordSpec}
 
-class ToscaModelsSpec extends PlaySpec {
+class ToscaModelsSpec extends WordSpec with MustMatchers {
 
   "Field definitions" must {
     "be able to validate values based on its type" in {

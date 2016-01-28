@@ -466,7 +466,8 @@ object SyntaxAnalyzer extends YamlParser {
 
   def requirements(indentLevel: Int) = list(requirementsEntry)(indentLevel)
 
-  def capability(capabilityName: ParsedValue[String])(indentLevel: Int) = complexEntry(properties_token)(properties)(indentLevel) ^^ {
+  def capability(capabilityName: ParsedValue[String])(indentLevel: Int) =
+    complexEntry(properties_token)(properties)(indentLevel) ^^ {
     case (_, properties) => (capabilityName, Capability(capabilityName, properties))
   }
 

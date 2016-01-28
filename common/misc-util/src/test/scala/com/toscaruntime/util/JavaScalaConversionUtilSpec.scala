@@ -2,9 +2,9 @@ package com.toscaruntime.util
 
 import java.util
 
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{MustMatchers, WordSpec}
 
-class JavaScalaConversionUtilSpec extends PlaySpec {
+class JavaScalaConversionUtilSpec extends WordSpec with MustMatchers {
 
   "Java conversion util" must {
     "be able to convert a java map to scala map" in {

@@ -1,4 +1,4 @@
-package com.toscaruntime.sdk.workflow;
+package com.toscaruntime.sdk.workflow.executors;
 
 public class SequenceExecutor implements Executor<Sequence> {
 

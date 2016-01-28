@@ -3,42 +3,67 @@
 
 @instantiateInstance(node: Node) = {
 @node.typeName @node.name = new @node.typeName @Html("();")
-@node.name@Html(".setId(")"@node.name" + @node.name@Html("Index);")
-@node.name@Html(".setName(\"")@node.name@Html("\");")
-@node.name@Html(".setProperties(")properties@node.name@Html(");")
-  nodeInstances@Html(".put(")@node.name@Html(".getId()"), @node.name@Html(");")
-@node.parent.map { parent =>
-  @node.name @Html(".setParent(") @parent.name @Html(");")
-}
+@Html("initializeInstance(" + node.name + ", \"" + node.name + "\", " + node.name + "Index, " +
+        (if(node.parent.isDefined) node.parent.get.name else "null") + ", " +
+        (if(node.host.isDefined) node.host.get.name else "null") + ");")
 @node.children.map { child =>
-  @instantiateNode(child)
+  @instantiateInstances(child)
 }
-  initializeInstance(@node.name);
 }
 
 @instantiateNode(node: Node) = {
 @base.html.generateProperties(node.name, node.properties)
-  initializeNode("@node.name", properties@node.name);
-@Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= ")@node.instanceCount@Html("; ")@node.name@Html("Index++) {")
+@Html("java.util.Map<String, java.util.Map<String, Object>> capabilities_properties_" + node.name + " = new java.util.HashMap<>();")
+@{
+  node.capabilityProperties.map {
+    case (capabilityName, capabilityProperties) =>
+      base.html.generateProperties(node.name + "_capability_" + capabilityName, capabilityProperties)
+      Html("capabilities_properties_" + node.name + ".put(\"" + capabilityName + "\", properties_" + node.name + "_capability_" + capabilityName)
+  }
+}
+@Html("initializeNode(\"" + node.name + "\", " +
+        node.typeName + ".class, " +
+        (if(node.parent.isDefined) "\"" + node.parent.get.name + "\"" else "null") + ", " +
+        (if(node.host.isDefined) "\"" + node.host.get.name + "\"" else "null") + ", " +
+        "properties_" + node.name + "," +
+        "capabilities_properties_" + node.name + ");"
+  )
+@node.children.map { child =>
+  @instantiateNode(child)
+}
+}
+
+@instantiateInstances(node: Node) = {
+@Html("int " + node.name + "InstancesCount = " + "this.nodes.get(\"" + node.name + "\").getInstancesCount();")
+@Html("for (int ")@node.name@Html("Index = 1; ")@node.name@Html("Index <= " + node.name + "InstancesCount; ")@node.name@Html("Index++) {")
 @instantiateInstance(node)
 @Html("}")
 }
-
   public class Deployment extends com.toscaruntime.sdk.Deployment @Html("{")
 
-  public void initializeDeployment@Html("(String deploymentName, java.nio.file.Path recipePath, java.util.Map<String, Object> inputs, boolean bootstrap) {")
-@Html("super.initializeDeployment(deploymentName, recipePath, inputs, bootstrap);")
-  this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve("@deployment.topologyCsarName"));
+  public void initializeDeployment@Html("() {")
+@Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + deployment.topologyCsarName + "\"));")
+
 @deployment.roots.map { node =>
   @instantiateNode(node)
 }
+
+@deployment.roots.map { node =>
+  @instantiateInstances(node)
+}
+
 @deployment.nodes.map { node =>
   @if(node.dependencies.nonEmpty) {
     @Html("setDependencies(")"@node.name", @node.dependencies.zipWithIndex.map { case (dependency, index) => "@dependency.name" @if(index < node.dependencies.size - 1) {,} } @Html(");")
   }
 }
 @deployment.relationships.map { relationship =>
-  @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", @Html(relationship.typeName + ".class);")
+  @base.html.generateProperties("rel_" + relationship.source.name + "_" + relationship.target.name, relationship.properties)
+  @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", properties_rel_@{
+  relationship.source.name
+}_@{
+  relationship.target.name
+}, @Html(relationship.typeName + ".class);")
 }
 @Html("}")
 @if(deployment.outputs.nonEmpty) {

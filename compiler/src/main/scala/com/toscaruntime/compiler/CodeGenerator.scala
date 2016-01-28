@@ -2,6 +2,7 @@ package com.toscaruntime.compiler
 
 import java.nio.file.{Files, Path, StandardCopyOption}
 
+import _root_.tosca.relationships.{AttachTo, HostedOn}
 import com.google.common.io.Closeables
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
@@ -121,6 +122,18 @@ object CodeGenerator extends LazyLogging {
     defaultProperties ++ propertiesValues
   }
 
+  def parseCapabilityProperties(capabilities: Option[Map[ParsedValue[String], Capability]],
+                                capabilitiesDefinitions: Option[Map[ParsedValue[String], CapabilityDefinition]]) = {
+    capabilities.map {
+      _.map {
+        case (capabilityName, capability) =>
+          // Once we are here it means the topology is semantically correct and the the capability must be defined within the type
+          val capabilityDefinition = capabilitiesDefinitions.get(capabilityName)
+          (capabilityName.value, parseProperties(Some(capability.properties), capabilityDefinition.properties))
+      }
+    }.getOrElse(Map.empty)
+  }
+
   def parseTopology(topology: TopologyTemplate, topologyCsarName: String, csarPath: Seq[Csar], outputDir: Path) = {
     if (topology.nodeTemplates.isEmpty) {
       throw new InvalidTopologyException("Topology do not contain any node")
@@ -131,7 +144,8 @@ object CodeGenerator extends LazyLogging {
         val nodeTypeName = nodeTemplate.typeName.get.value
         val nodeType = TypeLoader.loadNodeTypeWithHierarchy(nodeTypeName, csarPath).get
         val properties = parseProperties(nodeTemplate.properties, nodeType.properties)
-        (nodeName, new runtime.Node(name = nodeName, typeName = nodeTypeName, properties))
+        val capabilitiesProperties = parseCapabilityProperties(nodeTemplate.capabilities, nodeType.capabilities)
+        (nodeName, new runtime.Node(nodeName, nodeTypeName, properties, capabilitiesProperties))
     }.toMap
 
     val topologyRelationships = topology.nodeTemplates.get.values.flatMap {
@@ -148,10 +162,15 @@ object CodeGenerator extends LazyLogging {
             if (relationshipType.isEmpty) {
               throw new InvalidTopologyException(s"Missing relationship type for requirement ${requirement.name.value} of node $sourceNodeTypeName")
             } else {
-              if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, "tosca.relationships.HostedOn", csarPath)) {
+              if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, classOf[HostedOn].getName, csarPath)) {
+                sourceNode.host = Some(targetNode)
                 sourceNode.parent = Some(targetNode)
                 targetNode.children = targetNode.children :+ sourceNode
-              } else {
+              } else if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, classOf[AttachTo].getName, csarPath)) {
+                sourceNode.parent = Some(targetNode)
+                targetNode.children = targetNode.children :+ sourceNode
+              }
+              else {
                 sourceNode.dependencies = sourceNode.dependencies :+ targetNode
               }
             }

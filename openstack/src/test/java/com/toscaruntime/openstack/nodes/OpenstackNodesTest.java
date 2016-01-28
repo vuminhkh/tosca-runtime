@@ -17,8 +17,8 @@ public class OpenstackNodesTest {
 
     @Test
     public void testOpenstack() {
-        TestDeployment testDeployment = new TestDeployment();
-        testDeployment.initializeDeployment("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), Maps.newHashMap(), true);
+        OpenstackTestDeployment testDeployment = new OpenstackTestDeployment();
+        testDeployment.initialize("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), Maps.newHashMap(), true);
         OpenstackDeploymentPostConstructor postConstructor = new OpenstackDeploymentPostConstructor();
         Map<String, String> providerProperties = ImmutableMap.<String, String>builder()
                 .put("keystone_url", "http://128.136.179.2:5000/v2.0")
@@ -34,19 +34,19 @@ public class OpenstackNodesTest {
             Assert.assertNotNull(compute.getAttributeAsString("ip_address"));
             Assert.assertNotNull(compute.getAttributeAsString("provider_resource_id"));
             Assert.assertNotNull(compute.getAttributeAsString("provider_resource_name"));
-            Assert.assertEquals("Compute1", compute.getAttributeAsString("tosca_id"));
+            Assert.assertEquals("Compute_1", compute.getAttributeAsString("tosca_id"));
             Assert.assertEquals("Compute", compute.getAttributeAsString("tosca_name"));
 
             Network network = testDeployment.getNodeInstancesByType(Network.class).iterator().next();
             Assert.assertNotNull(network.getAttributeAsString("provider_resource_id"));
             Assert.assertEquals("test-network", network.getAttributeAsString("provider_resource_name"));
-            Assert.assertEquals("Network1", network.getAttributeAsString("tosca_id"));
+            Assert.assertEquals("Network_1", network.getAttributeAsString("tosca_id"));
             Assert.assertEquals("Network", network.getAttributeAsString("tosca_name"));
 
             ExternalNetwork externalNetwork = testDeployment.getNodeInstancesByType(ExternalNetwork.class).iterator().next();
             Assert.assertNotNull(externalNetwork.getAttributeAsString("provider_resource_id"));
             Assert.assertEquals("public", externalNetwork.getAttributeAsString("provider_resource_name"));
-            Assert.assertEquals("ExternalNetwork1", externalNetwork.getAttributeAsString("tosca_id"));
+            Assert.assertEquals("ExternalNetwork_1", externalNetwork.getAttributeAsString("tosca_id"));
             Assert.assertEquals("ExternalNetwork", externalNetwork.getAttributeAsString("tosca_name"));
 
             Map<String, String> outputs = compute.execute("testOutput", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build());

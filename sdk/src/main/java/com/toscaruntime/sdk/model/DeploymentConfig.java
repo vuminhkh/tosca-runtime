@@ -1,4 +1,4 @@
-package com.toscaruntime.sdk;
+package com.toscaruntime.sdk.model;
 
 import java.nio.file.Path;
 import java.util.Map;

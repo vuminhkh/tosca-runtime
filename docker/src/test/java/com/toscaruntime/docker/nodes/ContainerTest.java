@@ -1,5 +1,6 @@
 package com.toscaruntime.docker.nodes;
 
+import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,8 +18,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.DeploymentConfig;
+import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.util.ClassLoaderUtil;
+import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
 
 @RunWith(JUnit4.class)
@@ -26,9 +28,13 @@ public class ContainerTest {
 
     private Logger logger = LoggerFactory.getLogger(ContainerTest.class);
 
-    private Container createContainer(String imageId) {
+    private Container createContainer(String imageId) throws MalformedURLException {
         Container container = new Container();
         container.setDeployment(new Deployment() {
+            @Override
+            protected void initializeDeployment() {
+                logger.info("Initializing deployment test container");
+            }
         });
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
@@ -37,10 +43,11 @@ public class ContainerTest {
         deploymentConfig.setArtifactsPath(deploymentConfig.getRecipePath().resolve("src").resolve("main").resolve("resources"));
         deploymentConfig.setTopologyResourcePath(deploymentConfig.getArtifactsPath());
         deploymentConfig.setInputs(new HashMap<>());
-        container.setId("testContainerId");
+        container.setIndex(1);
         container.setName("testContainerName");
         container.setConfig(deploymentConfig);
-        container.setDockerClient(DockerUtil.buildDockerClient());
+        DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
+        container.setDockerClient(DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath()));
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put("image_id", imageId)
                 .put("tag", "latest")
@@ -72,11 +79,11 @@ public class ContainerTest {
     }
 
     @Test
-    public void testContainerWithNetwork() {
+    public void testContainerWithNetwork() throws MalformedURLException {
         Container container = createContainer("java");
         Network network = new Network();
         network.setDockerClient(container.getDockerClient());
-        network.setId("dockerNetId");
+        network.setIndex(1);
         network.setName("dockerNet");
         network.setProperties(ImmutableMap.<String, Object>builder().put("network_name", "dockerNet").put("cidr", "10.67.79.0/24").build());
         container.setNetworks(Sets.newHashSet(network));
@@ -97,7 +104,7 @@ public class ContainerTest {
     }
 
     @Test
-    public void testCreateContainer() {
+    public void testCreateContainer() throws MalformedURLException {
         Container container = createContainer("ubuntu");
         container.setDeploymentArtifacts(ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
         try {

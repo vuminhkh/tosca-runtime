@@ -9,6 +9,12 @@ imports:
   - docker-provider-types:*
 
 topology_template:
+
+  inputs:
+    os_arch:
+      type: string
+      required: false
+
   outputs:
     wordpress_url:
       description: The Wordpress URL here with exposed port mapped

@@ -1,28 +1,28 @@
 package com.toscaruntime.sdk;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.ToscaRuntimeException;
+import com.toscaruntime.exception.InvalidInstancesCountException;
+import com.toscaruntime.exception.NodeNotFoundException;
 import com.toscaruntime.exception.WorkflowExecutionException;
-import com.toscaruntime.sdk.workflow.Parallel;
-import com.toscaruntime.sdk.workflow.Sequence;
-import com.toscaruntime.sdk.workflow.Task;
-import com.toscaruntime.sdk.workflow.TaskExecutorFactory;
+import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
+import com.toscaruntime.sdk.model.DeploymentConfig;
+import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
+import com.toscaruntime.sdk.model.DeploymentNode;
+import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import com.toscaruntime.sdk.util.DeploymentUtil;
+import com.toscaruntime.sdk.workflow.WorkflowEngine;
 import com.toscaruntime.util.FunctionUtil;
-import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Root;
 
@@ -31,10 +31,14 @@ import tosca.nodes.Root;
  *
  * @author Minh Khang VU
  */
+@SuppressWarnings("unchecked")
 public abstract class Deployment {
 
     private static final Logger log = LoggerFactory.getLogger(Deployment.class);
 
+    /**
+     * All configuration of the deployment is stored here
+     */
     protected DeploymentConfig config;
 
     /**
@@ -45,21 +49,58 @@ public abstract class Deployment {
     /**
      * A relationship instance is a link between 2 physical components of the topology
      */
-    protected List<tosca.relationships.Root> relationshipInstances = new ArrayList<>();
+    protected Set<tosca.relationships.Root> relationshipInstances = new HashSet<>();
 
+    /**
+     * A node is an abstract layer over an instance, think of it as a java class and node instance as an instantiation of the java class.
+     */
     protected Map<String, DeploymentNode> nodes = new HashMap<>();
 
-    protected List<DeploymentRelationshipNode> relationshipNodes = new ArrayList<>();
+    /**
+     * Same concept as a node but for a relationship
+     */
+    protected Set<DeploymentRelationshipNode> relationshipNodes = new HashSet<>();
 
-    public List<DeploymentNode> getNodes() {
-        return new ArrayList<>(nodes.values());
+    /**
+     * The workflow engine to orchestrate the deployment
+     */
+    private WorkflowEngine workflowEngine = new WorkflowEngine();
+
+    /**
+     * Utility class to help to perform modification on the deployment
+     */
+    private DeploymentImpacter deploymentImpacter = new DeploymentImpacter();
+
+    /**
+     * Utility class to help to initialize nodes and instances of the deployment
+     */
+    private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
+
+    /**
+     * This method is called to initialize the deployment.
+     *
+     * @param deploymentName name of the deployment
+     * @param recipePath     the path to the recipe which contains the deployment's binary and artifacts
+     * @param inputs         the inputs for the deployment
+     * @param bootstrap      is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
+     */
+    public void initialize(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
+        initializeConfig(deploymentName, recipePath, inputs, bootstrap);
+        initializeDeployment();
+        for (DeploymentNode node : nodes.values()) {
+            node.getInstances().addAll(getNodeInstancesByNodeName(node.getId()));
+        }
+        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
+            relationshipNode.getRelationshipInstances().addAll(getRelationshipInstancesByNamesAndType(relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
+        }
     }
 
-    public List<DeploymentRelationshipNode> getRelationshipNodes() {
-        return relationshipNodes;
-    }
+    /**
+     * This method is overridden by auto-generated code to help initialize the deployment
+     */
+    protected abstract void initializeDeployment();
 
-    public void initializeDeployment(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
+    private void initializeConfig(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
         this.config = new DeploymentConfig();
         this.config.setDeploymentName(deploymentName);
         this.config.setInputs(inputs);
@@ -68,348 +109,99 @@ public abstract class Deployment {
         this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
     }
 
-    protected void initializeNode(String nodeName, Map<String, Object> properties) {
-        DeploymentNode deploymentNode = new DeploymentNode();
-        deploymentNode.setId(nodeName);
-        deploymentNode.setProperties(properties);
-        deploymentNode.setInstances(new ArrayList<>());
-        this.nodes.put(nodeName, deploymentNode);
+    /**
+     * This method is called by auto-generated code to initialize a node
+     *
+     * @param nodeName               name of the node
+     * @param type                   type of the node
+     * @param parentName             name of the parent
+     * @param hostName               name of the host
+     * @param properties             properties of the node
+     * @param capabilitiesProperties capabilities properties of the node
+     */
+    protected void initializeNode(String nodeName,
+                                  Class<? extends Root> type,
+                                  String parentName,
+                                  String hostName,
+                                  Map<String, Object> properties,
+                                  Map<String, Map<String, Object>> capabilitiesProperties) {
+        this.deploymentInitializer.initializeNode(nodeName, type, parentName, hostName, properties, capabilitiesProperties, this.nodes);
     }
 
-    protected void initializeInstance(tosca.nodes.Root instance) {
-        instance.setDeployment(this);
-        instance.setConfig(this.config);
-        instance.setAttribute("tosca_id", instance.getId());
-        instance.setAttribute("tosca_name", instance.getName());
-        this.nodes.get(instance.getName()).getInstances().add(instance);
-    }
-
-    public DeploymentConfig getConfig() {
-        return config;
+    /**
+     * This method is called by auto-generated code to initialize an instance
+     *
+     * @param instance the instance it-self to initialize
+     * @param name     name of the instance (node name)
+     * @param index    index of the instance within its scaling group
+     * @param parent   the parent instance
+     * @param host     the host instance
+     */
+    protected void initializeInstance(tosca.nodes.Root instance,
+                                      String name,
+                                      int index,
+                                      tosca.nodes.Root parent,
+                                      tosca.nodes.Root host) {
+        this.deploymentInitializer.initializeInstance(instance, this, name, index, parent, host, this.nodeInstances);
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
-        Set<Root> instances = getNodeInstancesByNodeName(nodeName);
-        for (Root instance : instances) {
-            Set<Root> allDependencyInstances = new HashSet<>();
-            for (String dependency : dependencies) {
-                allDependencyInstances.addAll(getNodeInstancesByNodeName(dependency));
-            }
-            instance.setDependsOnNodes(allDependencyInstances);
-            for (Root dependencyInstance : allDependencyInstances) {
-                dependencyInstance.getDependedByNodes().add(instance);
-            }
-        }
+        deploymentInitializer.setDependencies(this.nodes, nodeName, dependencies);
     }
 
-    protected void generateRelationships(String sourceName, String targetName, Class<? extends tosca.relationships.Root> relationshipType) {
-        DeploymentRelationshipNode relationshipNode = new DeploymentRelationshipNode();
-        relationshipNode.setSourceNodeId(sourceName);
-        relationshipNode.setTargetNodeId(targetName);
-        relationshipNode.setRelationshipInstances(new ArrayList<>());
-        this.relationshipNodes.add(relationshipNode);
-        for (Root sourceInstance : getNodeInstancesByNodeName(sourceName)) {
-            for (Root targetInstance : getNodeInstancesByNodeName(targetName)) {
-                try {
-                    tosca.relationships.Root relationshipInstance = relationshipType.newInstance();
-                    relationshipInstance.setSource(sourceInstance);
-                    relationshipInstance.setTarget(targetInstance);
-                    relationshipInstances.add(relationshipInstance);
-                    relationshipNode.getRelationshipInstances().add(relationshipInstance);
-                } catch (InstantiationException | IllegalAccessException e) {
-                    throw new ToscaRuntimeException("Could not create relationship instance of type " + relationshipType.getName(), e);
-                }
+    protected void generateRelationships(String sourceName, String targetName, Map<String, Object> properties, Class<? extends tosca.relationships.Root> relationshipType) {
+        this.deploymentInitializer.generateRelationships(sourceName, targetName, properties, relationshipType, nodes, relationshipNodes, relationshipInstances);
+    }
+
+    /**
+     * Scale the given node to the given instances
+     *
+     * @param nodeName          name of the node to scale
+     * @param newInstancesCount new instances count
+     */
+    public void scale(String nodeName, int newInstancesCount) {
+        DeploymentNode node = this.nodes.get(nodeName);
+        if (node == null) {
+            throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
+        }
+        if (newInstancesCount < node.getMinInstancesCount()) {
+            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is less than min instances count");
+        }
+        if (newInstancesCount > node.getMaxInstancesCount()) {
+            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is greater than max instances count");
+        }
+
+        if (newInstancesCount == node.getInstancesCount()) {
+            log.warn("New instances count is equal to current number of instance, do nothing");
+        } else if (newInstancesCount > node.getInstancesCount()) {
+            log.info("Scaling up node " + nodeName + "from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
+            DeploymentAddInstancesModification modification = deploymentImpacter.addNodeInstances(this, node, newInstancesCount - node.getInstancesCount());
+            try {
+                this.workflowEngine.install(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                node.setInstancesCount(newInstancesCount);
+                this.nodeInstances.putAll(modification.getInstancesToAdd());
+                this.relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
+            } catch (WorkflowExecutionException e) {
+                log.info("Scale workflow execution failed, rolling back", e);
+                this.workflowEngine.uninstall(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                throw e;
             }
+        } else {
+            log.info("Scaling down node " + nodeName + " from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
+            DeploymentDeleteInstancesModification modification = deploymentImpacter.deleteNodeInstances(this, node, node.getInstancesCount() - newInstancesCount);
+            this.workflowEngine.uninstall(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+            node.setInstancesCount(newInstancesCount);
+            this.nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
+            this.relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
         }
-    }
-
-    public Set<tosca.nodes.Root> getNodeInstancesByNodeName(String nodeName) {
-        Set<tosca.nodes.Root> result = new HashSet<>();
-        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
-            if (nodeInstance.getName().equals(nodeName)) {
-                result.add(nodeInstance);
-            }
-        }
-        return result;
-    }
-
-    public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
-        Set<T> result = new HashSet<>();
-        for (tosca.nodes.Root nodeInstance : nodeInstances.values()) {
-            if (type.isAssignableFrom(nodeInstance.getClass())) {
-                result.add((T) nodeInstance);
-            }
-        }
-        return result;
-    }
-
-    public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
-        Set<T> result = new HashSet<>();
-        for (tosca.relationships.Root relationshipInstance : getRelationshipInstanceBySourceId(sourceId)) {
-            if (type.isAssignableFrom(relationshipInstance.getClass())) {
-                result.add((T) relationshipInstance);
-            }
-        }
-        return result;
-    }
-
-    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
-        Set<U> relationships = getRelationshipInstancesByType(sourceId, relationshipType);
-        Set<T> targets = new HashSet<>();
-        for (U relationship : relationships) {
-            if (targetType.isAssignableFrom(relationship.getTarget().getClass())) {
-                targets.add((T) relationship.getTarget());
-            }
-        }
-        return targets;
-    }
-
-    public Set<tosca.relationships.Root> getRelationshipInstanceBySourceId(String sourceId) {
-        Set<tosca.relationships.Root> result = new HashSet<>();
-        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
-            if (relationshipInstance.getSource().getId().equals(sourceId)) {
-                result.add(relationshipInstance);
-            }
-        }
-        return result;
-    }
-
-    public Set<tosca.relationships.Root> getRelationshipInstanceByTargetId(String targetId) {
-        Set<tosca.relationships.Root> result = new HashSet<>();
-        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
-            if (relationshipInstance.getTarget().getId().equals(targetId)) {
-                result.add(relationshipInstance);
-            }
-        }
-        return result;
-    }
-
-    public void refreshAttributes() {
-        for (Root instance : nodeInstances.values()) {
-            instance.refreshAttributes();
-        }
-        for (tosca.relationships.Root relationship : relationshipInstances) {
-            relationship.refreshAttributes();
-        }
-    }
-
-    public void refreshDeploymentState(AbstractRuntimeType instance, String newState) {
-        if (StringUtils.isNotBlank(newState)) {
-            instance.setState(newState);
-        }
-        refreshAttributes();
     }
 
     public void install() {
-        log.info("Begin to run install workflow");
-        Sequence installSequence = new Sequence();
-        Set<tosca.nodes.Root> waitForCreatedQueue = new HashSet<>(nodeInstances.values());
-        Set<tosca.nodes.Root> waitForStartedQueue = new HashSet<>(nodeInstances.values());
-        int waitForCreatedQueueSize = nodeInstances.size();
-        int waitForStartedQueueSize = nodeInstances.size();
-        while (waitForCreatedQueueSize > 0 || waitForStartedQueueSize > 0) {
-            installSequence.getActionList().add(buildInstallWorkflowStep(waitForCreatedQueue, waitForStartedQueue));
-            if (waitForCreatedQueue.size() >= waitForCreatedQueueSize && waitForStartedQueue.size() >= waitForStartedQueueSize) {
-                throw new ToscaRuntimeException("Detected cyclic dependencies in topology");
-            } else {
-                waitForStartedQueueSize = waitForStartedQueue.size();
-                waitForCreatedQueueSize = waitForCreatedQueue.size();
-            }
-        }
-        try {
-            TaskExecutorFactory.getSequenceExecutor().execute(installSequence);
-            log.info("Finished to run install workflow");
-            Map<String, Object> outputs = getOutputs();
-            if (outputs != null && !outputs.isEmpty()) {
-                log.info("Deployment produced following outputs:");
-                for (Map.Entry<String, Object> outputEntry : outputs.entrySet()) {
-                    log.info(outputEntry.getKey() + " : " + PropertyUtil.propertyValueToString(outputEntry.getValue()));
-                }
-            } else {
-                log.info("Deployment does not have any output");
-            }
-        } catch (WorkflowExecutionException e) {
-            log.error("Workflow install execution failed", e);
-        }
-    }
-
-    private Sequence buildInstallWorkflowStep(final Set<Root> waitForCreatedQueue,
-                                              final Set<tosca.nodes.Root> waitForStartedQueue) {
-        Sequence step = new Sequence();
-        Parallel createParallel = new Parallel();
-        Set<Root> processedCreated = new HashSet<>();
-        for (final tosca.nodes.Root nodeInstance : waitForCreatedQueue) {
-            // Only run create + configure unless if the node has no parent or its parent has been started
-            if (nodeInstance.getParent() == null || !waitForStartedQueue.contains(nodeInstance.getParent())) {
-                // Check if all dependencies have been satisfied in order to create
-                boolean dependenciesSatisfied = true;
-                for (tosca.nodes.Root dependsOnNode : nodeInstance.getDependsOnNodes()) {
-                    if (waitForStartedQueue.contains(dependsOnNode)) {
-                        dependenciesSatisfied = false;
-                        break;
-                    }
-                }
-                if (dependenciesSatisfied) {
-                    createParallel.getActionList().add(new Task() {
-                        @Override
-                        public void run() {
-                            nodeInstance.create();
-                            refreshDeploymentState(nodeInstance, "created");
-                            Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
-                            for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                                relationship.preConfigureSource();
-                                refreshDeploymentState(relationship, "preConfiguredSource");
-                            }
-                            Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
-                            for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                                relationship.preConfigureTarget();
-                                refreshDeploymentState(relationship, "preConfiguredTarget");
-                            }
-                            nodeInstance.configure();
-                            nodeInstance.setState("configured");
-                            for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                                relationship.postConfigureSource();
-                                refreshDeploymentState(relationship, "postConfiguredSource");
-                            }
-                            for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                                relationship.postConfigureTarget();
-                                refreshDeploymentState(relationship, "postConfiguredTarget");
-                            }
-                        }
-                    });
-                    processedCreated.add(nodeInstance);
-                }
-            }
-        }
-        waitForCreatedQueue.removeAll(processedCreated);
-        if (!createParallel.getActionList().isEmpty()) {
-            step.getActionList().add(createParallel);
-        }
-        Parallel startParallel = new Parallel();
-        Set<Root> processedStarted = new HashSet<>();
-        for (final tosca.nodes.Root nodeInstance : waitForStartedQueue) {
-            if (!waitForCreatedQueue.contains(nodeInstance)) {
-                startParallel.getActionList().add(new Task() {
-                    @Override
-                    public void run() {
-                        nodeInstance.start();
-                        nodeInstance.setState("started");
-                        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
-                        for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                            if (!waitForStartedQueue.contains(relationship.getTarget())) {
-                                relationship.addSource();
-                                refreshDeploymentState(relationship, "addedSource");
-                                relationship.addTarget();
-                                refreshDeploymentState(relationship, "addedTarget");
-                            }
-                        }
-                    }
-                });
-                processedStarted.add(nodeInstance);
-            }
-        }
-        waitForStartedQueue.removeAll(processedStarted);
-        if (!startParallel.getActionList().isEmpty()) {
-            step.getActionList().add(startParallel);
-        }
-        return step;
+        workflowEngine.install(nodeInstances, relationshipInstances);
     }
 
     public void uninstall() {
-        log.info("Begin to run uninstall workflow");
-        Sequence uninstallSequence = new Sequence();
-        Set<tosca.nodes.Root> waitForStoppedQueue = new HashSet<>(nodeInstances.values());
-        Set<tosca.nodes.Root> waitForDeletedQueue = new HashSet<>(nodeInstances.values());
-        int waitForStoppedQueueSize = nodeInstances.size();
-        int waitForDeletedQueueSize = nodeInstances.size();
-        while (waitForStoppedQueueSize > 0 || waitForDeletedQueueSize > 0) {
-            uninstallSequence.getActionList().add(buildUnInstallWorkflowStep(waitForStoppedQueue, waitForDeletedQueue));
-            if (waitForStoppedQueue.size() >= waitForStoppedQueueSize && waitForDeletedQueue.size() >= waitForDeletedQueueSize) {
-                throw new ToscaRuntimeException("Detected cyclic dependencies in topology");
-            } else {
-                waitForDeletedQueueSize = waitForDeletedQueue.size();
-                waitForStoppedQueueSize = waitForStoppedQueue.size();
-            }
-        }
-        TaskExecutorFactory.getSequenceExecutor().execute(uninstallSequence);
-        log.info("Finished to run uninstall workflow");
-    }
-
-    private Sequence buildUnInstallWorkflowStep(final Set<Root> waitForStoppedQueue,
-                                                final Set<tosca.nodes.Root> waitForDeletedQueue) {
-        Sequence step = new Sequence();
-        Parallel stopParallel = new Parallel();
-        Set<Root> processedStopped = new HashSet<>();
-        for (final tosca.nodes.Root nodeInstance : waitForStoppedQueue) {
-            // Only run stop unless if the node has no children or all of its children has been deleted
-            if (nodeInstance.getChildren() == null || nodeInstance.getChildren().isEmpty()
-                    || Collections.disjoint(waitForDeletedQueue, nodeInstance.getChildren())) {
-                // Check if all dependencies have been satisfied in order to stop
-                boolean notDependedByAnyNode = true;
-                for (tosca.nodes.Root dependedByNode : nodeInstance.getDependedByNodes()) {
-                    if (waitForStoppedQueue.contains(dependedByNode)) {
-                        notDependedByAnyNode = false;
-                        break;
-                    }
-                }
-                if (notDependedByAnyNode) {
-                    stopParallel.getActionList().add(new Task() {
-                        @Override
-                        public void run() {
-                            try {
-                                nodeInstance.stop();
-                            } catch (Exception e) {
-                                log.warn(nodeInstance + " stop failed", e);
-                            }
-                            nodeInstance.setState("stopped");
-                            Set<tosca.relationships.Root> nodeInstanceSourceRelationships = getRelationshipInstanceBySourceId(nodeInstance.getId());
-                            for (tosca.relationships.Root relationship : nodeInstanceSourceRelationships) {
-                                try {
-                                    relationship.removeTarget();
-                                } catch (Exception e) {
-                                    log.warn(relationship + " removeTarget failed", e);
-                                }
-                                refreshDeploymentState(relationship, "removedTarget");
-                            }
-                            Set<tosca.relationships.Root> nodeInstanceTargetRelationships = getRelationshipInstanceByTargetId(nodeInstance.getId());
-                            for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-                                try {
-                                    relationship.removeSource();
-                                } catch (Exception e) {
-                                    log.warn(relationship + " removeSource failed", e);
-                                }
-                                refreshDeploymentState(relationship, "removedSource");
-                            }
-                        }
-                    });
-                    processedStopped.add(nodeInstance);
-                }
-            }
-        }
-        waitForStoppedQueue.removeAll(processedStopped);
-        step.getActionList().add(stopParallel);
-        Parallel deleteParallel = new Parallel();
-        Set<Root> processedDeleted = new HashSet<>();
-        for (final tosca.nodes.Root nodeInstance : waitForDeletedQueue) {
-            // Only run delete if the node instance has been stopped
-            if (!waitForStoppedQueue.contains(nodeInstance)) {
-                deleteParallel.getActionList().add(new Task() {
-                    @Override
-                    public void run() {
-                        try {
-                            nodeInstance.delete();
-                        } catch (Exception e) {
-                            log.warn(nodeInstance + " delete failed", e);
-                        }
-                        refreshDeploymentState(nodeInstance, "deleted");
-                    }
-                });
-                processedDeleted.add(nodeInstance);
-            }
-        }
-        waitForDeletedQueue.removeAll(processedDeleted);
-        step.getActionList().add(deleteParallel);
-        return step;
+        workflowEngine.uninstall(nodeInstances, relationshipInstances);
     }
 
     public Map<String, Object> getOutputs() {
@@ -442,5 +234,64 @@ public abstract class Deployment {
         } else {
             throw new IllegalFunctionException("Function " + functionName + " is not supported on deployment");
         }
+    }
+
+    public Set<tosca.nodes.Root> getNodeInstancesByNodeName(String nodeName) {
+        return this.nodes.get(nodeName).getInstances();
+    }
+
+    public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
+        return nodeInstances.values().stream().filter(nodeInstance ->
+                type.isAssignableFrom(nodeInstance.getClass())
+        ).map(nodeInstance -> (T) nodeInstance).collect(Collectors.toSet());
+    }
+
+    public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
+        return getRelationshipInstanceBySourceId(sourceId).stream().filter(relationshipInstance ->
+                type.isAssignableFrom(relationshipInstance.getClass())
+        ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
+    }
+
+    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
+        Set<U> relationships = getRelationshipInstancesByType(sourceId, relationshipType);
+        return relationships.stream().filter(relationship ->
+                targetType.isAssignableFrom(relationship.getTarget().getClass())
+        ).map(relationship -> (T) relationship.getTarget()).collect(Collectors.toSet());
+    }
+
+    public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByNamesAndType(String sourceName, String targetName, Class<T> relationshipType) {
+        return DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, sourceName, targetName, relationshipType);
+    }
+
+    public Set<tosca.relationships.Root> getRelationshipInstanceBySourceId(String sourceId) {
+        return DeploymentUtil.getRelationshipInstanceBySourceId(relationshipInstances, sourceId);
+    }
+
+    public Set<tosca.relationships.Root> getRelationshipInstanceByTargetId(String targetId) {
+        return DeploymentUtil.getRelationshipInstanceByTargetId(relationshipInstances, targetId);
+    }
+
+    public Set<DeploymentRelationshipNode> getRelationshipNodeBySourceName(String sourceName) {
+        return DeploymentUtil.getRelationshipNodeBySourceName(relationshipNodes, sourceName);
+    }
+
+    public Set<DeploymentRelationshipNode> getRelationshipNodeByTargetName(String targetName) {
+        return DeploymentUtil.getRelationshipNodeByTargetName(relationshipNodes, targetName);
+    }
+
+    public DeploymentConfig getConfig() {
+        return config;
+    }
+
+    public Set<DeploymentNode> getNodes() {
+        return new HashSet<>(nodes.values());
+    }
+
+    public Map<String, DeploymentNode> getNodeMap() {
+        return nodes;
+    }
+
+    public Set<DeploymentRelationshipNode> getRelationshipNodes() {
+        return relationshipNodes;
     }
 }

@@ -2,13 +2,15 @@
 
 2.Tosca support:
   - Semantic analyzer completion
+    + Validate scaling policy
     + Requirement satisfaction validation
     + Validate outputs
     + Function validation
     + Node filter
   - Deployment artifacts for openstack
-  - Capabilities properties
+  - Capabilities properties - Test
   - Relationship properties - Test
+  - Pre-configure and Post-configure should be executed only once
   - Custom workflow
 
 3.Core:
@@ -19,14 +21,18 @@
   - Manage docker volume
   - Manage openstack volume
   - Exploring using consul for service discovery
+  - Windows support
 
 5.Runtime:
-  - Custom command
-  - Scale
+  - Scale - Test
   - Persistence (persisted on file system per container basis ?)
   - Executions modelling (need to save execution with their state ?)
   - Deployment state (need a state machine here ?)
+  - Custom command
   - Policy handling (auto-healing, dynamic scaling ... )
+  - WinRMI + Batch script
+  - Puppet recipe
+  - Chef recipe
 
 6.Testing:
   - Integration end to end test

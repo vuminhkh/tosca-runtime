@@ -1,4 +1,4 @@
-package com.toscaruntime.sdk;
+package com.toscaruntime.sdk.model;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -6,6 +6,7 @@ import java.util.Map;
 import org.apache.commons.lang.StringUtils;
 
 import com.toscaruntime.exception.IllegalFunctionException;
+import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
@@ -17,15 +18,15 @@ public abstract class AbstractRuntimeType {
      */
     protected Map<String, Map<String, String>> operationOutputs = new HashMap<>();
 
-    protected Map<String, Object> properties = new HashMap<>();
-
-    protected Map<String, Object> attributes = new HashMap<>();
-
     protected Deployment deployment;
 
     protected DeploymentConfig config;
 
     protected String state = "initial";
+
+    protected Map<String, Object> properties = new HashMap<>();
+
+    protected Map<String, Object> attributes = new HashMap<>();
 
     protected Map<String, AttributeDefinition> attributeDefinitions = new HashMap<>();
 
@@ -69,18 +70,6 @@ public abstract class AbstractRuntimeType {
 
     public String getMandatoryPropertyAsString(String propertyName) {
         return PropertyUtil.getMandatoryPropertyAsString(this.properties, propertyName);
-    }
-
-    public Boolean getPropertyAsBoolean(String propertyName) {
-        return PropertyUtil.getPropertyAsBoolean(this.properties, propertyName);
-    }
-
-    public Boolean getPropertyAsBoolean(String propertyName, String defaultValue) {
-        return PropertyUtil.getPropertyAsBoolean(this.properties, propertyName, defaultValue);
-    }
-
-    public Boolean getMandatoryPropertyAsBoolean(String propertyName) {
-        return PropertyUtil.getMandatoryPropertyAsBoolean(this.properties, propertyName);
     }
 
     public String getAttributeAsString(String attributeName) {

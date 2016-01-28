@@ -2,9 +2,9 @@ package com.toscaruntime.compiler.util
 
 import com.toscaruntime.compiler.tosca.{ComplexValue, ListValue, ParsedValue, ScalarValue}
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{MustMatchers, WordSpec}
 
-class CompilerUtilSpec extends PlaySpec with LazyLogging {
+class CompilerUtilSpec extends WordSpec with MustMatchers with LazyLogging {
 
   "Compiler util" must {
     "be able to serialize a map of ParsedValue string to json" in {

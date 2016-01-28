@@ -4,7 +4,7 @@ import java.util.Map;
 
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.ToscaRuntimeException;
-import com.toscaruntime.sdk.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
@@ -47,17 +47,17 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, Object> inputs) {
-        if (source == null || source.getHost() == null) {
+        if (source == null || source.getComputableHost() == null) {
             throw new ToscaRuntimeException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
-        return source.getHost().execute(source.getId(), operationArtifactPath, inputs);
+        return source.getComputableHost().execute(source.getId(), operationArtifactPath, inputs);
     }
 
     protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (target == null) {
             throw new ToscaRuntimeException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
-        return target.getHost().execute(target.getId(), operationArtifactPath, inputs);
+        return target.getComputableHost().execute(target.getId(), operationArtifactPath, inputs);
     }
 
     public Object evaluateFunction(String functionName, String... paths) {

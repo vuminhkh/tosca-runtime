@@ -1,6 +1,5 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -12,11 +11,10 @@ import com.toscaruntime.util.PropertyUtil;
  *
  * @author Minh Khang VU
  */
-public class TestDeployment extends Deployment {
+public class OpenstackTestDeployment extends Deployment {
 
     @Override
-    public void initializeDeployment(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
-        super.initializeDeployment(deploymentName, recipePath, inputs, bootstrap);
+    public void initializeDeployment() {
         this.config.setTopologyResourcePath(this.config.getArtifactsPath());
 
         Map<String, Object> propertiesCompute = new HashMap<>();
@@ -27,13 +25,10 @@ public class TestDeployment extends Deployment {
         propertiesCompute.put("key_pair_name", "toscaruntime");
         propertiesCompute.put("security_group_names", PropertyUtil.toList("[\"default\"]"));
 
-        initializeNode("Compute", propertiesCompute);
+        initializeNode("Compute", Compute.class, null, null, propertiesCompute, new HashMap<>());
         for (int computeIndex = 1; computeIndex <= 1; computeIndex++) {
             Compute compute = new Compute();
-            compute.setId("Compute" + computeIndex);
-            compute.setName("Compute");
-            compute.setProperties(propertiesCompute);
-            initializeInstance(compute);
+            initializeInstance(compute, "Compute", computeIndex, null, null);
             nodeInstances.put(compute.getId(), compute);
         }
 
@@ -42,34 +37,28 @@ public class TestDeployment extends Deployment {
         propertiesNetwork.put("cidr", "192.168.1.0/24");
         propertiesNetwork.put("dns_name_servers", PropertyUtil.toList("[\"8.8.8.8\"]"));
 
-        initializeNode("Network", propertiesNetwork);
+        initializeNode("Network", Network.class, null, null, propertiesNetwork, new HashMap<>());
         for (int networkIndex = 1; networkIndex <= 1; networkIndex++) {
             Network network = new Network();
-            network.setId("Network" + networkIndex);
-            network.setName("Network");
-            network.setProperties(propertiesNetwork);
-            initializeInstance(network);
+            initializeInstance(network, "Network", networkIndex, null, null);
             nodeInstances.put(network.getId(), network);
         }
 
         Map<String, Object> propertiesExternalNetwork = new HashMap<>();
         propertiesExternalNetwork.put("network_name", "public");
 
-        initializeNode("ExternalNetwork", propertiesExternalNetwork);
+        initializeNode("ExternalNetwork", ExternalNetwork.class, null, null, propertiesExternalNetwork, new HashMap<>());
         for (int externalNetworkIndex = 1; externalNetworkIndex <= 1; externalNetworkIndex++) {
             ExternalNetwork externalNetwork = new ExternalNetwork();
-            externalNetwork.setId("ExternalNetwork" + externalNetworkIndex);
-            externalNetwork.setName("ExternalNetwork");
-            externalNetwork.setProperties(propertiesExternalNetwork);
-            initializeInstance(externalNetwork);
+            initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
             nodeInstances.put(externalNetwork.getId(), externalNetwork);
         }
 
         setDependencies("Compute", "Network");
         setDependencies("Compute", "ExternalNetwork");
 
-        generateRelationships("Compute", "Network", tosca.relationships.Network.class);
-        generateRelationships("Compute", "ExternalNetwork", tosca.relationships.Network.class);
+        generateRelationships("Compute", "Network", new HashMap<>(), tosca.relationships.Network.class);
+        generateRelationships("Compute", "ExternalNetwork", new HashMap<>(), tosca.relationships.Network.class);
     }
 
     public java.util.Map<String, Object> getOutputs() {

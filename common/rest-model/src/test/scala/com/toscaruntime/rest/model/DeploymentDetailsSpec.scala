@@ -2,10 +2,10 @@ package com.toscaruntime.rest.model
 
 import com.toscaruntime.rest.model.JSONMapStringAnyFormat._
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{MustMatchers, WordSpec}
 import play.api.libs.json.{JsArray, JsObject, JsString, Json}
 
-class DeploymentDetailsSpec extends PlaySpec with LazyLogging {
+class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging {
 
   "Map String Any" must {
     "be able to be converted to JsObject and vice versa" in {

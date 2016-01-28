@@ -42,28 +42,12 @@ public class PropertyUtil {
         return propertyValueToString(getProperty(properties, propertyName, defaultValue));
     }
 
-    public static Boolean getMandatoryPropertyAsBoolean(Map<String, ?> properties, String propertyName) {
-        return propertyValueToBoolean(getMandatoryProperty(properties, propertyName));
-    }
-
-    public static Boolean getPropertyAsBoolean(Map<String, ?> properties, String propertyName) {
-        return propertyValueToBoolean(getProperty(properties, propertyName));
-    }
-
-    public static Boolean getPropertyAsBoolean(Map<String, ?> properties, String propertyName, String defaultValue) {
-        return propertyValueToBoolean(getProperty(properties, propertyName, defaultValue));
-    }
-
     public static String propertyValueToString(Object propertyValue) {
         try {
             return propertyValue != null ? ((propertyValue instanceof String) ? String.valueOf(propertyValue) : JSONUtil.toString(propertyValue)) : null;
         } catch (JsonProcessingException e) {
             throw new PropertyAccessException("Cannot convert property value " + propertyValue + " to string");
         }
-    }
-
-    public static Boolean propertyValueToBoolean(Object propertyValue) {
-        return propertyValue != null ? Boolean.parseBoolean(String.valueOf(propertyValue)) : null;
     }
 
     public static Object getProperty(Map<String, ?> properties, String path) {

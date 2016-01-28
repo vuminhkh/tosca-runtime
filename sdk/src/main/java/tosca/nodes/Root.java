@@ -1,27 +1,44 @@
 package tosca.nodes;
 
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.ToscaRuntimeException;
-import com.toscaruntime.sdk.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
 
-    private String id;
+    private int index;
 
     private String name;
 
+    private DeploymentNode node;
+    /**
+     * The parent node is the one the node is attached to or is hosted on
+     */
     private Root parent;
 
-    private Set<Root> dependsOnNodes = new HashSet<>();
+    /**
+     * The direct host node is the one the node is hosted on
+     */
+    private Root host;
 
-    private Set<Root> dependedByNodes = new HashSet<>();
+    private Map<String, Map<String, Object>> capabilitiesProperties;
 
     private Set<Root> children = new HashSet<>();
+
+    public Map<String, Map<String, Object>> getCapabilitiesProperties() {
+        return capabilitiesProperties;
+    }
+
+    public void setCapabilitiesProperties(Map<String, Map<String, Object>> capabilitiesProperties) {
+        this.capabilitiesProperties = capabilitiesProperties;
+    }
 
     public Set<Root> getChildren() {
         return children;
@@ -39,24 +56,53 @@ public abstract class Root extends AbstractRuntimeType {
         return name;
     }
 
+    public DeploymentNode getNode() {
+        return node;
+    }
+
+    public void setNode(DeploymentNode node) {
+        this.node = node;
+    }
+
+    /**
+     * Id of a node is generated based on its index within its parent and its parent index within its grandparent etc ...
+     * For example: A war hosted on a tomcat which is hosted on a compute will have as id war_1_1_1 or war_2_1_1 (if the compute is scaled with 2 instances)
+     *
+     * @return generated id of the node
+     */
     public String getId() {
+        String id = getName();
+        LinkedList<Integer> indexQueue = new LinkedList<>();
+        indexQueue.push(index);
+        Root currentParent = getParent();
+        while (currentParent != null) {
+            indexQueue.push(currentParent.getIndex());
+            currentParent = currentParent.getParent();
+        }
+        for (Integer index : indexQueue) {
+            id += "_" + index;
+        }
         return id;
     }
 
-    public void setId(String id) {
-        this.id = id;
+    public int getIndex() {
+        return index;
     }
 
-    public Compute getHost() {
-        if (parent == null) {
+    public void setIndex(int index) {
+        this.index = index;
+    }
+
+    public Compute getComputableHost() {
+        if (host == null) {
             return null;
         }
-        Root host = parent;
-        while (host.getParent() != null) {
-            host = host.getParent();
+        Root currentHost = host;
+        while (currentHost.getHost() != null) {
+            currentHost = currentHost.getHost();
         }
-        if (host instanceof Compute) {
-            return (Compute) host;
+        if (currentHost instanceof Compute) {
+            return (Compute) currentHost;
         } else {
             return null;
         }
@@ -68,27 +114,18 @@ public abstract class Root extends AbstractRuntimeType {
 
     public void setParent(Root parent) {
         this.parent = parent;
-        this.parent.getChildren().add(this);
     }
 
-    public Set<Root> getDependsOnNodes() {
-        return dependsOnNodes;
+    public Root getHost() {
+        return host;
     }
 
-    public void setDependsOnNodes(Set<Root> dependsOnNodes) {
-        this.dependsOnNodes = dependsOnNodes;
-    }
-
-    public Set<Root> getDependedByNodes() {
-        return dependedByNodes;
-    }
-
-    public void setDependedByNodes(Set<Root> dependedByNodes) {
-        this.dependedByNodes = dependedByNodes;
+    public void setHost(Root host) {
+        this.host = host;
     }
 
     protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, Object> inputs) {
-        Compute host = getHost();
+        Compute host = getComputableHost();
         if (host == null) {
             throw new ToscaRuntimeException("Non hosted node cannot have operation");
         }
@@ -133,10 +170,10 @@ public abstract class Root extends AbstractRuntimeType {
         Object value;
         switch (entity) {
             case "HOST":
-                if (getParent() == null) {
-                    throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node does not have a parent");
+                if (getHost() == null) {
+                    throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node does not have a direct host");
                 }
-                return getParent().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
+                return getHost().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
             case "SELF":
                 switch (functionName) {
                     case "get_property":
@@ -159,8 +196,8 @@ public abstract class Root extends AbstractRuntimeType {
                 throw new IllegalFunctionException("Entity " + entity + " is not supported");
         }
         if (value == null) {
-            if (getParent() != null) {
-                return getParent().evaluateFunction(functionName, paths);
+            if (getHost() != null) {
+                return getHost().evaluateFunction(functionName, paths);
             } else {
                 return "";
             }
@@ -176,19 +213,19 @@ public abstract class Root extends AbstractRuntimeType {
         if (o == null || getClass() != o.getClass())
             return false;
         Root root = (Root) o;
-        return id.equals(root.id);
+        return getId().equals(root.getId());
     }
 
     @Override
     public int hashCode() {
-        return id.hashCode();
+        return getId().hashCode();
     }
 
     @Override
     public String toString() {
         return "NodeInstance{" +
-                "name='" + name + '\'' +
-                ", id='" + id + '\'' +
+                "name='" + getName() + '\'' +
+                ", id='" + getId() + '\'' +
                 '}';
     }
 }

@@ -47,11 +47,12 @@ lazy val root = project.in(file("."))
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
-  "com.novocode" % "junit-interface" % "0.11" % Test exclude("junit", "junit-dep")
+  "com.novocode" % "junit-interface" % "0.11" % Test exclude("junit", "junit-dep"),
+  "org.mockito" % "mockito-all" % "1.9.5"
 )
 
 val scalaTestDependencies: Seq[ModuleID] = Seq(
-  "org.scalatestplus" % "play_2.11" % "1.4.0-M4" % "test"
+  "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test"
 )
 
 val commonDependencies: Seq[ModuleID] = Seq(
@@ -221,6 +222,7 @@ lazy val sdk = project
   .settings(providerSettings: _*)
   .settings(
     name := "sdk",
+    libraryDependencies ++= testDependencies,
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
   ).dependsOn(miscUtil, constant, exception).enablePlugins(JavaAppPackaging)

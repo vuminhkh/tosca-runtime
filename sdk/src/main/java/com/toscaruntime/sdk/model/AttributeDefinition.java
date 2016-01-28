@@ -1,4 +1,4 @@
-package com.toscaruntime.sdk;
+package com.toscaruntime.sdk.model;
 
 /**
  * All attribute definition that needs to be evaluated at runtime must implement this interface

@@ -10,6 +10,14 @@ imports:
 
 topology_template:
 
+  inputs:
+    os_arch:
+      type: string
+      required: false
+    os_type:
+      type: string
+      required: false
+
   outputs:
     load_balancer_url:
       description: The Load Balancer URL here with exposed port mapped

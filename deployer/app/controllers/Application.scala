@@ -71,8 +71,14 @@ object Application extends Controller with Logging {
     Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
   }
 
+  def scale(nodeName: String, newInstancesCount: Int) = Action { implicit request =>
+    deployment.scale(nodeName, newInstancesCount)
+    Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
+  }
+
   /**
     * Convert from java deployment to deployment information to return back to rest client
+    *
     * @param deployment the managed deployment
     * @return current deployment information
     */

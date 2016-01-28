@@ -10,6 +10,7 @@ import com.toscaruntime.constant.{ProviderConstant, RuntimeConstant}
 import com.toscaruntime.util.FileUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
+import scala.language.postfixOps
 
 /**
   * List all packaged deployments (docker images) available on the docker daemon

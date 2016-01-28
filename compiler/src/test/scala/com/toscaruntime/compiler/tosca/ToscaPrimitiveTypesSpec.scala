@@ -1,8 +1,8 @@
 package com.toscaruntime.compiler.tosca
 
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{MustMatchers, WordSpec}
 
-class ToscaPrimitiveTypesSpec extends PlaySpec {
+class ToscaPrimitiveTypesSpec extends WordSpec with MustMatchers {
 
   "Tosca primitive types" must {
     "be able to be parsed and compared" in {

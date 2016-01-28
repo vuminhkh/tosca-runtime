@@ -66,23 +66,29 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def deploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).post("").map {
-      case response => response.json.as[RestResponse[DeploymentDetails]].data.get
+    wsClient.url(url).post("").map { response =>
+      response.json.as[RestResponse[DeploymentDetails]].data.get
     }
   }
 
   def undeploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).delete().map {
-      case response => response.json.as[RestResponse[DeploymentDetails]].data.get
+    wsClient.url(url).delete().map { response =>
+      response.json.as[RestResponse[DeploymentDetails]].data.get
+    }
+  }
+
+  def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
+    val url = getDeploymentAgentURL(deploymentId)
+    wsClient.url(url).withQueryString(("newInstancesCount", instancesCount.toString)).put("").map { response =>
+      response.json.as[RestResponse[DeploymentDetails]].data.get
     }
   }
 
   def bootstrap(provider: String, target: String) = {
-    deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap {
-      case response =>
-        val proxyUrl = response.outputs.get("public_proxy_url").get + "/context"
-        saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(response.outputs), response)
+    deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
+      val proxyUrl = response.outputs.get("public_proxy_url").get + "/context"
+      saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(response.outputs), response)
     }
   }
 

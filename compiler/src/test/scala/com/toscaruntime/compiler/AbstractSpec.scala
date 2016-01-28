@@ -5,10 +5,9 @@ import java.nio.file.{Files, Path, Paths}
 import com.toscaruntime.compiler.tosca.CompilationResult
 import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
-import org.scalatest.BeforeAndAfter
-import org.scalatestplus.play.PlaySpec
+import org.scalatest.{BeforeAndAfter, MustMatchers, WordSpec}
 
-class AbstractSpec extends PlaySpec with LazyLogging with BeforeAndAfter {
+class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with BeforeAndAfter {
 
   lazy val testPath = Paths.get("target").resolve("compiler-test-data")
   lazy val assemblyPath = testPath.resolve("assemblies")
