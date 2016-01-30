@@ -9,8 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateNetworkCmd;
-import com.github.dockerjava.api.model.NetworkFilters;
-import com.github.dockerjava.api.model.NetworkIPAM;
+import com.github.dockerjava.api.command.ListNetworksCmd;
 import com.toscaruntime.exception.PropertyRequiredException;
 import com.toscaruntime.exception.ProviderResourcesNotFoundException;
 
@@ -34,14 +33,14 @@ public class Network extends tosca.nodes.Network {
         if (id == null && name == null) {
             return null;
         }
-        NetworkFilters filters = new NetworkFilters();
-        if (id != null) {
-            filters.withIds(id);
+        ListNetworksCmd listNetworksCmd = dockerClient.listNetworksCmd();
+        if (StringUtils.isNotBlank(id)) {
+            listNetworksCmd.withIdFilter(id);
         }
-        if (name != null) {
-            filters.withNames(name);
+        if (StringUtils.isNotBlank(name)) {
+            listNetworksCmd.withNameFilter(name);
         }
-        List<com.github.dockerjava.api.model.Network> networks = dockerClient.listNetworksCmd().withFilters(new NetworkFilters().withNames(name)).exec();
+        List<com.github.dockerjava.api.model.Network> networks = listNetworksCmd.exec();
         return networks.isEmpty() ? null : networks.iterator().next();
     }
 
@@ -59,16 +58,14 @@ public class Network extends tosca.nodes.Network {
                 throw new PropertyRequiredException("network_name is required to create new network");
             }
             String cidr = getMandatoryPropertyAsString("cidr");
-            NetworkIPAM networkIPAM = new NetworkIPAM();
-            NetworkIPAM.Config config = new NetworkIPAM.Config();
-            config.setSubnet(cidr);
-            config.setGateway(getPropertyAsString("gateway_ip"));
-            config.setIpRange(getPropertyAsString("ip_range"));
-            networkIPAM.setConfig(new NetworkIPAM.Config[]{config});
             log.info("Network [" + getId() + "] creating new network with name [" + networkName + "]");
-            CreateNetworkCmd createNetworkCmd = dockerClient.createNetworkCmd(networkName)
-                    .withIPAM(networkIPAM)
-                    .withCheckDuplicate(true);
+            com.github.dockerjava.api.model.Network.Ipam.Config ipamConfig = new com.github.dockerjava.api.model.Network.Ipam.Config();
+            ipamConfig.setGateway(getPropertyAsString("gateway_ip"));
+            ipamConfig.setIpRange(getPropertyAsString("ip_range"));
+            ipamConfig.setSubnet(cidr);
+            CreateNetworkCmd createNetworkCmd = dockerClient.createNetworkCmd()
+                    .withName(networkName)
+                    .withIpamConfig(ipamConfig);
             String driver = getPropertyAsString("driver");
             if (StringUtils.isNotEmpty(driver)) {
                 createNetworkCmd.withDriver(driver);

@@ -42,8 +42,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def getProxyURL: Option[String] = {
-    val filters = new Filters().withLabels(RuntimeConstant.COMPONENT_TYPE_LABEL + "=" + RuntimeConstant.PROXY_TYPE_VALUE)
-    val proxyFound = dockerClient.listContainersCmd().withFilters(filters).withLimit(1).exec()
+    val proxyFound = dockerClient.listContainersCmd().withLabelFilter(Map(RuntimeConstant.COMPONENT_TYPE_LABEL -> RuntimeConstant.PROXY_TYPE_VALUE).asJava).withLimit(1).exec()
     if (proxyFound.isEmpty) {
       None
     } else {
@@ -55,9 +54,8 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def getAgent(deploymentId: String) = {
-    val filters = new Filters().withLabels(RuntimeConstant.DEPLOYMENT_ID_LABEL + "=" + deploymentId)
     // TODO container that has been stopped, must be filtered out or status should be sent back
-    val containers = dockerClient.listContainersCmd().withShowAll(true).withFilters(filters).exec().asScala
+    val containers = dockerClient.listContainersCmd().withLabelFilter(Map(RuntimeConstant.DEPLOYMENT_ID_LABEL -> deploymentId).asJava).withShowAll(true).exec().asScala
     containers.headOption
   }
 
@@ -76,14 +74,13 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def listDeploymentAgents() = {
-    val filters = new Filters().withLabels(RuntimeConstant.ORGANIZATION_LABEL + "=" + RuntimeConstant.ORGANIZATION_VALUE)
     // TODO container that has been stopped, must be filtered out or status should be sent back
-    val containers = dockerClient.listContainersCmd().withShowAll(true).withFilters(filters).exec().asScala
+    val containers = dockerClient.listContainersCmd().withShowAll(true).withLabelFilter(Map(RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE).asJava).exec().asScala
     containers.map { container =>
       val containerInfo = dockerClient.inspectContainerCmd(container.getId).exec
       val deploymentId = container.getLabels.get(RuntimeConstant.DEPLOYMENT_ID_LABEL)
       val ipAddresses = containerInfo.getNetworkSettings.getNetworks.asScala.map {
-        case (networkName: String, network: InspectContainerResponse.Network) => (networkName, network.getIpAddress)
+        case (networkName: String, network: NetworkSettings.Network) => (networkName, network.getIpAddress)
       }.toMap
       val deploymentInfo = DeploymentInfo(deploymentId, container.getNames.head, containerInfo.getId, containerInfo.getCreated, container.getStatus, ipAddresses)
       (deploymentId, deploymentInfo)
@@ -135,14 +132,13 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def getAgentImage(deploymentId: String) = {
-    val images = dockerClient.listImagesCmd().withFilters(s"""{"label":["${RuntimeConstant.DEPLOYMENT_ID_LABEL}=$deploymentId"]}""").exec().asScala
+    val images = dockerClient.listImagesCmd().withLabelFilter(Map(RuntimeConstant.DEPLOYMENT_ID_LABEL -> deploymentId).asJava).exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
     images.headOption
   }
 
   def listDeploymentImages() = {
-    val images = dockerClient.listImagesCmd()
-      .withFilters("{\"label\":[\"" + RuntimeConstant.ORGANIZATION_LABEL + "=" + RuntimeConstant.ORGANIZATION_VALUE + "\"]}").exec().asScala
+    val images = dockerClient.listImagesCmd().withLabelFilter(Map(RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE).asJava).exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
     images.toList.map { image =>
       dockerClient.inspectImageCmd(image.getId).exec()
@@ -156,7 +152,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def cleanDanglingImages() = {
-    val images = dockerClient.listImagesCmd.withFilters("""{"dangling":["true"]}""").withShowAll(true).exec.asScala
+    val images = dockerClient.listImagesCmd.withDanglingFilter(true).withShowAll(true).exec.asScala
     images.foreach { image =>
       dockerClient.removeImageCmd(image.getId).exec()
     }
@@ -181,7 +177,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
     bootstrapContext.get("docker_network_id").map {
       case networkId: String =>
         // If it's a swarm cluster with a swarm network overlay then connect to it
-        dockerClient.connectContainerToNetworkCmd(createdContainer.getId, networkId).exec()
+        dockerClient.connectToNetworkCmd().withContainerId(createdContainer.getId).withNetworkId(networkId).exec()
     }
     createdContainer
   }
@@ -220,7 +216,6 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
     val logCallBack = new LogContainerResultCallback() {
       override def onNext(item: Frame): Unit = {
         output.print(new String(item.getPayload, "UTF-8"))
-        super.onNext(item)
       }
     }
     DockerUtil.showLog(dockerClient, containerId, true, 1000, logCallBack)

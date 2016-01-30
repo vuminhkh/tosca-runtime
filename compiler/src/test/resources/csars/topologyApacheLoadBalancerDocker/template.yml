@@ -31,6 +31,12 @@ topology_template:
         image_id: toscaruntime/ubuntu-trusty
       requirements:
         - network: Internet
+      capabilities:
+        scalable:
+          properties:
+            max_instances: 3
+            min_instances: 1
+            default_instances: 1
 
     LoadBalancerServer:
       type: com.toscaruntime.docker.nodes.Container

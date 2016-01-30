@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.ContextBuilder;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
@@ -27,6 +28,8 @@ import com.toscaruntime.openstack.util.NetworkUtil;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.PropertyUtil;
+
+import tosca.nodes.Root;
 
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
 
@@ -124,5 +127,11 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             network.setExternalNetworkId(externalNetworkId);
             network.setRouterApi(routerApi);
         }
+    }
+
+    @Override
+    public void postConstructExtension(Map<String, Root> nodes, Set<tosca.relationships.Root> relationships) {
+        // FIXME implement this to be able to scale on openstack
+        throw new NotImplementedException("WIP");
     }
 }

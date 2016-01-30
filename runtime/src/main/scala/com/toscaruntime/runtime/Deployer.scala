@@ -4,6 +4,7 @@ import java.nio.file._
 
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.sdk.{Deployment, DeploymentPostConstructor}
+import com.toscaruntime.util.JavaScalaConversionUtil
 
 import scala.collection.JavaConverters._
 
@@ -36,7 +37,7 @@ object Deployer {
     * @param providerProperties     provider's properties
     * @return the created deployment
     */
-  def createDeployment(deploymentName: String, deploymentRecipeFolder: Path, inputs: Map[String, AnyRef], providerProperties: Map[String, String], bootstrapContext: Map[String, AnyRef], bootstrap: Boolean): Deployment = {
+  def createDeployment(deploymentName: String, deploymentRecipeFolder: Path, inputs: Map[String, Any], providerProperties: Map[String, String], bootstrapContext: Map[String, Any], bootstrap: Boolean): Deployment = {
     val compiledClasses = DeployerUtil.compileJavaRecipe(
       List(
         deploymentRecipeFolder.resolve(CompilerConstant.TYPES_FOLDER),
@@ -47,9 +48,18 @@ object Deployer {
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(classLoader)
     val deployment = classLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-    deployment.initialize(deploymentName, deploymentRecipeFolder, inputs.asJava, bootstrap)
-    val deploymentPostConstructors = DeployerUtil.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
-    deploymentPostConstructors.foreach(_.newInstance().asInstanceOf[DeploymentPostConstructor].postConstruct(deployment, providerProperties.asJava, bootstrapContext.asJava))
+    val postConstructorClasses = DeployerUtil.findImplementations(loadedClasses, classLoader, classOf[DeploymentPostConstructor])
+    val postConstructorInstances = postConstructorClasses.map { postConstructorClass =>
+      postConstructorClass.newInstance().asInstanceOf[DeploymentPostConstructor]
+    }
+    deployment.initializeConfig(deploymentName,
+      deploymentRecipeFolder,
+      JavaScalaConversionUtil.toJavaMap(inputs),
+      providerProperties.asJava,
+      JavaScalaConversionUtil.toJavaMap(bootstrapContext),
+      postConstructorInstances.asJava,
+      bootstrap
+    )
     Thread.currentThread().setContextClassLoader(currentClassLoader)
     deployment
   }

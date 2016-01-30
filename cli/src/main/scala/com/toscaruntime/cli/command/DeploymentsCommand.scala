@@ -107,6 +107,7 @@ object DeploymentsCommand {
         val createArgs = createOpts.toMap
         val topologyPathOpt = getTopologyPath(createArgs, repository)
         if (topologyPathOpt.isEmpty) {
+          println(s"Topology not found")
           fail = true
         } else {
           val topologyPath = topologyPathOpt.get

@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.toscaruntime.exception.NodeNotFoundException;
 import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
@@ -100,15 +101,25 @@ public class DeploymentInitializer {
                                       String targetName,
                                       Map<String, Object> properties,
                                       Class<? extends tosca.relationships.Root> relationshipType,
-                                      Map<String, DeploymentNode> nodes,
-                                      Set<DeploymentRelationshipNode> relationshipNodes,
-                                      Set<tosca.relationships.Root> relationshipInstances) {
+                                      Set<DeploymentRelationshipNode> relationshipNodes) {
         DeploymentRelationshipNode relationshipNode = new DeploymentRelationshipNode();
         relationshipNode.setProperties(properties);
         relationshipNode.setSourceNodeId(sourceName);
         relationshipNode.setTargetNodeId(targetName);
         relationshipNode.setRelationshipType(relationshipType);
         relationshipNodes.add(relationshipNode);
+    }
+
+    public void generateRelationshipsInstances(String sourceName,
+                                               String targetName,
+                                               Map<String, DeploymentNode> nodes,
+                                               Set<DeploymentRelationshipNode> relationshipNodes,
+                                               Class<? extends tosca.relationships.Root> relationshipType,
+                                               Set<tosca.relationships.Root> relationshipInstances) {
+        DeploymentRelationshipNode relationshipNode = DeploymentUtil.getRelationshipNodeBySourceNameTargetName(relationshipNodes, sourceName, targetName, relationshipType);
+        if (relationshipNode == null) {
+            throw new NodeNotFoundException("Relationship node with source " + sourceName + " and target " + targetName + " and type " + relationshipType.getName() + " cannot be found");
+        }
         Set<Root> sourceInstances = nodes.get(relationshipNode.getSourceNodeId()).getInstances();
         Set<Root> targetInstances = nodes.get(relationshipNode.getTargetNodeId()).getInstances();
         relationshipInstances.addAll(generateRelationshipsInstances(sourceInstances, targetInstances, relationshipNode));

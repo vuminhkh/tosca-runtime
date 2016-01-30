@@ -94,7 +94,7 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
+    public synchronized Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
         if (this.server == null) {
             throw new ProviderResourcesNotFoundException("Must create the server before executing operation on it");
         }

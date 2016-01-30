@@ -16,9 +16,19 @@ public class DeploymentConfig {
     private String deploymentName;
 
     /**
+     * Properties to initialize the providers, it can be openstack account information, docker url etc ...
+     */
+    private Map<String, String> providerProperties;
+
+    /**
      * Inputs of the deployment
      */
     private Map<String, Object> inputs;
+
+    /**
+     * The bootstrap context hold information about the context of the daemon application server (id of network on openstack etc ...)
+     */
+    private Map<String, Object> bootstrapContext;
 
     /**
      * Path to the deployment recipe (which must contain artifacts, provider dependencies, deployment, provider configurations ...)
@@ -39,6 +49,14 @@ public class DeploymentConfig {
      * Name of the csar that contains the topology from whom this deployment has been generated
      */
     private Path topologyResourcePath;
+
+    public Map<String, String> getProviderProperties() {
+        return providerProperties;
+    }
+
+    public void setProviderProperties(Map<String, String> providerProperties) {
+        this.providerProperties = providerProperties;
+    }
 
     public String getDeploymentName() {
         return deploymentName;
@@ -86,5 +104,13 @@ public class DeploymentConfig {
 
     public void setTopologyResourcePath(Path topologyResourcePath) {
         this.topologyResourcePath = topologyResourcePath;
+    }
+
+    public Map<String, Object> getBootstrapContext() {
+        return bootstrapContext;
+    }
+
+    public void setBootstrapContext(Map<String, Object> bootstrapContext) {
+        this.bootstrapContext = bootstrapContext;
     }
 }

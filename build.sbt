@@ -48,7 +48,7 @@ lazy val root = project.in(file("."))
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
   "com.novocode" % "junit-interface" % "0.11" % Test exclude("junit", "junit-dep"),
-  "org.mockito" % "mockito-all" % "1.9.5"
+  "org.mockito" % "mockito-all" % "1.9.5" % Test
 )
 
 val scalaTestDependencies: Seq[ModuleID] = Seq(

@@ -14,9 +14,7 @@ import com.toscaruntime.util.PropertyUtil;
 public class OpenstackTestDeployment extends Deployment {
 
     @Override
-    public void initializeDeployment() {
-        this.config.setTopologyResourcePath(this.config.getArtifactsPath());
-
+    protected void initializeNodes() {
         Map<String, Object> propertiesCompute = new HashMap<>();
         propertiesCompute.put("image", "cb6b7936-d2c5-4901-8678-c88b3a6ed84c");
         propertiesCompute.put("flavor", "3");
@@ -26,11 +24,7 @@ public class OpenstackTestDeployment extends Deployment {
         propertiesCompute.put("security_group_names", PropertyUtil.toList("[\"default\"]"));
 
         initializeNode("Compute", Compute.class, null, null, propertiesCompute, new HashMap<>());
-        for (int computeIndex = 1; computeIndex <= 1; computeIndex++) {
-            Compute compute = new Compute();
-            initializeInstance(compute, "Compute", computeIndex, null, null);
-            nodeInstances.put(compute.getId(), compute);
-        }
+
 
         Map<String, Object> propertiesNetwork = new HashMap<>();
         propertiesNetwork.put("network_name", "test-network");
@@ -38,25 +32,49 @@ public class OpenstackTestDeployment extends Deployment {
         propertiesNetwork.put("dns_name_servers", PropertyUtil.toList("[\"8.8.8.8\"]"));
 
         initializeNode("Network", Network.class, null, null, propertiesNetwork, new HashMap<>());
-        for (int networkIndex = 1; networkIndex <= 1; networkIndex++) {
-            Network network = new Network();
-            initializeInstance(network, "Network", networkIndex, null, null);
-            nodeInstances.put(network.getId(), network);
-        }
 
         Map<String, Object> propertiesExternalNetwork = new HashMap<>();
         propertiesExternalNetwork.put("network_name", "public");
 
         initializeNode("ExternalNetwork", ExternalNetwork.class, null, null, propertiesExternalNetwork, new HashMap<>());
-        for (int externalNetworkIndex = 1; externalNetworkIndex <= 1; externalNetworkIndex++) {
-            ExternalNetwork externalNetwork = new ExternalNetwork();
-            initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
-            nodeInstances.put(externalNetwork.getId(), externalNetwork);
-        }
 
         setDependencies("Compute", "Network");
         setDependencies("Compute", "ExternalNetwork");
+    }
 
+    @Override
+    protected void initializeInstances() {
+
+        for (int computeIndex = 1; computeIndex <= 1; computeIndex++) {
+            Compute compute = new Compute();
+            initializeInstance(compute, "Compute", computeIndex, null, null);
+        }
+
+        for (int networkIndex = 1; networkIndex <= 1; networkIndex++) {
+            Network network = new Network();
+            initializeInstance(network, "Network", networkIndex, null, null);
+        }
+
+        for (int externalNetworkIndex = 1; externalNetworkIndex <= 1; externalNetworkIndex++) {
+            ExternalNetwork externalNetwork = new ExternalNetwork();
+            initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
+        }
+
+    }
+
+    @Override
+    protected void initializeRelationshipInstances() {
+        generateRelationshipInstances("Compute", "Network", tosca.relationships.Network.class);
+        generateRelationshipInstances("Compute", "ExternalNetwork", tosca.relationships.Network.class);
+    }
+
+    @Override
+    protected void postInitializeConfig() {
+        this.config.setTopologyResourcePath(this.config.getArtifactsPath());
+    }
+
+    @Override
+    public void initializeRelationships() {
         generateRelationships("Compute", "Network", new HashMap<>(), tosca.relationships.Network.class);
         generateRelationships("Compute", "ExternalNetwork", new HashMap<>(), tosca.relationships.Network.class);
     }

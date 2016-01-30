@@ -1,5 +1,7 @@
 package com.toscaruntime.openstack.nodes;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.Assert;
@@ -10,6 +12,7 @@ import org.junit.runners.JUnit4;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.toscaruntime.openstack.OpenstackDeploymentPostConstructor;
+import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.ClassLoaderUtil;
 
 @RunWith(JUnit4.class)
@@ -18,7 +21,6 @@ public class OpenstackNodesTest {
     @Test
     public void testOpenstack() {
         OpenstackTestDeployment testDeployment = new OpenstackTestDeployment();
-        testDeployment.initialize("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), Maps.newHashMap(), true);
         OpenstackDeploymentPostConstructor postConstructor = new OpenstackDeploymentPostConstructor();
         Map<String, String> providerProperties = ImmutableMap.<String, String>builder()
                 .put("keystone_url", "http://128.136.179.2:5000/v2.0")
@@ -26,7 +28,7 @@ public class OpenstackNodesTest {
                 .put("region", "RegionOne")
                 .put("password", "mqAgNPA2c6VDjoOD")
                 .put("tenant", "facebook1389662728").build();
-        postConstructor.postConstruct(testDeployment, providerProperties, Maps.newHashMap());
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), true);
         try {
             testDeployment.install();
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();

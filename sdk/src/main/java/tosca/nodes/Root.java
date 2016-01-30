@@ -10,6 +10,7 @@ import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.util.FunctionUtil;
+import com.toscaruntime.util.PropertyUtil;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -31,6 +32,14 @@ public abstract class Root extends AbstractRuntimeType {
     private Map<String, Map<String, Object>> capabilitiesProperties;
 
     private Set<Root> children = new HashSet<>();
+
+    public Object getCapabilityProperty(String capabilityName, String propertyName) {
+        if (capabilitiesProperties.containsKey(capabilityName)) {
+            return PropertyUtil.getProperty(capabilitiesProperties.get(capabilityName), propertyName);
+        } else {
+            return null;
+        }
+    }
 
     public Map<String, Map<String, Object>> getCapabilitiesProperties() {
         return capabilitiesProperties;
@@ -177,7 +186,13 @@ public abstract class Root extends AbstractRuntimeType {
             case "SELF":
                 switch (functionName) {
                     case "get_property":
-                        value = getProperty(paths[1]);
+                        if (paths.length == 2) {
+                            value = getProperty(paths[1]);
+                        } else if (paths.length == 3) {
+                            value = getCapabilityProperty(paths[1], paths[2]);
+                        } else {
+                            throw new IllegalFunctionException("get_property must be followed by entity and the property name (2 arguments), or entity then requirement/capability name and property name (3 arguments)");
+                        }
                         break;
                     case "get_input":
                         value = getInput(paths[1]);

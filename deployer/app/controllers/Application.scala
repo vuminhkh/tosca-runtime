@@ -4,6 +4,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 
 import com.toscaruntime.constant.DeployerConstant
+import com.toscaruntime.exception.{InvalidInstancesCountException, NodeNotFoundException}
 import com.toscaruntime.rest.model._
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.sdk.Deployment
@@ -72,8 +73,13 @@ object Application extends Controller with Logging {
   }
 
   def scale(nodeName: String, newInstancesCount: Int) = Action { implicit request =>
-    deployment.scale(nodeName, newInstancesCount)
-    Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
+    try {
+      deployment.scale(nodeName, newInstancesCount)
+      Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
+    } catch {
+      case e: InvalidInstancesCountException => BadRequest(e.getMessage)
+      case e: NodeNotFoundException => BadRequest(e.getMessage)
+    }
   }
 
   /**

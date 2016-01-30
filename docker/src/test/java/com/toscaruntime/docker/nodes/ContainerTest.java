@@ -8,6 +8,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,12 +31,7 @@ public class ContainerTest {
 
     private Container createContainer(String imageId) throws MalformedURLException {
         Container container = new Container();
-        container.setDeployment(new Deployment() {
-            @Override
-            protected void initializeDeployment() {
-                logger.info("Initializing deployment test container");
-            }
-        });
+        container.setDeployment(Mockito.mock(Deployment.class));
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
         deploymentConfig.setBootstrap(true);

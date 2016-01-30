@@ -4,9 +4,9 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +27,7 @@ import com.toscaruntime.util.FunctionUtil;
 import tosca.nodes.Root;
 
 /**
- * This represents a runtime topology
+ * This represents a topology at runtime which contains instances of nodes defined in the tosca topology and relationship instances between them.
  *
  * @author Minh Khang VU
  */
@@ -77,36 +77,91 @@ public abstract class Deployment {
     private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
 
     /**
-     * This method is called to initialize the deployment.
-     *
-     * @param deploymentName name of the deployment
-     * @param recipePath     the path to the recipe which contains the deployment's binary and artifacts
-     * @param inputs         the inputs for the deployment
-     * @param bootstrap      is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
+     * Hold reference to the post constructor that was used to initialize the deployment, it's used later to modify the deployment if needed.
      */
-    public void initialize(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
-        initializeConfig(deploymentName, recipePath, inputs, bootstrap);
-        initializeDeployment();
+    private List<DeploymentPostConstructor> deploymentPostConstructors;
+
+    public void initialize() {
+        initializeInstances();
+        initializeRelationshipInstances();
+        attachCreatedInstancesToNode(nodeInstances, relationshipInstances);
+        for (DeploymentPostConstructor postConstructor : deploymentPostConstructors) {
+            postConstructor.postConstruct(this, this.config.getProviderProperties(), this.config.getBootstrapContext());
+        }
+    }
+
+    private void attachCreatedInstancesToNode(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
         for (DeploymentNode node : nodes.values()) {
-            node.getInstances().addAll(getNodeInstancesByNodeName(node.getId()));
+            node.getInstances().addAll(DeploymentUtil.getNodeInstancesByNodeName(nodeInstances, node.getId()));
         }
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
-            relationshipNode.getRelationshipInstances().addAll(getRelationshipInstancesByNamesAndType(relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
+            relationshipNode.getRelationshipInstances().addAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
+        }
+    }
+
+    public void destroy() {
+        this.nodeInstances.clear();
+        this.relationshipInstances.clear();
+        for (DeploymentNode node : nodes.values()) {
+            node.getInstances().clear();
+        }
+        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
+            relationshipNode.getRelationshipInstances().clear();
+        }
+    }
+
+    private void unlinkDeletedInstancesFromNode(Map<String, Root> deletedNodeInstances, Set<tosca.relationships.Root> deletedRelationshipInstances) {
+        for (DeploymentNode node : nodes.values()) {
+            node.getInstances().removeAll(DeploymentUtil.getNodeInstancesByNodeName(deletedNodeInstances, node.getId()));
+        }
+        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
+            relationshipNode.getRelationshipInstances().removeAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
         }
     }
 
     /**
      * This method is overridden by auto-generated code to help initialize the deployment
      */
-    protected abstract void initializeDeployment();
+    protected abstract void initializeNodes();
 
-    private void initializeConfig(String deploymentName, Path recipePath, Map<String, Object> inputs, boolean bootstrap) {
+    protected abstract void initializeInstances();
+
+    protected abstract void postInitializeConfig();
+
+    protected abstract void initializeRelationships();
+
+    protected abstract void initializeRelationshipInstances();
+
+    /**
+     * This method is called to initialize the deployment's config. No instances are created yet until install workflow is launched.
+     *
+     * @param deploymentName     name of the deployment
+     * @param recipePath         the path to the recipe which contains the deployment's binary and artifacts
+     * @param inputs             the inputs for the deployment
+     * @param providerProperties properties of provider
+     * @param bootstrapContext   context of the bootstrapped daemon (id of openstack network, docker network etc ...)
+     * @param postConstructors   post constructors
+     * @param bootstrap          is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
+     */
+    public void initializeConfig(String deploymentName,
+                                 Path recipePath,
+                                 Map<String, Object> inputs,
+                                 Map<String, String> providerProperties,
+                                 Map<String, Object> bootstrapContext,
+                                 List<DeploymentPostConstructor> postConstructors,
+                                 boolean bootstrap) {
         this.config = new DeploymentConfig();
         this.config.setDeploymentName(deploymentName);
         this.config.setInputs(inputs);
         this.config.setRecipePath(recipePath);
         this.config.setBootstrap(bootstrap);
+        this.config.setBootstrapContext(bootstrapContext);
         this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
+        this.config.setProviderProperties(providerProperties);
+        this.deploymentPostConstructors = postConstructors;
+        postInitializeConfig();
+        initializeNodes();
+        initializeRelationships();
     }
 
     /**
@@ -146,11 +201,15 @@ public abstract class Deployment {
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
-        deploymentInitializer.setDependencies(this.nodes, nodeName, dependencies);
+        this.deploymentInitializer.setDependencies(this.nodes, nodeName, dependencies);
     }
 
     protected void generateRelationships(String sourceName, String targetName, Map<String, Object> properties, Class<? extends tosca.relationships.Root> relationshipType) {
-        this.deploymentInitializer.generateRelationships(sourceName, targetName, properties, relationshipType, nodes, relationshipNodes, relationshipInstances);
+        this.deploymentInitializer.generateRelationships(sourceName, targetName, properties, relationshipType, relationshipNodes);
+    }
+
+    protected void generateRelationshipInstances(String sourceName, String targetName, Class<? extends tosca.relationships.Root> relationshipType) {
+        this.deploymentInitializer.generateRelationshipsInstances(sourceName, targetName, nodes, relationshipNodes, relationshipType, relationshipInstances);
     }
 
     /**
@@ -170,7 +229,6 @@ public abstract class Deployment {
         if (newInstancesCount > node.getMaxInstancesCount()) {
             throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is greater than max instances count");
         }
-
         if (newInstancesCount == node.getInstancesCount()) {
             log.warn("New instances count is equal to current number of instance, do nothing");
         } else if (newInstancesCount > node.getInstancesCount()) {
@@ -181,6 +239,7 @@ public abstract class Deployment {
                 node.setInstancesCount(newInstancesCount);
                 this.nodeInstances.putAll(modification.getInstancesToAdd());
                 this.relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
+                attachCreatedInstancesToNode(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
             } catch (WorkflowExecutionException e) {
                 log.info("Scale workflow execution failed, rolling back", e);
                 this.workflowEngine.uninstall(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
@@ -193,15 +252,18 @@ public abstract class Deployment {
             node.setInstancesCount(newInstancesCount);
             this.nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
             this.relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
+            unlinkDeletedInstancesFromNode(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
         }
     }
 
     public void install() {
+        initialize();
         workflowEngine.install(nodeInstances, relationshipInstances);
     }
 
     public void uninstall() {
         workflowEngine.uninstall(nodeInstances, relationshipInstances);
+        destroy();
     }
 
     public Map<String, Object> getOutputs() {
@@ -241,22 +303,15 @@ public abstract class Deployment {
     }
 
     public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
-        return nodeInstances.values().stream().filter(nodeInstance ->
-                type.isAssignableFrom(nodeInstance.getClass())
-        ).map(nodeInstance -> (T) nodeInstance).collect(Collectors.toSet());
+        return DeploymentUtil.getNodeInstancesByType(nodeInstances, type);
     }
 
     public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
-        return getRelationshipInstanceBySourceId(sourceId).stream().filter(relationshipInstance ->
-                type.isAssignableFrom(relationshipInstance.getClass())
-        ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
+        return DeploymentUtil.getRelationshipInstancesByType(relationshipInstances, sourceId, type);
     }
 
     public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
-        Set<U> relationships = getRelationshipInstancesByType(sourceId, relationshipType);
-        return relationships.stream().filter(relationship ->
-                targetType.isAssignableFrom(relationship.getTarget().getClass())
-        ).map(relationship -> (T) relationship.getTarget()).collect(Collectors.toSet());
+        return DeploymentUtil.getNodeInstancesByRelationship(relationshipInstances, sourceId, relationshipType, targetType);
     }
 
     public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByNamesAndType(String sourceName, String targetName, Class<T> relationshipType) {
@@ -293,5 +348,21 @@ public abstract class Deployment {
 
     public Set<DeploymentRelationshipNode> getRelationshipNodes() {
         return relationshipNodes;
+    }
+
+    public List<DeploymentPostConstructor> getDeploymentPostConstructors() {
+        return deploymentPostConstructors;
+    }
+
+    public void setDeploymentPostConstructors(List<DeploymentPostConstructor> deploymentPostConstructors) {
+        this.deploymentPostConstructors = deploymentPostConstructors;
+    }
+
+    public Map<String, Root> getNodeInstances() {
+        return nodeInstances;
+    }
+
+    public Set<tosca.relationships.Root> getRelationshipInstances() {
+        return relationshipInstances;
     }
 }

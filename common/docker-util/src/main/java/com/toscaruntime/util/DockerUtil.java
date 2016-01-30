@@ -1,7 +1,5 @@
 package com.toscaruntime.util;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -20,6 +18,7 @@ import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.jaxrs.DockerCmdExecFactoryImpl;
 import com.google.common.collect.Maps;
 import com.toscaruntime.exception.OperationExecutionException;
 
@@ -42,7 +41,7 @@ public class DockerUtil {
         Properties properties = new Properties();
         properties.putAll(providerProperties);
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
-        return DockerClientBuilder.getInstance(config).build();
+        return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(new DockerCmdExecFactoryImpl()).build();
     }
 
     public static DockerClient buildDockerClient() {
@@ -118,13 +117,10 @@ public class DockerUtil {
                 .withAttachStderr(true)
                 .withCmd(commands.toArray(new String[commands.size()]))
                 .exec();
-        try (InputStream startResponse = dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec()) {
-            DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder(startResponse);
-            List<DockerStreamDecoder.DecoderResult> lines;
-            while ((lines = dockerStreamDecoder.readLines()) != null) {
-                lines.forEach(log::log);
-            }
-        } catch (IOException e) {
+        try {
+            DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder(log);
+            dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec(dockerStreamDecoder).awaitCompletion();
+        } catch (Exception e) {
             throw new OperationExecutionException("Script " + commands + " exec encountered error while reading for output ", e);
         }
         InspectExecResponse response = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();

@@ -2,7 +2,7 @@ package controllers
 
 import javax.inject.Inject
 
-import com.github.dockerjava.api.command.InspectContainerResponse
+import com.github.dockerjava.api.model.NetworkSettings
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfo, RestResponse}
 import com.toscaruntime.util.DockerUtil
@@ -34,7 +34,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
       dockerClient.getAgentInfo(deploymentId).map { agentInfo =>
         val context = cache.get[JsObject](bootstrapContextKey).getOrElse(Json.obj())
         val ipAddresses = agentInfo.getNetworkSettings.getNetworks.asScala.map {
-          case (networkName: String, network: InspectContainerResponse.Network) => (networkName, network.getIpAddress)
+          case (networkName: String, network: NetworkSettings.Network) => (networkName, network.getIpAddress)
         }.toMap
         val agentIp = ipAddresses.getOrElse(context.value.getOrElse("docker_network_name", JsString("bridge")).asInstanceOf[JsString].value, ipAddresses.values.head)
         val agentURL = "http://" + agentIp + ":9000/deployment"

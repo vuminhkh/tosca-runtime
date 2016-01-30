@@ -1,8 +1,8 @@
 package com.toscaruntime.sdk.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import tosca.relationships.Root;
 
@@ -16,7 +16,7 @@ public class DeploymentRelationshipNode {
 
     private Map<String, Object> properties;
 
-    private List<Root> relationshipInstances = new ArrayList<>();
+    private Set<Root> relationshipInstances = new HashSet<>();
 
     public String getSourceNodeId() {
         return sourceNodeId;
@@ -42,11 +42,11 @@ public class DeploymentRelationshipNode {
         this.properties = properties;
     }
 
-    public List<Root> getRelationshipInstances() {
+    public Set<Root> getRelationshipInstances() {
         return relationshipInstances;
     }
 
-    public void setRelationshipInstances(List<Root> relationshipInstances) {
+    public void setRelationshipInstances(Set<Root> relationshipInstances) {
         this.relationshipInstances = relationshipInstances;
     }
 

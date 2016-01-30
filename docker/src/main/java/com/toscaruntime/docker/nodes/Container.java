@@ -23,6 +23,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.NetworkSettings;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
@@ -141,13 +142,13 @@ public class Container extends Compute {
         dockerClient.startContainerCmd(containerId).exec();
         if (StringUtils.isNotBlank(bootstrapNetworkId)) {
             log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, bootstrapNetworkId);
-            dockerClient.connectContainerToNetworkCmd(containerId, bootstrapNetworkId).exec();
+            dockerClient.connectToNetworkCmd().withContainerId(containerId).withNetworkId(bootstrapNetworkId).exec();
             log.info("Container [" + getId() + "] : Connected container {} to network {}", containerId, bootstrapNetworkId);
         }
         if (networks != null && !networks.isEmpty()) {
             for (Network network : networks) {
                 log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, network.getId());
-                dockerClient.connectContainerToNetworkCmd(containerId, network.getNetworkId()).exec();
+                dockerClient.connectToNetworkCmd().withContainerId(containerId).withNetworkId(network.getNetworkId()).exec();
                 log.info("Container [" + getId() + "] : Connected container {} to network {}", containerId, network.getId());
             }
         }
@@ -164,7 +165,7 @@ public class Container extends Compute {
             }
         }
         Map<String, String> ipAddresses = Maps.newHashMap();
-        for (Map.Entry<java.lang.String, InspectContainerResponse.Network> networkEntry : response.getNetworkSettings().getNetworks().entrySet()) {
+        for (Map.Entry<java.lang.String, NetworkSettings.Network> networkEntry : response.getNetworkSettings().getNetworks().entrySet()) {
             ipAddresses.put(networkEntry.getKey(), networkEntry.getValue().getIpAddress());
         }
         setAttribute("ip_addresses", ipAddresses);
@@ -207,7 +208,7 @@ public class Container extends Compute {
      *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
+    public synchronized Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;

@@ -29,11 +29,12 @@ class DeployerSpec extends AbstractSpec {
       val deployment = Deployer.createDeployment(
         deploymentName = "wordpress",
         deploymentRecipeFolder = wordpressTopologyOutput,
-        inputs = Map.empty[String, AnyRef],
+        inputs = Map.empty[String, Any],
         providerProperties = Map.empty[String, String],
-        bootstrapContext = Map.empty[String, AnyRef],
+        bootstrapContext = Map.empty[String, Any],
         bootstrap = true
       )
+      deployment.initialize()
       deployment.getConfig.getDeploymentName must be("wordpress")
       deployment.getConfig.getRecipePath must be(wordpressTopologyOutput)
       deployment.getConfig.getArtifactsPath must be(wordpressTopologyOutput.resolve("src").resolve("main").resolve("resources"))
@@ -78,6 +79,7 @@ class DeployerSpec extends AbstractSpec {
         bootstrapContext = Map.empty[String, AnyRef],
         bootstrap = true
       )
+      deployment.initialize()
       deployment.getConfig.getDeploymentName must be("tomcat-apache")
       deployment.getConfig.getRecipePath must be(tomcatApacheOutput)
       deployment.getConfig.getArtifactsPath must be(tomcatApacheOutput.resolve("src").resolve("main").resolve("resources"))

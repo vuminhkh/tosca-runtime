@@ -13,6 +13,15 @@ import tosca.relationships.Root;
 @SuppressWarnings("unchecked")
 public class DeploymentUtil {
 
+    public static DeploymentRelationshipNode getRelationshipNodeBySourceNameTargetName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName, String targetName, Class<? extends Root> relationshipType) {
+        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
+            if (relationshipNode.getSourceNodeId().equals(sourceName) && relationshipNode.getTargetNodeId().equals(targetName) && relationshipNode.getRelationshipType() == relationshipType) {
+                return relationshipNode;
+            }
+        }
+        return null;
+    }
+
     public static Set<DeploymentRelationshipNode> getRelationshipNodeBySourceName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName) {
         return relationshipNodes.stream().filter(relationshipNode ->
                 relationshipNode.getSourceNodeId().equals(sourceName)
@@ -67,5 +76,24 @@ public class DeploymentUtil {
             current = current.getParent();
         }
         return ancestorsIncludingSelf;
+    }
+
+    public static <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Map<String, tosca.nodes.Root> nodeInstances, Class<T> type) {
+        return nodeInstances.values().stream().filter(nodeInstance ->
+                type.isAssignableFrom(nodeInstance.getClass())
+        ).map(nodeInstance -> (T) nodeInstance).collect(Collectors.toSet());
+    }
+
+    public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(Set<Root> relationshipInstances, String sourceId, Class<T> type) {
+        return getRelationshipInstanceBySourceId(relationshipInstances, sourceId).stream().filter(relationshipInstance ->
+                type.isAssignableFrom(relationshipInstance.getClass())
+        ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
+    }
+
+    public static <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(Set<Root> relationshipInstances, String sourceId, Class<U> relationshipType, Class<T> targetType) {
+        Set<U> relationships = getRelationshipInstancesByType(relationshipInstances, sourceId, relationshipType);
+        return relationships.stream().filter(relationship ->
+                targetType.isAssignableFrom(relationship.getTarget().getClass())
+        ).map(relationship -> (T) relationship.getTarget()).collect(Collectors.toSet());
     }
 }

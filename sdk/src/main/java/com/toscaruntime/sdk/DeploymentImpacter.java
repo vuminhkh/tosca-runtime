@@ -132,6 +132,9 @@ public class DeploymentImpacter {
                 deploymentModification.merge(modification);
             }
         }
+        for (DeploymentPostConstructor postConstructor : deployment.getDeploymentPostConstructors()) {
+            postConstructor.postConstructExtension(deploymentModification.getInstancesToAdd(), deploymentModification.getRelationshipInstancesToAdd());
+        }
         return deploymentModification;
     }
 

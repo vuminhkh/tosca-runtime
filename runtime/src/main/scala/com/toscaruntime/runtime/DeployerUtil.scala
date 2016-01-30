@@ -4,28 +4,28 @@ import java.io.File
 import java.net.{URL, URLClassLoader}
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.{FileVisitResult, Files, Path, SimpleFileVisitor}
-import com.toscaruntime.util.ClassLoaderUtil
+
+import com.toscaruntime.util.{ClassLoaderUtil, JavaScalaConversionUtil}
 import org.abstractmeta.toolbox.compilation.compiler.impl.JavaSourceCompilerImpl
 import org.slf4j.{Logger, LoggerFactory}
 import org.yaml.snakeyaml.Yaml
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
- * All utility for deployer
- *
- * @author Minh Khang VU
- */
+  * All utility for deployer
+  *
+  * @author Minh Khang VU
+  */
 object DeployerUtil {
 
   private val log: Logger = LoggerFactory.getLogger(DeployerUtil.getClass)
 
   val yamlParser = new Yaml()
 
-  def loadInputs(inputFile: Option[Path]): Map[String, AnyRef] = {
-    inputFile.map(input => yamlParser.loadAs(Files.newInputStream(input), classOf[java.util.Map[String, AnyRef]]).asScala.toMap).getOrElse(Map.empty[String, AnyRef])
+  def loadInputs(inputFile: Option[Path]): Map[String, Any] = {
+    inputFile.map(input => JavaScalaConversionUtil.toScalaMap(yamlParser.loadAs(Files.newInputStream(input), classOf[java.util.Map[String, AnyRef]]))).getOrElse(Map.empty[String, AnyRef])
   }
 
   def appendJarURLsToBuffer(buffer: StringBuilder, urls: Array[URL]) = {

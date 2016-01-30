@@ -66,23 +66,35 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def deploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).post("").map { response =>
+    val deployResponse = wsClient.url(url).post("").map { response =>
       response.json.as[RestResponse[DeploymentDetails]].data.get
     }
+    deployResponse.onFailure {
+      case e => logger.error(s"Could not deploy deployment $deploymentId", e)
+    }
+    deployResponse
   }
 
   def undeploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).delete().map { response =>
+    val undeployResponse = wsClient.url(url).delete().map { response =>
       response.json.as[RestResponse[DeploymentDetails]].data.get
     }
+    undeployResponse.onFailure {
+      case e => logger.error(s"Could not undeploy deployment $deploymentId", e)
+    }
+    undeployResponse
   }
 
   def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
     val url = getDeploymentAgentURL(deploymentId)
-    wsClient.url(url).withQueryString(("newInstancesCount", instancesCount.toString)).put("").map { response =>
+    val scaleResponse = wsClient.url(s"$url/nodes/$nodeName/instancesCount").withQueryString(("newInstancesCount", instancesCount.toString)).put("").map { response =>
       response.json.as[RestResponse[DeploymentDetails]].data.get
     }
+    scaleResponse.onFailure {
+      case e => logger.error(s"Could not perform scaling of $nodeName to $instancesCount for the deployment $deploymentId", e)
+    }
+    scaleResponse
   }
 
   def bootstrap(provider: String, target: String) = {
