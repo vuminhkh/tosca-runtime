@@ -11,31 +11,31 @@ public class MockSoftware extends Root {
 
     @Override
     public void create() {
-        log.info("Before create {} state {}", getId(), getState());
+        log.info("create {} state {}", getId(), getState());
         super.create();
     }
 
     @Override
     public void configure() {
-        log.info("Before configure {} state {}", getId(), getState());
+        log.info("configure {} state {}", getId(), getState());
         super.configure();
     }
 
     @Override
     public void start() {
-        log.info("Before start {} state {}", getId(), getState());
+        log.info("start {} state {}", getId(), getState());
         super.start();
     }
 
     @Override
     public void stop() {
-        log.info("Before stop {} state {}", getId(), getState());
+        log.info("stop {} state {}", getId(), getState());
         super.stop();
     }
 
     @Override
     public void delete() {
-        log.info("Before delete {} state {}", getId(), getState());
+        log.info("delete {} state {}", getId(), getState());
         super.delete();
     }
 }

@@ -7,12 +7,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
@@ -22,7 +24,10 @@ import org.slf4j.LoggerFactory;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.command.StartContainerCmd;
+import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
+import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.NetworkSettings;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
@@ -67,6 +72,11 @@ public class Container extends Compute {
      */
     private Set<Network> networks;
 
+    /**
+     * Those are volumes explicitly defined by user in the recipe
+     */
+    private Set<Volume> volumes;
+
     private String dockerHostIP;
 
     public String getImageId() {
@@ -99,6 +109,25 @@ public class Container extends Compute {
             mapping.put(Integer.parseInt(entry.get("from").trim()), Integer.parseInt(entry.get("to").trim()));
         }
         return mapping;
+    }
+
+    private Set<Volume> createdVolumes = new HashSet<>();
+
+    public synchronized void attachVolume(Volume newVolume) {
+        createdVolumes.add(newVolume);
+        if (createdVolumes.size() >= volumes.size()) {
+            createdVolumes.stream().forEach(volume -> log.info("Container [{}] : Mounting volume [{}] to location [{}]", getId(), volume.getVolumeId(), volume.getLocation()));
+            dockerClient.stopContainerCmd(containerId).exec();
+            StartContainerCmd startContainerCmd = dockerClient.startContainerCmd(containerId);
+            // Once all volumes have been created we can restart
+            List<Bind> binds = createdVolumes.stream().map(volume ->
+                    new Bind(volume.getVolumeId(), new com.github.dockerjava.api.model.Volume(volume.getLocation()))).collect(Collectors.toList()
+            );
+            HostConfig hostConfig = new HostConfig();
+            hostConfig.setBinds(binds.toArray(new Bind[binds.size()]));
+            startContainerCmd.withHostConfig(hostConfig);
+            startContainerCmd.exec();
+        }
     }
 
     @Override
@@ -139,7 +168,8 @@ public class Container extends Compute {
             throw new ProviderResourcesNotFoundException("Container [" + getId() + "] : Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Starting container with id " + containerId);
-        dockerClient.startContainerCmd(containerId).exec();
+        StartContainerCmd startContainerCmd = dockerClient.startContainerCmd(containerId);
+        startContainerCmd.exec();
         if (StringUtils.isNotBlank(bootstrapNetworkId)) {
             log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, bootstrapNetworkId);
             dockerClient.connectToNetworkCmd().withContainerId(containerId).withNetworkId(bootstrapNetworkId).exec();
@@ -201,6 +231,10 @@ public class Container extends Compute {
         dockerClient.removeContainerCmd(containerId).exec();
         log.info("Container [" + getId() + "] : Deleted container with id " + containerId);
         containerId = null;
+        volumes.stream().filter(volume -> volume instanceof DeletableVolume).forEach(volume -> {
+            dockerClient.removeVolumeCmd(volume.getVolumeId()).exec();
+            log.info("Container [" + getId() + "] : Deleted volume with id " + volume.getVolumeId());
+        });
     }
 
     /**
@@ -208,7 +242,8 @@ public class Container extends Compute {
      *
      * @param operationArtifactPath the relative path to the script in the recipe
      */
-    public synchronized Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
+        log.info("Container [{}] : Executing script [{}] for node [{}] with env [{}]", getId(), operationArtifactPath, nodeId, environmentVariables);
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
@@ -217,7 +252,7 @@ public class Container extends Compute {
             final String endOfOutputToken = UUID.randomUUID().toString();
             Files.createDirectories(localGeneratedScriptPath.getParent());
             localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
-            localGeneratedScriptWriter.write("#!/bin/bash -e\n");
+            localGeneratedScriptWriter.write("#!/bin/bash\n");
             if (environmentVariables != null) {
                 for (Map.Entry<String, Object> envEntry : environmentVariables.entrySet()) {
                     String envValue = PropertyUtil.propertyValueToString(envEntry.getValue());
@@ -260,7 +295,7 @@ public class Container extends Compute {
                                 envVars.put(matcher.group(1), matcher.group(2));
                             }
                         } else {
-                            log.info("[{}][{}][{}] {}", getId(), operationArtifactPath, line.getStreamType(), line.getData());
+                            log.info("[{}][{}][{}] {}", getId(), operationArtifactPath, line.getStreamType().toString().toLowerCase(), line.getData());
                         }
                     }
                 }
@@ -303,5 +338,9 @@ public class Container extends Compute {
 
     public void setDockerHostIP(String dockerHostIP) {
         this.dockerHostIP = dockerHostIP;
+    }
+
+    public void setVolumes(Set<Volume> volumes) {
+        this.volumes = volumes;
     }
 }

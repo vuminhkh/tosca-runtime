@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.InvalidInstancesCountException;
 import com.toscaruntime.exception.NodeNotFoundException;
-import com.toscaruntime.exception.WorkflowExecutionException;
 import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
@@ -22,6 +21,8 @@ import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.workflow.WorkflowEngine;
+import com.toscaruntime.sdk.workflow.WorkflowExecution;
+import com.toscaruntime.sdk.workflow.WorkflowExecutionListener;
 import com.toscaruntime.util.FunctionUtil;
 
 import tosca.nodes.Root;
@@ -115,7 +116,7 @@ public abstract class Deployment {
             node.getInstances().removeAll(DeploymentUtil.getNodeInstancesByNodeName(deletedNodeInstances, node.getId()));
         }
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
-            relationshipNode.getRelationshipInstances().removeAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
+            relationshipNode.getRelationshipInstances().removeAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(deletedRelationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
         }
     }
 
@@ -218,7 +219,7 @@ public abstract class Deployment {
      * @param nodeName          name of the node to scale
      * @param newInstancesCount new instances count
      */
-    public void scale(String nodeName, int newInstancesCount) {
+    public WorkflowExecution scale(String nodeName, int newInstancesCount) {
         DeploymentNode node = this.nodes.get(nodeName);
         if (node == null) {
             throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
@@ -231,39 +232,84 @@ public abstract class Deployment {
         }
         if (newInstancesCount == node.getInstancesCount()) {
             log.warn("New instances count is equal to current number of instance, do nothing");
+            return new WorkflowExecution();
         } else if (newInstancesCount > node.getInstancesCount()) {
             log.info("Scaling up node " + nodeName + "from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
             DeploymentAddInstancesModification modification = deploymentImpacter.addNodeInstances(this, node, newInstancesCount - node.getInstancesCount());
-            try {
-                this.workflowEngine.install(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
-                node.setInstancesCount(newInstancesCount);
-                this.nodeInstances.putAll(modification.getInstancesToAdd());
-                this.relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
-                attachCreatedInstancesToNode(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
-            } catch (WorkflowExecutionException e) {
-                log.info("Scale workflow execution failed, rolling back", e);
-                this.workflowEngine.uninstall(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
-                throw e;
-            }
+            WorkflowExecution execution = this.workflowEngine.install(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+            execution.addListener(new WorkflowExecutionListener() {
+                @Override
+                public void onFinish() {
+                    log.info("Finished to scale node [{}] from [{}] to [{}]", nodeName, node.getInstancesCount(), newInstancesCount);
+                    node.setInstancesCount(newInstancesCount);
+                    nodeInstances.putAll(modification.getInstancesToAdd());
+                    relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
+                    attachCreatedInstancesToNode(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    log.info("Scale workflow execution failed, rolling back", e);
+                    workflowEngine.uninstall(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                }
+            });
+            return execution;
         } else {
             log.info("Scaling down node " + nodeName + " from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
             DeploymentDeleteInstancesModification modification = deploymentImpacter.deleteNodeInstances(this, node, node.getInstancesCount() - newInstancesCount);
-            this.workflowEngine.uninstall(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
-            node.setInstancesCount(newInstancesCount);
-            this.nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
-            this.relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
-            unlinkDeletedInstancesFromNode(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+            WorkflowExecution execution = this.workflowEngine.uninstall(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+            execution.addListener(new WorkflowExecutionListener() {
+                @Override
+                public void onFinish() {
+                    log.info("Finished to scale node [{}] from [{}] to [{}]", nodeName, node.getInstancesCount(), newInstancesCount);
+                    node.setInstancesCount(newInstancesCount);
+                    nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
+                    relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
+                    unlinkDeletedInstancesFromNode(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+                }
+
+                @Override
+                public void onFailure(Throwable e) {
+                    log.info("Scale down workflow execution failed", e);
+                }
+            });
+            return execution;
         }
     }
 
-    public void install() {
+    public WorkflowExecution install() {
         initialize();
-        workflowEngine.install(nodeInstances, relationshipInstances);
+        WorkflowExecution execution = workflowEngine.install(nodeInstances, relationshipInstances);
+        execution.addListener(new WorkflowExecutionListener() {
+            @Override
+            public void onFinish() {
+                log.info("Finished to install the deployment with {} instances and {} relationship instances", nodeInstances.size(), relationshipInstances.size());
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                log.info("Error happened while trying to install the deployment", e);
+            }
+        });
+        return execution;
     }
 
-    public void uninstall() {
-        workflowEngine.uninstall(nodeInstances, relationshipInstances);
-        destroy();
+    public WorkflowExecution uninstall() {
+        WorkflowExecution execution = workflowEngine.uninstall(nodeInstances, relationshipInstances);
+        execution.addListener(new WorkflowExecutionListener() {
+            @Override
+            public void onFinish() {
+                log.info("Finished to uninstall the deployment with {} instances and {} relationship instances", nodeInstances.size(), relationshipInstances.size());
+                destroy();
+            }
+
+            @Override
+            public void onFailure(Throwable e) {
+                log.info("Error happened while trying to uninstall the deployment", e);
+                destroy();
+            }
+        });
+        return execution;
     }
 
     public Map<String, Object> getOutputs() {
@@ -307,11 +353,15 @@ public abstract class Deployment {
     }
 
     public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
-        return DeploymentUtil.getRelationshipInstancesByType(relationshipInstances, sourceId, type);
+        return DeploymentUtil.getRelationshipInstancesFromSource(relationshipInstances, sourceId, type);
     }
 
-    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
-        return DeploymentUtil.getNodeInstancesByRelationship(relationshipInstances, sourceId, relationshipType, targetType);
+    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getTargetInstancesOfRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
+        return DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, sourceId, relationshipType, targetType);
+    }
+
+    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getSourceInstancesOfRelationship(String targetId, Class<U> relationshipType, Class<T> sourceType) {
+        return DeploymentUtil.getSourceInstancesOfRelationship(relationshipInstances, targetId, relationshipType, sourceType);
     }
 
     public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByNamesAndType(String sourceName, String targetName, Class<T> relationshipType) {

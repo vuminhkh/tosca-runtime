@@ -8,9 +8,8 @@
     + Function validation
     + Node filter
   - Deployment artifacts for openstack
-  - Capabilities properties - Test
+  - Requirement properties
   - Relationship properties - Test
-  - Pre-configure and Post-configure should be executed only once
   - Custom workflow
 
 3.Core:
@@ -25,7 +24,6 @@
   - Windows support
 
 5.Runtime:
-  - Scale - Test
   - Persistence (persisted on file system per container basis ?)
   - Executions modelling (need to save execution with their state ?)
   - Deployment state (need a state machine here ?)
@@ -34,6 +32,7 @@
   - WinRMI + Batch script
   - Puppet recipe
   - Chef recipe
+  - Ansible recipe
 
 6.Testing:
   - Integration end to end test

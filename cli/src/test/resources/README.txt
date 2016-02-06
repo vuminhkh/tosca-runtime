@@ -49,3 +49,14 @@ To clean up:
 agents undeploy tomcat
 agents delete tomcat
 deployments delete tomcat
+
+9/ Demo lifecycle:
+csars install /Users/vuminhkh/Projects/samples/apache/
+csars install /Users/vuminhkh/Projects/samples/php/
+csars install /Users/vuminhkh/Projects/samples/demo-lifecycle/
+csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyDemoLifeCycleDocker
+deployments create demo-lifecycle -c demo-lifecyle-template-docker:*
+deployments run demo-lifecycle
+agents log demo-lifecycle
+
+10/ Install Alien

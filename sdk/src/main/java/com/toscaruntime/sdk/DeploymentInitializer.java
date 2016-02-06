@@ -13,6 +13,7 @@ import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 
 import tosca.nodes.Root;
+import tosca.relationships.ManyToMany;
 
 /**
  * Utility methods to initialize nodes and instances of a deployment
@@ -78,7 +79,11 @@ public class DeploymentInitializer {
         }
     }
 
-    public boolean shouldFilterRelationship(tosca.nodes.Root sourceInstance, tosca.nodes.Root targetInstance) {
+    public boolean shouldFilterRelationship(tosca.nodes.Root sourceInstance, tosca.nodes.Root targetInstance, Class<? extends tosca.relationships.Root> relationshipType) {
+        // Always generate relationship of type many to many
+        if (ManyToMany.class.isAssignableFrom(relationshipType)) {
+            return false;
+        }
         // The relationship will be filtered if the nodes belong to the same scaling group but not the same scaling group instance
         // For ex: If the nodes are hosted on the same compute node, but on different instances of this same compute node
         LinkedHashMap<String, tosca.nodes.Root> sourceAncestors = DeploymentUtil.getInstanceAncestors(sourceInstance);
@@ -129,11 +134,12 @@ public class DeploymentInitializer {
         Set<tosca.relationships.Root> newRelationshipInstances = new HashSet<>();
         for (tosca.nodes.Root sourceInstance : sourceInstances) {
             for (tosca.nodes.Root targetInstance : targetInstances) {
-                if (!shouldFilterRelationship(sourceInstance, targetInstance)) {
+                if (!shouldFilterRelationship(sourceInstance, targetInstance, relationshipNode.getRelationshipType())) {
                     try {
                         tosca.relationships.Root relationshipInstance = relationshipNode.getRelationshipType().newInstance();
                         relationshipInstance.setSource(sourceInstance);
                         relationshipInstance.setTarget(targetInstance);
+                        relationshipInstance.setNode(relationshipNode);
                         relationshipInstance.setProperties(relationshipNode.getProperties());
                         newRelationshipInstances.add(relationshipInstance);
                     } catch (InstantiationException | IllegalAccessException e) {

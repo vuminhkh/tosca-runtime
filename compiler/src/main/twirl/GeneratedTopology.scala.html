@@ -1,29 +1,33 @@
 @import com.toscaruntime.compiler.runtime.{Deployment, Node, Value}
+@import com.toscaruntime.compiler.util.CompilerUtil.escapeJavaIdentifier
+
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
-@node.typeName @node.name = new @node.typeName @Html("();")
-@Html("initializeInstance(" + node.name + ", \"" + node.name + "\", " + node.name + "Index, " +
-        (if(node.parent.isDefined) node.parent.get.name else "null") + ", " +
-        (if(node.host.isDefined) node.host.get.name else "null") + ");")
+@node.typeName @node.javaIdentifier = new @node.typeName @Html("();")
+@Html("initializeInstance(" + node.javaIdentifier + ", \"" + node.name + "\", " + node.javaIdentifier + "Index, " +
+        (if(node.parent.isDefined) node.parent.get.javaIdentifier else "null") + ", " +
+        (if(node.host.isDefined) node.host.get.javaIdentifier else "null") + ");")
 @node.children.map { child =>
   @instantiateInstances(child)
 }
 }
 
 @generateCapabilityProperties(nodeName: String, capabilityName: String, capabilityProperties: Map[String, Value]) = {
-@base.html.generateProperties(nodeName + "_capability_" + capabilityName, capabilityProperties)
-@Html("capabilities_properties_" + nodeName + ".put(\"" + capabilityName + "\", properties_" + nodeName + "_capability_" + capabilityName + ");")
+@base.html.generateProperties(nodeName + "_capability_" + escapeJavaIdentifier(capabilityName), capabilityProperties)
+@Html("capabilities_properties_" + nodeName + ".put(\"" + capabilityName + "\", properties_" + nodeName + "_capability_" + escapeJavaIdentifier(capabilityName) + ");")
 }
 
 @instantiateNode(node: Node) = {
 @if(node.properties.nonEmpty) {
-  @base.html.generateProperties(node.name, node.properties)
+  @base.html.generateProperties(node.javaIdentifier, node.properties)
 }
-@Html("java.util.Map<String, java.util.Map<String, Object>> capabilities_properties_" + node.name + " = new java.util.HashMap<>();")
-@{
-  node.capabilityProperties.map {
-    case (capabilityName, capabilityProperties) => generateCapabilityProperties(node.name, capabilityName, capabilityProperties)
+@if(node.capabilityProperties.nonEmpty) {
+  @Html("java.util.Map<String, java.util.Map<String, Object>> capabilities_properties_" + node.javaIdentifier + " = new java.util.HashMap<>();")
+  @{
+    node.capabilityProperties.map {
+      case (capabilityName, capabilityProperties) => generateCapabilityProperties(node.javaIdentifier, capabilityName, capabilityProperties)
+    }
   }
 }
 
@@ -31,8 +35,8 @@
         node.typeName + ".class, " +
         (if(node.parent.isDefined) "\"" + node.parent.get.name + "\"" else "null") + ", " +
         (if(node.host.isDefined) "\"" + node.host.get.name + "\"" else "null") + ", " +
-        (if(node.properties.nonEmpty) "properties_" + node.name else "new java.util.HashMap<>()") + ", " +
-        (if(node.capabilityProperties.nonEmpty) "capabilities_properties_" + node.name else "new java.util.HashMap<>()") + ");"
+        (if(node.properties.nonEmpty) "properties_" + node.javaIdentifier else "new java.util.HashMap<>()") + ", " +
+        (if(node.capabilityProperties.nonEmpty) "capabilities_properties_" + node.javaIdentifier else "new java.util.HashMap<>()") + ");"
 )
   @node.children.map { child =>
     @instantiateNode(child)
@@ -40,12 +44,11 @@
 }
 
   @instantiateInstances(node: Node) = {
-  @Html("int " + node.name + "InstancesCount = " + "this.nodes.get(\"" + node.name + "\").getInstancesCount();")
-  @Html("for (int ") @node.name@Html("Index = 1; ") @node.name@Html("Index <= " + node.name + "InstancesCount; ") @node.name@Html("Index++) {")
+  @Html("int " + node.javaIdentifier + "InstancesCount = " + "this.nodes.get(\"" + node.name + "\").getInstancesCount();")
+  @Html("for (int ")@node.javaIdentifier@Html("Index = 1; ")@node.javaIdentifier@Html("Index <= " + node.javaIdentifier + "InstancesCount; ")@node.javaIdentifier@Html("Index++) {")
   @instantiateInstance(node)
   @Html("}")
 }
-
 
 public class Deployment extends com.toscaruntime.sdk.Deployment@Html("{")
 
@@ -70,11 +73,11 @@ public void postInitializeConfig@Html("() {")
 
   public void initializeRelationships@Html("() {")
 @deployment.relationships.map { relationship =>
-  @base.html.generateProperties("rel_" + relationship.source.name + "_" + relationship.target.name, relationship.properties)
+  @base.html.generateProperties("rel_" + relationship.source.javaIdentifier + "_" + relationship.target.javaIdentifier, relationship.properties)
   @Html("generateRelationships(")"@relationship.source.name", "@relationship.target.name", properties_rel_@{
-  relationship.source.name
+  relationship.source.javaIdentifier
 }_@{
-  relationship.target.name
+  relationship.target.javaIdentifier
 }, @Html(relationship.typeName + ".class);")
 }
 @Html("}")

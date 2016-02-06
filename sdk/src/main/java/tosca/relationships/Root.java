@@ -5,6 +5,9 @@ import java.util.Map;
 import com.toscaruntime.exception.IllegalFunctionException;
 import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import com.toscaruntime.sdk.model.OperationInputDefinition;
+import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.FunctionUtil;
 
 public abstract class Root extends AbstractRuntimeType {
@@ -12,6 +15,8 @@ public abstract class Root extends AbstractRuntimeType {
     private tosca.nodes.Root source;
 
     private tosca.nodes.Root target;
+
+    private DeploymentRelationshipNode node;
 
     public tosca.nodes.Root getSource() {
         return source;
@@ -21,7 +26,26 @@ public abstract class Root extends AbstractRuntimeType {
         return target;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, Map<String, Object> inputs) {
+    public DeploymentRelationshipNode getNode() {
+        return node;
+    }
+
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath) {
+        Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
+        Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
+        inputs.put("TARGET_NODE", getTarget().getName());
+        inputs.put("TARGET_INSTANCE", getTarget().getId());
+        inputs.put("TARGET_INSTANCE", getTarget().getId());
+        inputs.put("TARGET_INSTANCES", OperationInputUtil.makeInstancesVariable(getTarget().getNode().getInstances()));
+        inputs.put("SOURCE_NODE", getSource().getName());
+        inputs.put("SOURCE_INSTANCE", getSource().getId());
+        inputs.put("SOURCE_INSTANCE", getSource().getId());
+        inputs.put("SOURCE_INSTANCES", OperationInputUtil.makeInstancesVariable(getSource().getNode().getInstances()));
+        for (Root sibling : getNode().getRelationshipInstances()) {
+            // Inject also other inputs from other instances
+            Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
+            inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getSource().getId() + "_" + sibling.getTarget().getId(), siblingInputDefinitions));
+        }
         switch (operationName) {
             case "pre_configure_source":
             case "post_configure_source":
@@ -91,6 +115,10 @@ public abstract class Root extends AbstractRuntimeType {
 
     public void setTarget(tosca.nodes.Root target) {
         this.target = target;
+    }
+
+    public void setNode(DeploymentRelationshipNode node) {
+        this.node = node;
     }
 
     public void preConfigureSource() {

@@ -1,14 +1,18 @@
 package tosca.nodes;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
 import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.ToscaRuntimeException;
+import com.toscaruntime.exception.OperationExecutionException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentNode;
+import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import com.toscaruntime.sdk.model.OperationInputDefinition;
+import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
 
@@ -32,6 +36,10 @@ public abstract class Root extends AbstractRuntimeType {
     private Map<String, Map<String, Object>> capabilitiesProperties;
 
     private Set<Root> children = new HashSet<>();
+
+    private Set<DeploymentRelationshipNode> preConfiguredRelationshipNodes = Collections.synchronizedSet(new HashSet<>());
+
+    private Set<DeploymentRelationshipNode> postConfiguredRelationshipNodes = Collections.synchronizedSet(new HashSet<>());
 
     public Object getCapabilityProperty(String capabilityName, String propertyName) {
         if (capabilitiesProperties.containsKey(capabilityName)) {
@@ -133,10 +141,29 @@ public abstract class Root extends AbstractRuntimeType {
         this.host = host;
     }
 
-    protected Map<String, String> executeOperation(String operationArtifactPath, Map<String, Object> inputs) {
+    public Set<DeploymentRelationshipNode> getPreConfiguredRelationshipNodes() {
+        return preConfiguredRelationshipNodes;
+    }
+
+    public Set<DeploymentRelationshipNode> getPostConfiguredRelationshipNodes() {
+        return postConfiguredRelationshipNodes;
+    }
+
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath) {
         Compute host = getComputableHost();
         if (host == null) {
-            throw new ToscaRuntimeException("Non hosted node cannot have operation");
+            throw new OperationExecutionException("Non hosted node cannot have operation");
+        }
+        Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
+        Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
+        inputs.put("NODE", getName());
+        inputs.put("INSTANCE", getId());
+        inputs.put("INSTANCES", OperationInputUtil.makeInstancesVariable(getNode().getInstances()));
+        inputs.put("HOST", getHost().getName());
+        for (Root sibling : getNode().getInstances()) {
+            // This will inject also other instances input value
+            Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
+            inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getId(), siblingInputDefinitions));
         }
         return host.execute(getId(), operationArtifactPath, inputs);
     }

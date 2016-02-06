@@ -11,13 +11,15 @@ package @relationshipType.packageName;
 @base.html.generateAttributes(relationshipType.attributesDefinitions)
 @base.html.generateTypeProperties(relationshipType.propertiesDefinitions)
 @base.html.generateDeploymentArtifacts(relationshipType.csarName, relationshipType.deploymentArtifacts)
+@relationshipType.methods.map { method =>
+  @base.html.generateInputs(method.name, method.inputs)
+}
 @Html("}")
 
 @relationshipType.methods.map { method =>
 public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
-  @base.html.generateInputs(method.inputs)
   @method.implementation.map { implementation =>
-  operationOutputs.put("@method.name", executeOperation("@method.name", "@relationshipType.csarName/@implementation", inputs));
+  operationOutputs.put("@method.name", executeOperation("@method.name", "@relationshipType.csarName/@implementation"));
   }
   @Html("}")
 }

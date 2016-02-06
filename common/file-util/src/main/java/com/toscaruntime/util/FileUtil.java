@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -249,24 +250,18 @@ public final class FileUtil {
      * @throws IOException
      */
     public static List<Path> listFiles(final Path path, final String... extensions) throws IOException {
-        final List<Path> allFiles = new ArrayList<>();
-        Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (extensions.length > 0) {
-                    for (String extension : extensions) {
-                        if (file.getFileName().toString().endsWith(extension)) {
-                            allFiles.add(file);
-                            break;
-                        }
+        return Files.list(path).filter(child -> {
+            if (extensions.length > 0) {
+                for (String extension : extensions) {
+                    if (child.getFileName().toString().endsWith(extension)) {
+                        return true;
                     }
-                } else {
-                    allFiles.add(file);
                 }
-                return super.visitFile(file, attrs);
+                return false;
+            } else {
+                return true;
             }
-        });
-        return allFiles;
+        }).collect(Collectors.toList());
     }
 
     /**

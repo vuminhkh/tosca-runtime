@@ -1,5 +1,7 @@
 package com.toscaruntime.compiler.runtime
 
+import com.toscaruntime.compiler.util.CompilerUtil
+
 trait RuntimeType {
   val className: String
 
@@ -85,7 +87,10 @@ class Node(var name: String,
            var host: Option[Node] = None,
            var parent: Option[Node] = None,
            var children: Seq[Node] = Seq.empty,
-           var dependencies: Seq[Node] = Seq.empty)
+           var dependencies: Seq[Node] = Seq.empty) {
+
+  def javaIdentifier = CompilerUtil.escapeJavaIdentifier(name)
+}
 
 class Relationship(var source: Node,
                    var target: Node,

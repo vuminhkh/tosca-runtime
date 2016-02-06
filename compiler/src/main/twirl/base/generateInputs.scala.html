@@ -1,6 +1,7 @@
 @import com.toscaruntime.compiler.runtime.Value
-@(inputs: Map[String, Value])
-@Html("java.util.Map<String, Object> inputs = new java.util.HashMap<>();")
+@(methodName: String, inputs: Map[String, Value])
+@Html("java.util.Map<String, com.toscaruntime.sdk.model.OperationInputDefinition> inputs_" + methodName + " = new java.util.HashMap<>();")
 @inputs.map { input =>
-  @Html("inputs.put(\"" + input._1 + "\", " + base.html.evaluateValue(input._2) + ");")
+  @Html("inputs_" + methodName + ".put(\"" + input._1 + "\", () -> (" + base.html.evaluateValue(input._2) + "));")
 }
+  operationInputs.put("@methodName", inputs_@methodName);

@@ -49,6 +49,9 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
         properties_LoadBalancerServer.put("interactive", "true");
         properties_LoadBalancerServer.put("port_mappings", PropertyUtil.toList("[{\"from\" : \"80\", \"to\" : \"51000\"}]"));
         Map<String, Map<String, Object>> capabilities_properties_LoadBalancerServer = new HashMap<>();
+        Map<String, Object> properties_LoadBalancerServer_capability_scalable = new HashMap<>();
+        properties_LoadBalancerServer_capability_scalable.put("max_instances", "2");
+        capabilities_properties_LoadBalancerServer.put("scalable", properties_LoadBalancerServer_capability_scalable);
         initializeNode("LoadBalancerServer", MockCompute.class, null, null, properties_LoadBalancerServer, capabilities_properties_LoadBalancerServer);
 
         Map<String, Object> properties_ApacheLoadBalancer = new HashMap<>();

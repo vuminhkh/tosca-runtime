@@ -58,6 +58,13 @@ object DeployUtil extends LazyLogging {
         println(" \t+ " + instance.id + ": " + instance.state)
       }
     }
+    println(name + " has " + details.relationships.length + " relationships :")
+    details.relationships.foreach { relationship =>
+      println(s" - Relationship from ${relationship.sourceNodeId} to ${relationship.targetNodeId} has ${relationship.relationshipInstances.size} instances :")
+      relationship.relationshipInstances.foreach { relationshipInstance =>
+        println(s" \t+ ${relationshipInstance.sourceInstanceId}_${relationshipInstance.targetInstanceId}: ${relationshipInstance.state}")
+      }
+    }
     if (details.outputs.nonEmpty) {
       println("Output for " + name + " :")
       details.outputs.foreach { output =>

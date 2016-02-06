@@ -10,13 +10,15 @@ package @nodeType.packageName;
 @base.html.generateAttributes(nodeType.attributesDefinitions)
 @base.html.generateTypeProperties(nodeType.propertiesDefinitions)
 @base.html.generateDeploymentArtifacts(nodeType.csarName, nodeType.deploymentArtifacts)
+@nodeType.methods.map { method =>
+  @base.html.generateInputs(method.name, method.inputs)
+}
 @Html("}")
 
 @nodeType.methods.map { method =>
 public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
-  @base.html.generateInputs(method.inputs)
   @method.implementation.map { implementation =>
-  operationOutputs.put("@method.name", executeOperation("@nodeType.csarName/@implementation", inputs));
+  operationOutputs.put("@method.name", executeOperation("@method.name", "@nodeType.csarName/@implementation"));
   }
   @Html("}")
 }

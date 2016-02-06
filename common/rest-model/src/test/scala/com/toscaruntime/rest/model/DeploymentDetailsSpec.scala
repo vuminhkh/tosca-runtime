@@ -73,6 +73,7 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
               RelationshipInstance(
                 sourceInstanceId = "testSourceInstanceId",
                 targetInstanceId = "testTargetInstanceId",
+                state = "postConfiguredSource",
                 attributes = Map.empty
               )
             )

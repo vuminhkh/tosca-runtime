@@ -14,6 +14,11 @@ import com.toscaruntime.util.PropertyUtil;
 public abstract class AbstractRuntimeType {
 
     /**
+     * Hold operation inputs : operation name to key to value
+     */
+    protected Map<String, Map<String, OperationInputDefinition>> operationInputs = new HashMap<>();
+
+    /**
      * Hold last operation outputs : operation name to key to value
      */
     protected Map<String, Map<String, String>> operationOutputs = new HashMap<>();
@@ -149,5 +154,9 @@ public abstract class AbstractRuntimeType {
 
     public void setDeployment(Deployment deployment) {
         this.deployment = deployment;
+    }
+
+    public Map<String, Map<String, OperationInputDefinition>> getOperationInputs() {
+        return operationInputs;
     }
 }

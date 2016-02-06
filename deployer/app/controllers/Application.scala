@@ -2,6 +2,7 @@ package controllers
 
 import java.io.File
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 
 import com.toscaruntime.constant.DeployerConstant
 import com.toscaruntime.exception.{InvalidInstancesCountException, NodeNotFoundException}
@@ -62,19 +63,19 @@ object Application extends Controller with Logging {
 
   def deploy() = Action { implicit request =>
     log.info("Install deployment with name " + deploymentName + " from recipe at " + recipePath)
-    deployment.install()
+    deployment.install().waitForCompletion(365, TimeUnit.DAYS)
     Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
   }
 
   def undeploy() = Action { implicit request =>
     log.info("Uninstall deployment with name " + deploymentName)
-    deployment.uninstall()
+    deployment.uninstall().waitForCompletion(365, TimeUnit.DAYS)
     Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
   }
 
   def scale(nodeName: String, newInstancesCount: Int) = Action { implicit request =>
     try {
-      deployment.scale(nodeName, newInstancesCount)
+      deployment.scale(nodeName, newInstancesCount).waitForCompletion(365, TimeUnit.DAYS)
       Ok(Json.toJson(RestResponse.success[DeploymentDetails](Some(fromDeployment(deploymentName, deployment)))))
     } catch {
       case e: InvalidInstancesCountException => BadRequest(e.getMessage)
@@ -100,7 +101,7 @@ object Application extends Controller with Logging {
     val relationships = deployment.getRelationshipNodes.asScala.map { relationshipNode =>
       val relationshipInstances = relationshipNode.getRelationshipInstances.asScala.map { relationshipInstance =>
         val relationshipInstanceAttributes = JavaScalaConversionUtil.toScalaMap(relationshipInstance.getAttributes)
-        RelationshipInstance(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstanceAttributes)
+        RelationshipInstance(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstance.getState, relationshipInstanceAttributes)
       }.toList
       val relationshipNodeProperties = JavaScalaConversionUtil.toScalaMap(relationshipNode.getProperties)
       RelationshipNode(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)

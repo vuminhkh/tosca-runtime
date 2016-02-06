@@ -3,6 +3,7 @@ package com.toscaruntime.openstack.nodes;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -19,7 +20,7 @@ import com.toscaruntime.util.ClassLoaderUtil;
 public class OpenstackNodesTest {
 
     @Test
-    public void testOpenstack() {
+    public void testOpenstack() throws Throwable {
         OpenstackTestDeployment testDeployment = new OpenstackTestDeployment();
         OpenstackDeploymentPostConstructor postConstructor = new OpenstackDeploymentPostConstructor();
         Map<String, String> providerProperties = ImmutableMap.<String, String>builder()
@@ -30,7 +31,7 @@ public class OpenstackNodesTest {
                 .put("tenant", "facebook1389662728").build();
         testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), true);
         try {
-            testDeployment.install();
+            testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();
             Assert.assertNotNull(compute.getAttributeAsString("public_ip_address"));
             Assert.assertNotNull(compute.getAttributeAsString("ip_address"));
@@ -57,7 +58,7 @@ public class OpenstackNodesTest {
             outputs = compute.execute("testJava", "javaHelp.sh", Maps.newHashMap());
             Assert.assertNotNull(outputs.get("JAVA_HELP"));
         } finally {
-            testDeployment.uninstall();
+            testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
         }
     }
 }

@@ -115,8 +115,8 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             }
             compute.setNetworkId(networkId);
             compute.setFloatingIPApi(floatingIPApi);
-            Set<ExternalNetwork> connectedExternalNetworks = deployment.getNodeInstancesByRelationship(compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
-            Set<Network> connectedInternalNetworks = deployment.getNodeInstancesByRelationship(compute.getId(), tosca.relationships.Network.class, Network.class);
+            Set<ExternalNetwork> connectedExternalNetworks = deployment.getTargetInstancesOfRelationship(compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
+            Set<Network> connectedInternalNetworks = deployment.getTargetInstancesOfRelationship(compute.getId(), tosca.relationships.Network.class, Network.class);
             compute.setNetworks(connectedInternalNetworks);
             compute.setExternalNetworks(connectedExternalNetworks);
         }

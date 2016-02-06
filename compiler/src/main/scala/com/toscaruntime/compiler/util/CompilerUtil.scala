@@ -10,6 +10,12 @@ import scala.util.parsing.json._
 
 object CompilerUtil {
 
+  def escapeJavaIdentifier(name: String) = {
+    name.map { c =>
+      if (Character.isJavaIdentifierPart(c)) c else '_'
+    }
+  }
+
   def splitClassNameAndPackageName(typeName: String) = {
     val indexClassName = typeName.lastIndexOf('.')
     if (indexClassName < 0) {

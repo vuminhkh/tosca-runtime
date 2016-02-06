@@ -10,7 +10,7 @@ object Instance {
   implicit val InstanceFormat = Json.format[Instance]
 }
 
-case class RelationshipInstance(sourceInstanceId: String, targetInstanceId: String, attributes: Map[String, Any])
+case class RelationshipInstance(sourceInstanceId: String, targetInstanceId: String, state: String, attributes: Map[String, Any])
 
 object RelationshipInstance {
   implicit val RelationshipInstanceFormat = Json.format[RelationshipInstance]

@@ -62,18 +62,23 @@ public class DeploymentImpacter {
         deploymentModification.getImpactedNodesByAddition().add(node);
         Root newInstance = createNewInstance(deployment, node, parentInstance, index);
         deploymentModification.getInstancesToAdd().put(newInstance.getId(), newInstance);
+
+        // Get all relationship nodes which have the node as source
         Set<DeploymentRelationshipNode> sourceRelationships = deployment.getRelationshipNodeBySourceName(node.getId());
         deploymentModification.getImpactedRelationshipNodesByAddition().addAll(sourceRelationships);
         for (DeploymentRelationshipNode sourceRelationship : sourceRelationships) {
             deploymentModification.getImpactedNodesByAddition().add(deployment.getNodeMap().get(sourceRelationship.getTargetNodeId()));
             deploymentModification.getImpactedInstancesByAddition().putAll(DeploymentUtil.toMap(deployment.getNodeInstancesByNodeName(sourceRelationship.getTargetNodeId())));
         }
+
+        // Get all relationship nodes which have the node as target
         Set<DeploymentRelationshipNode> targetRelationships = deployment.getRelationshipNodeByTargetName(node.getId());
         deploymentModification.getImpactedRelationshipNodesByAddition().addAll(targetRelationships);
         for (DeploymentRelationshipNode targetRelationship : targetRelationships) {
             deploymentModification.getImpactedNodesByAddition().add(deployment.getNodeMap().get(targetRelationship.getSourceNodeId()));
             deploymentModification.getImpactedInstancesByAddition().putAll(DeploymentUtil.toMap(deployment.getNodeInstancesByNodeName(targetRelationship.getSourceNodeId())));
         }
+
         for (String childName : node.getChildren()) {
             DeploymentNode childNode = deployment.getNodeMap().get(childName);
             for (int i = 1; i <= childNode.getInstancesCount(); i++) {
@@ -107,12 +112,13 @@ public class DeploymentImpacter {
         Map<String, Root> allImpactedInstancesByAddition = new HashMap<>(deploymentModification.getInstancesToAdd());
         allImpactedInstancesByAddition.putAll(deploymentModification.getImpactedInstancesByAddition());
         for (DeploymentRelationshipNode relationshipNode : deploymentModification.getImpactedRelationshipNodesByAddition()) {
-            deploymentModification.getRelationshipInstancesToAdd().addAll(
-                    deploymentInitializer.generateRelationshipsInstances(
-                            DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getSourceNodeId()),
-                            DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getTargetNodeId()),
-                            relationshipNode)
-            );
+            Set<tosca.relationships.Root> newRelationshipInstances = deploymentInitializer.generateRelationshipsInstances(
+                    DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getSourceNodeId()),
+                    DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getTargetNodeId()),
+                    relationshipNode);
+            // Sometime a relationship has already existed in the deployment, in this case must not add it to the scaling operation
+            newRelationshipInstances.removeAll(deployment.getRelationshipInstances());
+            deploymentModification.getRelationshipInstancesToAdd().addAll(newRelationshipInstances);
         }
         return deploymentModification;
     }

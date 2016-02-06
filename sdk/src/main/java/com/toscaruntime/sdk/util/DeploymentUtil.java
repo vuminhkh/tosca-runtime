@@ -84,14 +84,27 @@ public class DeploymentUtil {
         ).map(nodeInstance -> (T) nodeInstance).collect(Collectors.toSet());
     }
 
-    public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(Set<Root> relationshipInstances, String sourceId, Class<T> type) {
+    public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesFromSource(Set<Root> relationshipInstances, String sourceId, Class<T> type) {
         return getRelationshipInstanceBySourceId(relationshipInstances, sourceId).stream().filter(relationshipInstance ->
                 type.isAssignableFrom(relationshipInstance.getClass())
         ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
     }
 
-    public static <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getNodeInstancesByRelationship(Set<Root> relationshipInstances, String sourceId, Class<U> relationshipType, Class<T> targetType) {
-        Set<U> relationships = getRelationshipInstancesByType(relationshipInstances, sourceId, relationshipType);
+    public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesFromTarget(Set<Root> relationshipInstances, String targetId, Class<T> type) {
+        return getRelationshipInstanceByTargetId(relationshipInstances, targetId).stream().filter(relationshipInstance ->
+                type.isAssignableFrom(relationshipInstance.getClass())
+        ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
+    }
+
+    public static <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getSourceInstancesOfRelationship(Set<Root> relationshipInstances, String targetId, Class<U> relationshipType, Class<T> sourceType) {
+        Set<U> relationships = getRelationshipInstancesFromTarget(relationshipInstances, targetId, relationshipType);
+        return relationships.stream().filter(relationship ->
+                sourceType.isAssignableFrom(relationship.getSource().getClass())
+        ).map(relationship -> (T) relationship.getSource()).collect(Collectors.toSet());
+    }
+
+    public static <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getTargetInstancesOfRelationship(Set<Root> relationshipInstances, String sourceId, Class<U> relationshipType, Class<T> targetType) {
+        Set<U> relationships = getRelationshipInstancesFromSource(relationshipInstances, sourceId, relationshipType);
         return relationships.stream().filter(relationship ->
                 targetType.isAssignableFrom(relationship.getTarget().getClass())
         ).map(relationship -> (T) relationship.getTarget()).collect(Collectors.toSet());

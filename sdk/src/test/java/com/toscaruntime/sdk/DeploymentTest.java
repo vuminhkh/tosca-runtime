@@ -4,6 +4,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -19,12 +20,21 @@ import tosca.nodes.Root;
 @RunWith(JUnit4.class)
 public class DeploymentTest {
 
+//    @Test
+//    public void testDeployment2() throws Throwable {
+//        MockDeployment mockDeployment = new MockDeployment();
+//        DeploymentPostConstructor postConstructor = Mockito.mock(DeploymentPostConstructor.class);
+//        mockDeployment.initializeConfig("test", Paths.get("."), new HashMap<>(), new HashMap<>(), new HashMap<>(), Collections.singletonList(postConstructor), true);
+//        mockDeployment.install().waitForCompletion(2, TimeUnit.MINUTES);
+//        mockDeployment.scale("LoadBalancerServer", 2).waitForCompletion(2, TimeUnit.MINUTES);
+//    }
+
     @Test
-    public void testDeployment() {
+    public void testDeployment() throws Throwable {
         MockDeployment mockDeployment = new MockDeployment();
         DeploymentPostConstructor postConstructor = Mockito.mock(DeploymentPostConstructor.class);
         mockDeployment.initializeConfig("test", Paths.get("."), new HashMap<>(), new HashMap<>(), new HashMap<>(), Collections.singletonList(postConstructor), true);
-        mockDeployment.install();
+        mockDeployment.install().waitForCompletion(2, TimeUnit.MINUTES);
         Set<Root> allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
         Set<Root> allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
         Assert.assertEquals(2, allWebServers.size());
@@ -35,19 +45,23 @@ public class DeploymentTest {
         for (Root java : allJavas) {
             Assert.assertEquals("started", java.getState());
         }
-        mockDeployment.scale("WebServer", 1);
+        mockDeployment.scale("WebServer", 1).waitForCompletion(2, TimeUnit.MINUTES);
         allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
         allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
         Assert.assertEquals(1, allWebServers.size());
         Assert.assertEquals(1, allJavas.size());
-        mockDeployment.scale("WebServer", 3);
+        mockDeployment.scale("WebServer", 3).waitForCompletion(2, TimeUnit.MINUTES);
         allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
         allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
         Assert.assertEquals(3, allWebServers.size());
         Assert.assertEquals(3, allJavas.size());
         Mockito.verify(postConstructor, Mockito.times(1)).postConstructExtension(Mockito.anyMap(), Mockito.anySet());
-        mockDeployment.scale("WebServer", 1);
-        mockDeployment.uninstall();
+        mockDeployment.scale("WebServer", 1).waitForCompletion(2, TimeUnit.MINUTES);
+        allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
+        allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
+        Assert.assertEquals(1, allWebServers.size());
+        Assert.assertEquals(1, allJavas.size());
+        mockDeployment.uninstall().waitForCompletion(2, TimeUnit.MINUTES);
         Assert.assertTrue(mockDeployment.getNodeInstances().isEmpty());
         Assert.assertTrue(mockDeployment.getRelationshipInstances().isEmpty());
     }

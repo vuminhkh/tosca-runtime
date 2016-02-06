@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.exception.ProviderResourceAllocationException;
 import com.toscaruntime.exception.ProviderResourcesNotFoundException;
 import com.toscaruntime.exception.ToscaRuntimeException;
 import com.toscaruntime.util.PropertyUtil;
@@ -94,7 +95,7 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
-    public synchronized Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
         if (this.server == null) {
             throw new ProviderResourcesNotFoundException("Must create the server before executing operation on it");
         }
@@ -175,6 +176,14 @@ public class Compute extends tosca.nodes.Compute {
             internalNetworks.addAll(networksProperty);
         }
         for (Network internalNetwork : networks) {
+            boolean networkCreate = false;
+            try {
+                networkCreate = internalNetwork.waitForNetworkCreated(1, TimeUnit.HOURS);
+            } catch (InterruptedException ignored) {
+            }
+            if (!networkCreate) {
+                throw new ProviderResourceAllocationException("The network " + internalNetwork + " could not be created for compute " + this);
+            }
             internalNetworks.add(internalNetwork.getNetworkId());
         }
         if (StringUtils.isNotEmpty(this.networkId)) {

@@ -32,16 +32,14 @@ public class DockerUtil {
 
     public static final String DOCKER_CERT_PATH_KEY = "docker.io.dockerCertPath";
 
-    static {
-        // TODO more elegant way to handle connection limit for the docker client ?
-        System.setProperty("http.maxConnections", String.valueOf(Integer.MAX_VALUE));
-    }
-
     public static DockerClient buildDockerClient(Map<String, String> providerProperties) {
         Properties properties = new Properties();
         properties.putAll(providerProperties);
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
-        return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(new DockerCmdExecFactoryImpl()).build();
+        DockerCmdExecFactoryImpl execFactory = new DockerCmdExecFactoryImpl();
+        execFactory.withMaxTotalConnections(Integer.MAX_VALUE);
+        execFactory.withMaxPerRouteConnections(Integer.MAX_VALUE);
+        return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(execFactory).build();
     }
 
     public static DockerClient buildDockerClient() {
