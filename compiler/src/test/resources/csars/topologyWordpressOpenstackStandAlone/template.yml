@@ -1,0 +1,83 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Wordpress partial topology for openstack
+template_name: wordpress-template-openstack-standalone
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - wordpress-template:1.1.0-SNAPSHOT
+  - openstack-provider-types:*
+
+topology_template:
+
+  inputs:
+    os_arch:
+      type: string
+      required: false
+    image:
+      type: string
+    flavor:
+      type: string
+    key_path:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: list
+      entry_schema:
+        type: string
+    external_network_name:
+      type: string
+
+  node_templates:
+
+    publicNetwork:
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
+      properties:
+        network_name: { get_input: external_network_name}
+
+    privateNetwork:
+      type: com.toscaruntime.openstack.nodes.Network
+      properties:
+        network_name: wordpressStandAlone
+        cidr: "192.168.1.0/24"
+
+    computeDb:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: publicNetwork
+        - network: privateNetwork
+
+    computeWww:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: publicNetwork
+        - network: privateNetwork
