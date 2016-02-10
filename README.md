@@ -40,6 +40,8 @@ The `csars install` command not only compiles but also installs the given csar t
  
 Tosca Runtime uses Docker to handle deployment lifecycle, the only pre-requisite is to have a running docker daemon.
 
+![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/ManagerLessArchitecture.png "Managerless architecture")
+
 * Deployment image management: From installed types and topology archives, Tosca Runtime allows you to create docker images that can be used to deploy your topology. All necessary information are packaged into this image which make the deployment reproducible and can be shared with other people and other team.
 
   Usage:
