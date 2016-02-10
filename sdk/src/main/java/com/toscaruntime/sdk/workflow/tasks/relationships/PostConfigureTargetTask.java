@@ -9,6 +9,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class PostConfigureTargetTask extends AbstractTask {
@@ -20,13 +21,17 @@ public class PostConfigureTargetTask extends AbstractTask {
     @Override
     protected void doRun() {
         Set<tosca.relationships.Root> nodeInstanceTargetRelationships = DeploymentUtil.getRelationshipInstanceByTargetId(relationshipInstances, nodeInstance.getId());
-        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-            WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "postConfiguringTarget", false);
-            if (relationship.getTarget().getPostConfiguredRelationshipNodes().add(relationship.getNode())) {
-                relationship.postConfigureTarget();
+        nodeInstanceTargetRelationships.stream().filter(relationshipInstance ->
+                // Only execute post configure once per instance
+                relationshipInstance.getTarget().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())
+        ).forEach(relationshipInstance -> {
+            relationshipInstance.postConfigureTarget();
+            if (relationshipInstance.getState().equals(RelationshipInstanceState.POST_CONFIGURED_SOURCE)) {
+                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.POST_CONFIGURED, true);
+            } else {
+                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.POST_CONFIGURED_TARGET, true);
             }
-            WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "postConfiguredTarget", true);
-        }
+        });
     }
 
     @Override

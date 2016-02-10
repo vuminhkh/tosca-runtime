@@ -39,7 +39,31 @@ object AgentsCommand {
 
   private val instancesCountOpt = "-c"
 
+  private val nodesInfoOpt = "nodes"
+
+  private val outputsInfoOpt = "outputs"
+
+  private val relationshipsInfoOpt = "relationships"
+
+  private val nodeInfoOpt = "node"
+
+  private val relationshipInfoOpt = "relationship"
+
+  private val instanceInfoOpt = "instance"
+
+  private val relationshipInstanceInfoOpt = "relationshipInstance"
+
   private lazy val scaleArgsParser = Space ~> ((token(nodeNameOpt) ~ (Space ~> token(StringBasic))) | (token(instancesCountOpt) ~ (Space ~> token(IntBasic)))) +
+
+  private lazy val infoNodeArgsParser = token(nodeInfoOpt) ~ (Space ~> token(StringBasic))
+
+  private lazy val relationshipArgsParser = token(relationshipInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoInstanceArgsParser = token(instanceInfoOpt) ~ (Space ~> token(StringBasic))
+
+  private lazy val relationshipInstanceArgsParser = token(relationshipInstanceInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoExtraArgsParser = (Space ~> (token(nodesInfoOpt) | token(relationshipsInfoOpt) | token(outputsInfoOpt) | infoNodeArgsParser | infoInstanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser)) ?
 
   private lazy val agentsArgsParser = Space ~>
     (token(listOpt) |
@@ -50,7 +74,7 @@ object AgentsCommand {
       (token(deployOpt) ~ (Space ~> token(StringBasic))) |
       (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
       (token(undeployOpt) ~ (Space ~> token(StringBasic))) |
-      (token(infoOpt) ~ (Space ~> token(StringBasic)))) +
+      (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
 
   private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent, execute 'help $commandName' for more details"),
     s"""
@@ -58,12 +82,19 @@ object AgentsCommand {
        |$listOpt     : list all agents
        |$logOpt      : show the agent's log
        |$infoOpt     : show the agent's deployment details
+       |  $infoOpt $outputsInfoOpt: show only outputs details
+       |  $infoOpt $nodesInfoOpt: show only nodes details
+       |  $infoOpt $relationshipsInfoOpt: show only relationships details
+       |  $infoOpt $nodeInfoOpt <node id>: show node details
+       |  $infoOpt $instanceInfoOpt <instance id>: show instance details
+       |  $infoOpt $relationshipInfoOpt <source> <target>: show relationship node details
+       |  $infoOpt $relationshipInstanceInfoOpt <source instance> <target instance>: show relationship instance details
        |$startOpt    : start agent, agent will begin to manage deployment
        |$stopOpt     : stop agent, agent will not manage deployment anymore
        |$deployOpt   : launch default deployment workflow
        |$undeployOpt : launch default un-deployment workflow
        |$scaleOpt    : launch default scale workflow on the given node
-       |               $scaleOpt <deployment id> $nodeNameOpt <node name> $instancesCountOpt <instances count>
+       |  $scaleOpt <deployment id> $nodeNameOpt <node name> $instancesCountOpt <instances count>
        |$deleteOpt   : delete agent
     """.stripMargin
   )
@@ -75,8 +106,17 @@ object AgentsCommand {
     args.head match {
       case "list" =>
         DeployUtil.listDeploymentAgents(client)
-      case ("info", deploymentId: String) =>
-        DeployUtil.printDetails(client, deploymentId)
+      case ("info", (deploymentId: String, extraArgs: Option[Any])) =>
+        extraArgs match {
+          case Some("nodes") => DeployUtil.printNodesDetails(client, deploymentId)
+          case Some("relationships") => DeployUtil.printRelationshipsDetails(client, deploymentId)
+          case Some("outputs") => DeployUtil.printOutputsDetails(client, deploymentId)
+          case Some(("node", nodeId: String)) => DeployUtil.printNodeDetails(client, deploymentId, nodeId)
+          case Some((("relationship", source: String), target: String)) => DeployUtil.printRelationshipDetails(client, deploymentId, source, target)
+          case Some(("instance", instanceId: String)) => DeployUtil.printInstanceDetails(client, deploymentId, instanceId)
+          case Some((("relationshipInstance", source: String), target: String)) => DeployUtil.printRelationshipInstanceDetails(client, deploymentId, source, target)
+          case _ => DeployUtil.printDetails(client, deploymentId)
+        }
       case (("scale", deploymentId: String), scaleOpts: Seq[(String, _)]) =>
         val scaleArgs = scaleOpts.toMap
         val nodeName = scaleArgs.get(nodeNameOpt)

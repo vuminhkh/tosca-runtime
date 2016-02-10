@@ -8,6 +8,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.InstanceState;
 import tosca.nodes.Root;
 
 public class StartTask extends AbstractTask {
@@ -18,9 +19,9 @@ public class StartTask extends AbstractTask {
 
     @Override
     public void doRun() {
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "starting", false);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STARTING, false);
         nodeInstance.start();
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "started", true);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STARTED, true);
     }
 
     @Override

@@ -1,10 +1,11 @@
 package com.toscaruntime.cli.util
 
 import com.toscaruntime.rest.client.ToscaRuntimeClient
-import com.toscaruntime.rest.model.DeploymentDetails
+import com.toscaruntime.rest.model.{AbstractInstance, DeploymentDetails}
 import com.toscaruntime.util.RetryUtil
 import com.toscaruntime.util.RetryUtil.Action
 import com.typesafe.scalalogging.LazyLogging
+import tosca.constants.{InstanceState, RelationshipInstanceState}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -45,31 +46,146 @@ object DeployUtil extends LazyLogging {
     Await.result(client.teardown(provider, target), waitForEver)
   }
 
+  def getDeploymentDetails(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
+  }
+
   def printDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
-    val details = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
+    val details = getDeploymentDetails(client, deploymentId)
     printDetails("Deployment " + deploymentId, details)
   }
 
+  private def countInstances(instances: List[AbstractInstance], state: String) = {
+    instances.foldLeft(0)((instanceCount, instance) => if (instance.state == state) instanceCount + 1 else instanceCount).toString
+  }
+
   def printDetails(name: String, details: DeploymentDetails): Unit = {
-    println(name + " has " + details.nodes.length + " nodes :")
-    details.nodes.foreach { node =>
-      println(" - Node " + node.id + " has " + node.instances.length + " instances :")
-      node.instances.foreach { instance =>
-        println(" \t+ " + instance.id + ": " + instance.state)
-      }
-    }
+    printNodesDetails(name, details)
+    printRelationshipsDetails(name, details)
+    printOutputsDetails(name, details)
+  }
+
+  def printRelationshipsDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
+    printRelationshipsDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
+  }
+
+  def printRelationshipsDetails(name: String, details: DeploymentDetails): Unit = {
     println(name + " has " + details.relationships.length + " relationships :")
-    details.relationships.foreach { relationship =>
-      println(s" - Relationship from ${relationship.sourceNodeId} to ${relationship.targetNodeId} has ${relationship.relationshipInstances.size} instances :")
-      relationship.relationshipInstances.foreach { relationshipInstance =>
-        println(s" \t+ ${relationshipInstance.sourceInstanceId}_${relationshipInstance.targetInstanceId}: ${relationshipInstance.state}")
-      }
+    val relationshipHeaders = List("Source", "Target", "Total Instance", "Pre-Configured", "Post-Configured", "Established")
+    val relationshipsData = details.relationships.map { relationship =>
+      val preConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.PRE_CONFIGURED)
+      val postConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.POST_CONFIGURED)
+      val establishedConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.ESTABLISHED)
+      List(relationship.sourceNodeId, relationship.targetNodeId, relationship.relationshipInstances.length.toString, preConfiguredInstancesCount, postConfiguredInstancesCount, establishedConfiguredInstancesCount)
     }
+    println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
+  }
+
+  def printNodesDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
+    printNodesDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
+  }
+
+  def printNodesDetails(name: String, details: DeploymentDetails): Unit = {
+    println(name + " has " + details.nodes.length + " nodes :")
+    val nodeHeaders = List("Node", "Total Instances", "Created", "Configured", "Started")
+    val nodesData = details.nodes.map { node =>
+      val startedInstancesCount = countInstances(node.instances, InstanceState.STARTED)
+      val configuredInstancesCount = countInstances(node.instances, InstanceState.CONFIGURED)
+      val createdInstancesCount = countInstances(node.instances, InstanceState.CREATED)
+      List(node.id, node.instances.length.toString, createdInstancesCount, configuredInstancesCount, startedInstancesCount)
+    }
+    println(TabulatorUtil.format(nodeHeaders :: nodesData))
+  }
+
+  private def printProperties(properties: Map[String, Any]): Unit = {
+    val propertiesData = properties.map {
+      case (key, value) => List(key, value.toString)
+    }.toList
+    println(TabulatorUtil.format(List("Key", "Value") :: propertiesData))
+  }
+
+  def printNodeDetails(client: ToscaRuntimeClient, deploymentId: String, nodeId: String): Unit = {
+    val deploymentDetails = getDeploymentDetails(client, deploymentId)
+    deploymentDetails.nodes.find(_.id == nodeId) match {
+      case Some(node) =>
+        if (node.properties.nonEmpty) {
+          println(s"The node $nodeId has following properties:")
+          printProperties(node.properties)
+        }
+        println(s"The node $nodeId has ${node.instances.length} instances")
+        val instancesData = node.instances.map { instance =>
+          List(instance.id, instance.state, instance.attributes.size.toString)
+        }
+        println(TabulatorUtil.format(List("Id", "State", "Attributes") :: instancesData))
+      case None =>
+        println(s"Node $nodeId not found in the deployment [$deploymentId] ")
+    }
+  }
+
+  def printInstanceDetails(client: ToscaRuntimeClient, deploymentId: String, instanceId: String): Unit = {
+    val deploymentDetails = getDeploymentDetails(client, deploymentId)
+    deploymentDetails.nodes.flatMap { node =>
+      node.instances.find(_.id == instanceId)
+    }.headOption match {
+      case Some(instance) =>
+        println(s"The instance [$instanceId] is in state ${instance.state}")
+        if (instance.attributes.nonEmpty) {
+          println(s"The instance [$instanceId] has following attributes:")
+          printProperties(instance.attributes)
+        }
+      case None =>
+        println(s"The instance [$instanceId] is not found in the deployment [$deploymentId] ")
+    }
+  }
+
+  def printRelationshipInstanceDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String): Unit = {
+    val deploymentDetails = getDeploymentDetails(client, deploymentId)
+    deploymentDetails.relationships.flatMap { relationship =>
+      relationship.relationshipInstances.find(relationshipInstance =>
+        relationshipInstance.sourceInstanceId == source && relationshipInstance.targetInstanceId == target
+      )
+    }.headOption match {
+      case Some(relationshipInstance) =>
+        println(s"The relationship instance from [$source] to [$target] is in state ${relationshipInstance.state}")
+        if (relationshipInstance.attributes.nonEmpty) {
+          println(s"The relationship instance from [$source] to [$target] has following attributes:")
+          printProperties(relationshipInstance.attributes)
+        }
+      case None =>
+        println(s"The relationship instance from [$source] to [$target] is not found in the deployment [$deploymentId] ")
+    }
+  }
+
+  def printRelationshipDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String): Unit = {
+    val deploymentDetails = getDeploymentDetails(client, deploymentId)
+    deploymentDetails.relationships.find(relationship => relationship.sourceNodeId == source && relationship.targetNodeId == target) match {
+      case Some(relationship) =>
+        if (relationship.properties.nonEmpty) {
+          println(s"The relationship from [$source] to [$target] has following properties:")
+          printProperties(relationship.properties)
+        }
+        println(s"The relationship from [$source] to [$target] has following instances:")
+        val instancesData = relationship.relationshipInstances.map { relationshipInstance =>
+          List(relationshipInstance.sourceInstanceId, relationshipInstance.targetInstanceId, relationshipInstance.state, relationshipInstance.attributes.size.toString)
+        }
+        println(TabulatorUtil.format(List("Source Id", "Target Id", "State", "Attributes") :: instancesData))
+      case None =>
+        println(s"The relationship from [$source] to [$target] is not found in the deployment [$deploymentId] ")
+    }
+  }
+
+  def printOutputsDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
+    printOutputsDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
+  }
+
+  def printOutputsDetails(name: String, details: DeploymentDetails): Unit = {
     if (details.outputs.nonEmpty) {
-      println("Output for " + name + " :")
-      details.outputs.foreach { output =>
-        println(" - " + output._1 + " = " + output._2)
-      }
+      println("Outputs for " + name + " :")
+      val outputHeaders = List("Name", "Value")
+      val outputsData = details.outputs.map { output =>
+        List(output._1, output._2.toString)
+      }.toList
+      println(TabulatorUtil.format(outputHeaders :: outputsData))
     } else {
       println(name + " does not have any output")
     }

@@ -11,6 +11,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.InstanceState;
 import tosca.nodes.Root;
 
 public class DeleteTask extends AbstractTask {
@@ -23,13 +24,13 @@ public class DeleteTask extends AbstractTask {
 
     @Override
     public void doRun() {
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "deleting", false);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.DELETING, false);
         try {
             nodeInstance.delete();
         } catch (Exception e) {
             log.warn(nodeInstance + " delete failed", e);
         }
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "deleted", true);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.DELETED, true);
     }
 
     @Override

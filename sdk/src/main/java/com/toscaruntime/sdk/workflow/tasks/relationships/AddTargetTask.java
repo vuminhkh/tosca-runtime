@@ -9,6 +9,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class AddTargetTask extends AbstractTask {
@@ -22,10 +23,13 @@ public class AddTargetTask extends AbstractTask {
         Set<tosca.relationships.Root> nodeInstanceSourceRelationships = DeploymentUtil.getRelationshipInstanceBySourceId(relationshipInstances, nodeInstance.getId());
         nodeInstanceSourceRelationships.stream().forEach(relationshipInstance -> {
             synchronized (relationshipInstance.getSource()) {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, "addingTarget", false);
                 // Do not add target on the same source instance in concurrence
                 relationshipInstance.addTarget();
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, "addedTarget", true);
+                if (relationshipInstance.getState().equals(RelationshipInstanceState.ADDED_SOURCE)) {
+                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.ESTABLISHED, true);
+                } else {
+                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.ADDED_TARGET, true);
+                }
             }
         });
     }

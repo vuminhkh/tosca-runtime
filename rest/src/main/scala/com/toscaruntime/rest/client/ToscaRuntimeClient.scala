@@ -133,10 +133,10 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     undeploy(generateDeploymentIdForBootstrap(provider, target))
   }
 
-  def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path) = {
+  def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrap: Boolean = false) = {
     // TODO asynchronous
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(deploymentId, bootstrap = false, recipePath, inputsPath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(deploymentId, bootstrap, recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
   def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String) = {

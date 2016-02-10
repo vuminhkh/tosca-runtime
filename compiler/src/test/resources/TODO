@@ -7,10 +7,8 @@
   - Semantic analyzer completion
     + Validate scaling policy
     + Requirement satisfaction validation
-    + Validate outputs
     + Function validation
     + Node filter
-  - Deployment artifacts for openstack
   - Requirement properties
   - Relationship properties - Test
   - Function in node type properties declaration
@@ -19,21 +17,20 @@
 3.Core:
   - Review class loading model
   - CLI handle correctly errors in rest call
+  - Refactoring
 
 4.Provider:
-  - Solve SSH connection stability issues with openstack
-  - Correctly retrieve script execution status and fail the deployment
-  - Review on retry on error timeout, make it configurable
-  - Manage public_ip for docker on swarm
-  - Manage docker volume
-  - Manage openstack volume
-  - Exploring using consul for service discovery
-  - Windows support
+  - Openstack:
+    + Deployment artifacts for openstack
+    + Correctly retrieve script execution status and fail the deployment
+    + Review number of retry on error, timeout, make it configurable
+    + Manage public_ip for docker on swarm
+    + Manage docker volume
+    + Manage openstack volume
+    + Windows support
 
 5.Runtime:
-  - Persistence (persisted on file system per container basis ?)
-  - Executions modelling (need to save execution with their state ?)
-  - Deployment state (need a state machine here ?)
+  - Agent State Persistence
   - Custom command
   - Policy handling (auto-healing, dynamic scaling ... )
   - WinRMI + Batch script

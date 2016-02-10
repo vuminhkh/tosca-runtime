@@ -11,6 +11,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.InstanceState;
 import tosca.nodes.Root;
 
 public class StopTask extends AbstractTask {
@@ -23,13 +24,13 @@ public class StopTask extends AbstractTask {
 
     @Override
     public void doRun() {
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "stopping", false);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STOPPING, false);
         try {
             nodeInstance.stop();
         } catch (Exception e) {
             log.warn(nodeInstance + " stop failed", e);
         }
-        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, "configured", true);
+        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.CONFIGURED, true);
     }
 
     @Override

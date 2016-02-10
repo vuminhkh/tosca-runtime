@@ -4,25 +4,34 @@ import play.api.libs.json.Json
 
 import JSONMapStringAnyFormat._
 
-case class Instance(id: String, state: String, attributes: Map[String, Any])
+trait AbstractInstance {
+  val state: String
+  val attributes: Map[String, Any]
+}
+
+case class Instance(id: String, state: String, attributes: Map[String, Any]) extends AbstractInstance
 
 object Instance {
   implicit val InstanceFormat = Json.format[Instance]
 }
 
-case class RelationshipInstance(sourceInstanceId: String, targetInstanceId: String, state: String, attributes: Map[String, Any])
+case class RelationshipInstance(sourceInstanceId: String, targetInstanceId: String, state: String, attributes: Map[String, Any]) extends AbstractInstance
 
 object RelationshipInstance {
   implicit val RelationshipInstanceFormat = Json.format[RelationshipInstance]
 }
 
-case class Node(id: String, properties: Map[String, Any], instances: List[Instance])
+trait AbstractNode {
+  val properties: Map[String, Any]
+}
+
+case class Node(id: String, properties: Map[String, Any], instances: List[Instance]) extends AbstractNode
 
 object Node {
   implicit val NodeFormat = Json.format[Node]
 }
 
-case class RelationshipNode(sourceNodeId: String, targetNodeId: String, properties: Map[String, Any], relationshipInstances: List[RelationshipInstance])
+case class RelationshipNode(sourceNodeId: String, targetNodeId: String, properties: Map[String, Any], relationshipInstances: List[RelationshipInstance]) extends AbstractNode
 
 object RelationshipNode {
   implicit val RelationshipNodeFormat = Json.format[RelationshipNode]

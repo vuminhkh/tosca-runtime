@@ -9,6 +9,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class PreConfigureTargetTask extends AbstractTask {
@@ -20,13 +21,16 @@ public class PreConfigureTargetTask extends AbstractTask {
     @Override
     protected void doRun() {
         Set<tosca.relationships.Root> nodeInstanceTargetRelationships = DeploymentUtil.getRelationshipInstanceByTargetId(relationshipInstances, nodeInstance.getId());
-        for (tosca.relationships.Root relationship : nodeInstanceTargetRelationships) {
-            if (relationship.getTarget().getPreConfiguredRelationshipNodes().add(relationship.getNode())) {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "preConfiguringTarget", false);
-                relationship.preConfigureTarget();
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "preConfiguredTarget", true);
+        nodeInstanceTargetRelationships.stream().filter(relationshipInstance ->
+                relationshipInstance.getTarget().getPreConfiguredRelationshipNodes().add(relationshipInstance.getNode())
+        ).forEach(relationshipInstance -> {
+            relationshipInstance.preConfigureTarget();
+            if (relationshipInstance.getState().equals(RelationshipInstanceState.PRE_CONFIGURED_SOURCE)) {
+                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.PRE_CONFIGURED, true);
+            } else {
+                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.PRE_CONFIGURED_TARGET, true);
             }
-        }
+        });
     }
 
     @Override

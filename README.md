@@ -42,6 +42,8 @@ Tosca Runtime uses Docker to handle deployment lifecycle, the only pre-requisite
 
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/ManagerLessArchitecture.png "Managerless architecture")
 
+In this managerless Tosca Runtime configuration, no manager bootstrap is required to begin to use Tosca Runtime CLI. The deployment can event target a distant IAAS if each created VM has a public ip and is reachable. 
+
 * Deployment image management: From installed types and topology archives, Tosca Runtime allows you to create docker images that can be used to deploy your topology. All necessary information are packaged into this image which make the deployment reproducible and can be shared with other people and other team.
 
   Usage:
@@ -66,3 +68,14 @@ Tosca Runtime uses Docker to handle deployment lifecycle, the only pre-requisite
   # Delete the agent
   agents delete myDeployment
   ```
+  
+* Bootstrap: The managerless configuration is in general suitable only for developing and testing recipe, you can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
+The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
+
+  ```bash
+  # To bootstrap a single machine with a simple docker daemon and a proxy
+  bootstrap -p openstack
+  # To bootstrap a swarm cluster
+  bootstrap -p openstack -t swarm
+  ```
+  

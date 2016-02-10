@@ -12,6 +12,7 @@ import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
+import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class RemoveTargetTask extends AbstractTask {
@@ -28,9 +29,12 @@ public class RemoveTargetTask extends AbstractTask {
         nodeInstanceTargetRelationships.stream().forEach(relationshipInstance -> {
             try {
                 synchronized (relationshipInstance.getSource()) {
-                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, "removingTarget", false);
                     relationshipInstance.removeTarget();
-                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, "removedTarget", true);
+                    if (relationshipInstance.getState().equals(RelationshipInstanceState.REMOVED_SOURCE)) {
+                        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.CONFIGURED, true);
+                    } else {
+                        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.REMOVED_TARGET, true);
+                    }
                 }
             } catch (Exception e) {
                 log.warn(relationshipInstance + " removeTarget failed", e);

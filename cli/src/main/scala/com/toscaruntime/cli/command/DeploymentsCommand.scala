@@ -10,6 +10,7 @@ import com.toscaruntime.constant.{ProviderConstant, RuntimeConstant}
 import com.toscaruntime.util.FileUtil
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
+
 import scala.language.postfixOps
 
 /**
@@ -37,13 +38,15 @@ object DeploymentsCommand {
 
   private val inputPathOpt = "-i"
 
+  private val bootstrapOpt = "-b"
+
   private lazy val topologyPathArg = token(topologyPathOpt) ~ (Space ~> token(Parsers.filePathParser))
 
   private lazy val csarArg = token(csarOpt) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
 
   private lazy val deploymentInputsPathArg = token(inputPathOpt) ~ (Space ~> token(Parsers.filePathParser))
 
-  private lazy val deploymentCreateArgsParser = Space ~> (topologyPathArg | csarArg | deploymentInputsPathArg | Args.providerArg | Args.targetArg) +
+  private lazy val deploymentCreateArgsParser = Space ~> (topologyPathArg | csarArg | deploymentInputsPathArg | Args.providerArg | Args.targetArg | (token(bootstrapOpt) ~ (Space ~> token(Bool)))) +
 
   private lazy val deploymentsArgsParser =
     Space ~> ((token(createOpt) ~ (Space ~> token(StringBasic)) ~ deploymentCreateArgsParser) | (token(runOpt) ~ (Space ~> token(StringBasic))) | token(listOpt) | (token(deleteOpt) ~ (Space ~> token(StringBasic))) | token(cleanOpt)) +
@@ -131,8 +134,9 @@ object DeploymentsCommand {
                 .resolve("conf").resolve("providers")
                 .resolve(providerName)
                 .resolve(providerTarget)
+              val bootstrapMode = createArgs.getOrElse(bootstrapOpt, false).asInstanceOf[Boolean]
               if (Files.exists(providerConf)) {
-                client.createDeploymentImage(deploymentId, deploymentWorkDir, inputsPath, providerConf).awaitImageId()
+                client.createDeploymentImage(deploymentId, deploymentWorkDir, inputsPath, providerConf, bootstrapMode).awaitImageId()
                 println(s"Deployment [$deploymentId] has been created, 'deployments run $deploymentId' to deploy it")
               } else {
                 println(s"No configuration found for [$providerName], target [$providerTarget] at [$providerConf]")
