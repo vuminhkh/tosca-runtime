@@ -146,7 +146,11 @@ public class Container extends Compute {
         }
         String tag = getPropertyAsString("tag", "latest");
         log.info("Container [" + getId() + "] : Pulling image " + imageId);
-        dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitSuccess();
+        try {
+            dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitCompletion();
+        } catch (InterruptedException e) {
+            throw new OperationExecutionException("Pull interrupted", e);
+        }
         log.info("Container [" + getId() + "] : Pulled image " + imageId);
         CreateContainerCmd createContainerCmd = dockerClient.createContainerCmd(imageId + ":" + tag)
                 .withStdinOpen(Boolean.parseBoolean(getPropertyAsString("interactive", "true")))

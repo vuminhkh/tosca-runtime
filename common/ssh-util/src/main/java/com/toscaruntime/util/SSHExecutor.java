@@ -43,21 +43,26 @@ public class SSHExecutor implements Closeable {
         this.pemPath = pemPath;
     }
 
+    private synchronized void connect() throws Exception {
+        this.clientSession = SSHUtil.connect(SSH_CLIENT, user, pemPath, ip, port, TIME_OUT, TIME_UNIT);
+        // This to ensure that the channel is opened and executable
+        this.clientSession.createExecChannel("ls").close(false).await(TIME_OUT, TIME_UNIT);
+    }
+
     public synchronized void init() throws Exception {
         log.info("Session is going to be connected for " + user + "@" + ip);
-        this.clientSession = SSHUtil.connect(SSH_CLIENT, user, pemPath, ip, port, TIME_OUT, TIME_UNIT);
+        connect();
         log.info("Session is connected session for " + user + "@" + ip);
     }
 
-    private synchronized void checkConnection() throws IOException, InterruptedException {
+    private synchronized void checkConnection() throws Exception {
         if (clientSession == null) {
             log.info("Recreating the session for " + user + "@" + ip);
-            this.clientSession = SSHUtil.connect(SSH_CLIENT, user, pemPath, ip, port, TIME_OUT, TIME_UNIT);
+            connect();
             log.info("Recreated the session for " + user + "@" + ip);
         } else if (clientSession.isClosed() || clientSession.isClosing()) {
             log.info("Reconnecting the session for " + user + "@" + ip);
-            this.clientSession.close(false).await(TIME_OUT, TIME_UNIT);
-            this.clientSession = SSHUtil.connect(SSH_CLIENT, user, pemPath, ip, port, TIME_OUT, TIME_UNIT);
+            connect();
             log.info("Reconnected the session for " + user + "@" + ip);
         }
     }
@@ -69,13 +74,13 @@ public class SSHExecutor implements Closeable {
     }
 
     public Map<String, String> executeCommand(String operationName, String command, Map<String, String> env) throws Exception {
-        log.info("[{}] Executing command {} with environments {}", operationName, command, env);
+        log.info("[{}] command {} with environments {}", operationName, command, env);
         checkConnection();
         return SSHUtil.executeCommand(operationName, clientSession, command, env, TIME_OUT, TIME_UNIT);
     }
 
     public Map<String, String> executeScript(String operationName, String scriptPath, Map<String, String> env) throws Exception {
-        log.info("[{}] Executing script {} with environments {}", operationName, scriptPath, env);
+        log.info("[{}] script {} with environments {}", operationName, scriptPath, env);
         checkConnection();
         return SSHUtil.executeScript(operationName, clientSession, scriptPath, env, TIME_OUT, TIME_UNIT);
     }

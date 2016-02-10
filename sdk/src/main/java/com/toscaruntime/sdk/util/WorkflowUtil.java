@@ -6,6 +6,8 @@ import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
+import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
+import com.toscaruntime.sdk.workflow.tasks.MockTask;
 
 import tosca.nodes.Root;
 
@@ -61,5 +63,16 @@ public class WorkflowUtil {
             }
         }
         return true;
+    }
+
+    /**
+     * Create a mock by copying attributes from the given task
+     *
+     * @param taskName name of the task
+     * @param copyFrom the task to copy from
+     * @return mock task
+     */
+    public static MockTask mockTask(String taskName, AbstractTask copyFrom) {
+        return new MockTask(taskName, copyFrom.getNodeInstances(), copyFrom.getRelationshipInstances(), copyFrom.getNodeInstance(), copyFrom.getTaskExecutor(), copyFrom.getWorkflowExecution());
     }
 }

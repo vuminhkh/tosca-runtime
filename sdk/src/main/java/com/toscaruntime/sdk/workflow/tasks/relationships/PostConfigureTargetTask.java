@@ -28,4 +28,9 @@ public class PostConfigureTargetTask extends AbstractTask {
             WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "postConfiguredTarget", true);
         }
     }
+
+    @Override
+    public String toString() {
+        return "Post Configure Target task for " + nodeInstance.getId();
+    }
 }

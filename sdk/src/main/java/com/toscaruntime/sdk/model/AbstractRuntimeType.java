@@ -159,4 +159,12 @@ public abstract class AbstractRuntimeType {
     public Map<String, Map<String, OperationInputDefinition>> getOperationInputs() {
         return operationInputs;
     }
+
+    public Map<String, Map<String, String>> getOperationOutputs() {
+        return operationOutputs;
+    }
+
+    public Map<String, AttributeDefinition> getAttributeDefinitions() {
+        return attributeDefinitions;
+    }
 }

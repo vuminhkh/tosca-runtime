@@ -29,5 +29,10 @@ public class AddTargetTask extends AbstractTask {
             }
         });
     }
+
+    @Override
+    public String toString() {
+        return "Add Target task for " + nodeInstance.getId();
+    }
 }
 

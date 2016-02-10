@@ -11,6 +11,7 @@ csars install /Users/vuminhkh/Projects/samples/topology-wordpress/
 2/ Install specific docker topology:
 
 csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyWordpressDocker/
+csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyWordpressOpenstack/
 
 3/ List installed csars:
 
@@ -19,6 +20,7 @@ csars list
 4/ Create deployment:
 
 deployments create wordpress -c wordpress-template-docker:*
+deployments create wordpress -c wordpress-template-openstack:* -i /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/inputs/topologyWordpressOpenstack/inputs.yml -p openstack
 
 5/Run deployment:
 

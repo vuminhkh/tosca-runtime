@@ -8,22 +8,6 @@ imports:
   - toscaruntime-bootstrap-type:*
   - openstack-provider-types:*
 
-node_types:
-
-  com.toscaruntime.openstack.nodes.SwarmCompute:
-    properties:
-      image: { get_input: image }
-      flavor: { get_input: flavor }
-      login: { get_input: login }
-      key_pair_name: { get_input: key_pair_name }
-      key_path: { get_input: key_path }
-      security_group_names: { get_input: security_group_names }
-      user_data: |
-        #!/bin/sh
-        sudo cp /etc/hosts /tmp/hosts
-        echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-        cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
-
 topology_template:
   description: Wordpress deployment template for openstack
   inputs:
@@ -43,12 +27,9 @@ topology_template:
       type: list
       entry_schema:
         type: string
-    external_network_id:
+    external_network_name:
       type: string
-    dns_name_servers:
-      type: list
-      entry_schema:
-        type: string
+
   outputs:
     public_daemon_url:
       description: The URL to access the docker daemon
@@ -87,10 +68,21 @@ topology_template:
       properties:
         network_name: "dockerDaemonNetwork"
         cidr: "192.168.1.0/24"
-        dns_name_servers: { get_input: dns_name_servers }
 
     managerMachine:
-      type: com.toscaruntime.openstack.nodes.SwarmCompute
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
       requirements:
         - network: privateNetwork
         - network: publicNetwork
@@ -104,7 +96,8 @@ topology_template:
     proxy:
       type: com.toscaruntime.docker.nodes.ProxyWebApp
       requirements:
-        - host: swarmManager
+        - host: managerMachine
+        - daemon: swarmManager
 
     consulServer:
       type: com.toscaruntime.consul.nodes.ConsulAgent
@@ -116,13 +109,33 @@ topology_template:
     swarmManager:
       type: com.toscaruntime.docker.nodes.SwarmManager
       requirements:
-        - host: managerDaemon
+        - host: managerMachine
+        - daemon: managerDaemon
         - discovery_service: consulServer
 
     swarmNodeMachine:
-      type: com.toscaruntime.openstack.nodes.SwarmCompute
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
       requirements:
         - network: privateNetwork
+        - network: publicNetwork
+      capabilities:
+        scalable:
+          properties:
+            max_instances: 3
+            min_instances: 1
+            default_instances: 1
 
     swarmNodeDaemon:
       type: com.toscaruntime.docker.nodes.DockerDaemon

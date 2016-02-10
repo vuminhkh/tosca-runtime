@@ -202,6 +202,9 @@ public abstract class Root extends AbstractRuntimeType {
         if (paths.length == 0) {
             throw new IllegalFunctionException("Function " + functionName + " path is empty");
         }
+        if ("get_input".equals(functionName)) {
+            return getInput(paths[0]);
+        }
         String entity = paths[0];
         Object value;
         switch (entity) {
@@ -221,9 +224,6 @@ public abstract class Root extends AbstractRuntimeType {
                             throw new IllegalFunctionException("get_property must be followed by entity and the property name (2 arguments), or entity then requirement/capability name and property name (3 arguments)");
                         }
                         break;
-                    case "get_input":
-                        value = getInput(paths[1]);
-                        break;
                     case "get_attribute":
                         value = getAttribute(paths[1]);
                         break;
@@ -231,7 +231,7 @@ public abstract class Root extends AbstractRuntimeType {
                         value = getOperationOutput(paths[1], paths[2], paths[3]);
                         break;
                     default:
-                        throw new IllegalFunctionException("Function " + functionName + " is not supported");
+                        throw new IllegalFunctionException("Function " + functionName + " is not supported on SELF entity");
                 }
                 break;
             default:

@@ -6,13 +6,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
+import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.nodes.ConfigureTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.CreateTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.StartTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AddSourceTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AddTargetTask;
-import com.toscaruntime.sdk.workflow.tasks.relationships.MockTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.PostConfigureSourceTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.PostConfigureTargetTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.PreConfigureSourceTask;
@@ -70,28 +70,31 @@ public class InstallLifeCycleTasks extends AbstractLifeCycleTasks {
         initTasksDependencies();
     }
 
+    private void mockAllTask(AbstractTask mockTask) {
+        this.createTask = WorkflowUtil.mockTask("Create Task", mockTask);
+        this.preConfigureSourceTask = WorkflowUtil.mockTask("Pre Configure Source Task", mockTask);
+        this.preConfigureTargetTask = WorkflowUtil.mockTask("Pre Configure Target Task", mockTask);
+        this.configureTask = WorkflowUtil.mockTask("Configure Task", mockTask);
+        this.postConfigureSourceTask = WorkflowUtil.mockTask("Post Configure Source Task", mockTask);
+        this.postConfigureTargetTask = WorkflowUtil.mockTask("Post Configure Target Task", mockTask);
+        this.startTask = WorkflowUtil.mockTask("Start Task", mockTask);
+        this.addSourceTask = WorkflowUtil.mockTask("Add Source Task", mockTask);
+        this.addTargetTask = WorkflowUtil.mockTask("Add Target Task", mockTask);
+    }
+
+    public InstallLifeCycleTasks(MockTask mockTask) {
+        mockAllTask(mockTask);
+        initTasksDependencies();
+    }
+
     public InstallLifeCycleTasks(AddSourceTask addSourceTask) {
-        this.createTask = new MockTask(addSourceTask);
-        this.preConfigureSourceTask = new MockTask(addSourceTask);
-        this.preConfigureTargetTask = new MockTask(addSourceTask);
-        this.configureTask = new MockTask(addSourceTask);
-        this.postConfigureSourceTask = new MockTask(addSourceTask);
-        this.postConfigureTargetTask = new MockTask(addSourceTask);
-        this.startTask = new MockTask(addSourceTask);
+        mockAllTask(addSourceTask);
         this.addSourceTask = addSourceTask;
-        this.addTargetTask = new MockTask(addSourceTask);
         initTasksDependencies();
     }
 
     public InstallLifeCycleTasks(AddTargetTask addTargetTask) {
-        this.createTask = new MockTask(addTargetTask);
-        this.preConfigureSourceTask = new MockTask(addTargetTask);
-        this.preConfigureTargetTask = new MockTask(addTargetTask);
-        this.configureTask = new MockTask(addTargetTask);
-        this.postConfigureSourceTask = new MockTask(addTargetTask);
-        this.postConfigureTargetTask = new MockTask(addTargetTask);
-        this.startTask = new MockTask(addTargetTask);
-        this.addSourceTask = new MockTask(addTargetTask);
+        mockAllTask(addTargetTask);
         this.addTargetTask = addTargetTask;
         initTasksDependencies();
     }

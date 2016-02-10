@@ -37,4 +37,9 @@ public class RemoveSourceTask extends AbstractTask {
             }
         });
     }
+
+    @Override
+    public String toString() {
+        return "Remove Source task for " + nodeInstance.getId();
+    }
 }

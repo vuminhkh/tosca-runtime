@@ -29,4 +29,9 @@ public class AddSourceTask extends AbstractTask {
             }
         });
     }
+
+    @Override
+    public String toString() {
+        return "Add Source task for " + nodeInstance.getId();
+    }
 }

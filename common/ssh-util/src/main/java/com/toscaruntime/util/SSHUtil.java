@@ -1,6 +1,5 @@
 package com.toscaruntime.util;
 
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
@@ -8,22 +7,17 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
-import java.security.Security;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.StringUtils;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.channel.ClientChannel;
 import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.RuntimeSshException;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMKeyPair;
-import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,22 +29,6 @@ public class SSHUtil {
 
     public static final String EXIT_COMMAND = "exit";
 
-    public static KeyPair loadKeyPair(String pemFile) {
-        if (StringUtils.isBlank(pemFile)) {
-            return null;
-        }
-        try {
-            Security.addProvider(new BouncyCastleProvider());
-            PEMParser pemParser = new PEMParser(new FileReader(pemFile));
-            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
-            Object object = pemParser.readObject();
-            return converter.getKeyPair((PEMKeyPair) object);
-        } catch (Exception e) {
-            log.error("Could not load key pair", e);
-            throw new RuntimeException("Could not load key pair", e);
-        }
-    }
-
     public static ClientSession connect(SshClient client, final String user, String pemPath, final String ip, final int port, long timeout, TimeUnit timeUnit) throws IOException,
             InterruptedException {
         ConnectFuture connectFuture = client.connect(user, ip, port);
@@ -59,7 +37,7 @@ public class SSHUtil {
             throw new RuntimeSshException("Connection timed out");
         }
         ClientSession session = connectFuture.getSession();
-        KeyPair keyPair = SSHUtil.loadKeyPair(pemPath);
+        KeyPair keyPair = KeyPairUtil.loadKeyPair(pemPath);
         if (keyPair != null) {
             session.addPublicKeyIdentity(keyPair);
         }
@@ -188,7 +166,7 @@ public class SSHUtil {
             doExecuteCommand(commandWriter, PRINT_ENV_COMMAND);
             doExecuteCommand(commandWriter, EXIT_COMMAND);
             log.info("[{}][{}] Waiting for channel closed", operationName, doWithShellAction.getCommandName());
-            channel.waitFor(ClientChannel.CLOSED, timeUnit.toMillis(timeout));
+            channel.waitFor(EnumSet.of(ClientChannel.ClientChannelEvent.CLOSED), timeUnit.toMillis(timeout));
             log.info("[{}][{}] Received channel closed", operationName, doWithShellAction.getCommandName());
             Integer exitStatus = channel.getExitStatus();
             if (exitStatus != null && exitStatus == 0) {
@@ -202,8 +180,12 @@ public class SSHUtil {
             log.error("Error while executing on channel", e);
             throw e;
         } finally {
-            channel.close(false).await(timeout, timeUnit);
-            log.info("[{}][{}] Channel closed", operationName, doWithShellAction.getCommandName());
+            boolean couldCloseInTime = channel.close(false).await(5, TimeUnit.SECONDS);
+            if (couldCloseInTime) {
+                log.info("[{}][{}] Channel closed", operationName, doWithShellAction.getCommandName());
+            } else {
+                log.info("[{}][{}] Channel could not be closed correctly", operationName, doWithShellAction.getCommandName());
+            }
         }
     }
 }

@@ -6,7 +6,7 @@ import java.util.regex.Pattern
 
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{DependencyNotFoundException, InvalidTopologyException}
+import com.toscaruntime.exception.{DependencyNotFoundException, EmptyArchiveException, InvalidTopologyException}
 import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 
@@ -100,9 +100,12 @@ object Compiler extends LazyLogging {
               dependencyResolver: (String, Option[Path]) => Option[(String, Path)],
               compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
               postCompilation: (CompilationResult) => Unit = { _ => }): CompilationResult = {
-    logger.debug("Compile {}", path.getFileName.toString)
+    logger.info("Compile {}", path.getFileName.toString)
     val absPath = path.toAbsolutePath
     val yamlFiles = FileUtil.listFiles(absPath, ".yml", ".yaml").asScala.toList
+    if (yamlFiles.isEmpty) {
+      throw new EmptyArchiveException(s"Archive is empty, expecting tosca definition with extension .yml or .yaml")
+    }
     val parseResults = yamlFiles.map { yamlPath =>
       val toscaDefinitionText = FileUtil.readTextFile(yamlPath)
       (yamlPath.toAbsolutePath.toString, SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, toscaDefinitionText))
@@ -187,7 +190,7 @@ object Compiler extends LazyLogging {
       if (definitionWithTopologyEntry.isEmpty) {
         throw new InvalidTopologyException(s"No topology found at ${topologyPath.toAbsolutePath.toString} for assembly")
       } else {
-        logger.debug(s"Performing assembly for topology at ${definitionWithTopologyEntry.get._1}")
+        logger.info(s"Performing assembly for topology at ${definitionWithTopologyEntry.get._1}")
       }
       val definitionWithTopology = definitionWithTopologyEntry.get._2
       val topology = definitionWithTopology.topologyTemplate.get
@@ -195,7 +198,7 @@ object Compiler extends LazyLogging {
         case (csarPath, csar) => csar.definitions.nonEmpty && csar.definitions.head._2.topologyTemplate.isDefined
       }.map {
         case (csarPath, csar) =>
-          logger.debug(s"Merging topology at ${csar.definitions.head._1} into ${topologyPath.toString} for assembly")
+          logger.info(s"Merging topology at ${csar.definitions.head._1} into ${topologyPath.toString} for assembly")
           csar.definitions.head._2.topologyTemplate.get
       }.toList
       val mergedTopology = (dependenciesTopologies :+ topology).foldLeft(TopologyTemplate(topology.description, Some(Map.empty), Some(Map.empty), Some(Map.empty))) { (merged, current) =>
@@ -227,8 +230,12 @@ object Compiler extends LazyLogging {
         topologyCompilationResult.copy(errors = topologyCompilationResult.errors + (errorKeyForTopology -> allErrors))
       }
     } else {
-      logger.debug(s"Topology ${topologyPath.toString} has compilation errors")
-      topologyCompilationResult
+      logger.info(s"Topology ${topologyPath.toString} has compilation errors")
+      val inputsErrors = inputsParseResult.map {
+        case error: SyntaxAnalyzer.NoSuccess => Map(inputs.get.toString -> List(CompilationError(error.msg, error.next.pos, None)))
+        case _ => Map.empty
+      }.getOrElse(Map.empty)
+      topologyCompilationResult.copy(errors = topologyCompilationResult.errors ++ inputsErrors)
     }
   }
 }

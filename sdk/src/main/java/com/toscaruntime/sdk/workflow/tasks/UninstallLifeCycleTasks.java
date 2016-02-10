@@ -6,10 +6,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
+import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.nodes.DeleteTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.StopTask;
-import com.toscaruntime.sdk.workflow.tasks.relationships.MockTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.RemoveSourceTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.RemoveTargetTask;
 
@@ -41,19 +41,27 @@ public class UninstallLifeCycleTasks extends AbstractLifeCycleTasks {
         initDependencies();
     }
 
+    private void mockAllTask(AbstractTask mockTask) {
+        this.removeSourceTask = WorkflowUtil.mockTask("Remove Source Task", mockTask);
+        this.removeTargetTask = WorkflowUtil.mockTask("Remove Target Task", mockTask);
+        this.stopTask = WorkflowUtil.mockTask("Stop Task", mockTask);
+        this.deleteTask = WorkflowUtil.mockTask("Delete Task", mockTask);
+    }
+
     public UninstallLifeCycleTasks(RemoveSourceTask removeSourceTask) {
+        mockAllTask(removeSourceTask);
         this.removeSourceTask = removeSourceTask;
-        this.removeTargetTask = new MockTask(removeSourceTask);
-        this.stopTask = new MockTask(removeSourceTask);
-        this.deleteTask = new MockTask(removeSourceTask);
         initDependencies();
     }
 
     public UninstallLifeCycleTasks(RemoveTargetTask removeTargetTask) {
-        this.removeSourceTask = new MockTask(removeTargetTask);
+        mockAllTask(removeTargetTask);
         this.removeTargetTask = removeTargetTask;
-        this.stopTask = new MockTask(removeTargetTask);
-        this.deleteTask = new MockTask(removeTargetTask);
+        initDependencies();
+    }
+
+    public UninstallLifeCycleTasks(MockTask mockTask) {
+        mockAllTask(mockTask);
         initDependencies();
     }
 
@@ -74,7 +82,8 @@ public class UninstallLifeCycleTasks extends AbstractLifeCycleTasks {
     }
 
     public List<AbstractTask> getTasks() {
-        return Arrays.asList(getRemoveSourceTask(),
+        return Arrays.asList(
+                getRemoveSourceTask(),
                 getRemoveTargetTask(),
                 getStopTask(),
                 getDeleteTask()

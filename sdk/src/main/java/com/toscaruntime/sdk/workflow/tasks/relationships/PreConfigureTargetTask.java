@@ -28,4 +28,9 @@ public class PreConfigureTargetTask extends AbstractTask {
             }
         }
     }
+
+    @Override
+    public String toString() {
+        return "Pre Configure Target task for " + nodeInstance.getId();
+    }
 }

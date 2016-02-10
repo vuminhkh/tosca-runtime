@@ -37,4 +37,9 @@ public class RemoveTargetTask extends AbstractTask {
             }
         });
     }
+
+    @Override
+    public String toString() {
+        return "Remove Target task for " + nodeInstance.getId();
+    }
 }

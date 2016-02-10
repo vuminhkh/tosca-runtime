@@ -1,4 +1,7 @@
 1.Documentation
+  - Getting started
+  - Openstack provider
+  - Docker provider
 
 2.Tosca support:
   - Semantic analyzer completion
@@ -10,6 +13,7 @@
   - Deployment artifacts for openstack
   - Requirement properties
   - Relationship properties - Test
+  - Function in node type properties declaration
   - Custom workflow
 
 3.Core:
@@ -17,6 +21,9 @@
   - CLI handle correctly errors in rest call
 
 4.Provider:
+  - Solve SSH connection stability issues with openstack
+  - Correctly retrieve script execution status and fail the deployment
+  - Review on retry on error timeout, make it configurable
   - Manage public_ip for docker on swarm
   - Manage docker volume
   - Manage openstack volume

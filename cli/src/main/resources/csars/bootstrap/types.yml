@@ -22,11 +22,10 @@ node_types:
       docker_url: { concat: ["http://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, port] ] }
       public_docker_url: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, port] ] }
     capabilities:
-      host: com.toscaruntime.docker.capabilities.DeployContainer
+      daemon: com.toscaruntime.docker.capabilities.DeployContainer
     requirements:
-      discovery_service:
-        type: com.toscaruntime.consul.capabilities.ConsulDiscoveryService
-        relationship_type: com.toscaruntime.docker.relationships.AdvertiseConsul
+      - discovery_service: com.toscaruntime.consul.capabilities.ConsulDiscoveryService
+        type: com.toscaruntime.docker.relationships.AdvertiseConsul
     interfaces:
       Standard:
         create: daemon/scripts/create_docker_daemon.sh
@@ -57,22 +56,8 @@ node_types:
         type: string
         required: false
     requirements:
-      host:
-        type: com.toscaruntime.docker.capabilities.DeployContainer
-        relationship_type: com.toscaruntime.docker.relationships.DeployedOnDaemon
-    interfaces:
-      Standard:
-        create:
-          inputs:
-            DOCKER_IMAGE: { get_property: [SELF, docker_image] }
-            DOCKER_COMMAND: { get_property: [SELF, docker_command] }
-            DOCKER_PORTS: { get_property: [SELF, port_mapping] }
-            DOCKER_LABELS: { get_property: [SELF, docker_labels] }
-            DOCKER_URL: { get_attribute: [HOST, docker_url] }
-            PUBLIC_DOCKER_URL: { get_attribute: [HOST, public_docker_url] }
-            DOCKER_NETWORK_ID: { get_attribute: [HOST, docker_network_id] }
-            DOCKER_CONTAINER_NAME: { get_property: [SELF, docker_container_name] }
-          implementation: component/scripts/create_docker_component.sh
+      - daemon: com.toscaruntime.docker.capabilities.DeployContainer
+        type: com.toscaruntime.docker.relationships.DeployedOnDaemon
 
   com.toscaruntime.docker.nodes.ProxyWebApp:
     derived_from: com.toscaruntime.docker.nodes.DockerComponent
@@ -95,9 +80,6 @@ node_types:
     attributes:
       proxy_url: { concat: ["http://", get_attribute: [HOST, ip_address], ":9000"] }
       public_proxy_url: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":9000"] }
-    requirements:
-      host:
-        type: com.toscaruntime.docker.capabilities.DeployContainer
 
   com.toscaruntime.docker.nodes.SwarmManager:
     derived_from: tosca.nodes.SoftwareComponent
@@ -109,14 +91,12 @@ node_types:
       docker_url: { concat: ["http://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, swarm_port] ] }
       public_docker_url: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, swarm_port] ] }
     requirements:
-      host:
-        type: com.toscaruntime.docker.capabilities.DeployContainer
-        relationship_type: com.toscaruntime.docker.relationships.DeployedOnDaemon
-      discovery_service:
-        type: com.toscaruntime.consul.capabilities.ConsulDiscoveryService
-        relationship_type: com.toscaruntime.docker.relationships.SwarmUseConsul
+      - daemon: com.toscaruntime.docker.capabilities.DeployContainer
+        type: com.toscaruntime.docker.relationships.SwarmManagerDependsOnDaemon
+      - discovery_service: com.toscaruntime.consul.capabilities.ConsulDiscoveryService
+        type: com.toscaruntime.docker.relationships.SwarmUseConsul
     capabilities:
-      host: com.toscaruntime.docker.capabilities.DeployContainer
+      daemon: com.toscaruntime.docker.capabilities.DeployContainer
 
   com.toscaruntime.consul.nodes.ConsulAgent:
     derived_from: tosca.nodes.SoftwareComponent
@@ -140,9 +120,8 @@ node_types:
         type: string
         default: /var/consul
     requirements:
-      formCluster:
-        type: com.toscaruntime.consul.capabilities.FormCluster
-        relationship_type: com.toscaruntime.consul.relationships.JoinCluster
+      - formCluster: com.toscaruntime.consul.capabilities.FormCluster
+        type: com.toscaruntime.consul.relationships.JoinCluster
     capabilities:
       discovery_service: com.toscaruntime.consul.capabilities.ConsulDiscoveryService
       formCluster: com.toscaruntime.consul.capabilities.FormCluster
@@ -177,26 +156,32 @@ capability_types:
 
 relationship_types:
 
+# The swarm manager is a docker container, but it's instantiated in the relationship AdvertiseConsul's add_target.
+# The relationship is declared here just to ensure the daemon is there before the operation.
+  com.toscaruntime.docker.relationships.SwarmManagerDependsOnDaemon:
+    derived_from: tosca.relationships.Root
+    valid_targets: [com.toscaruntime.docker.capabilities.DeployContainer]
+
   com.toscaruntime.docker.relationships.DeployedOnDaemon:
-    derived_from: tosca.relationships.HostedOn
-
-  com.toscaruntime.docker.relationships.ProxyDeployedOnSwarmDaemon:
-    derived_from: com.toscaruntime.docker.relationships.DeployedOnDaemon
-    valid_targets: [com.toscaruntime.docker.nodes.SwarmManager]
-
-  com.toscaruntime.docker.relationships.ProxyDeployedOnDaemon:
-    derived_from: com.toscaruntime.docker.relationships.DeployedOnDaemon
-    valid_targets: [com.toscaruntime.docker.nodes.DockerDaemon]
+    derived_from: tosca.relationships.Root
+    valid_targets: [com.toscaruntime.docker.capabilities.DeployContainer]
     interfaces:
       Configure:
-        post_configure_target:
+        add_source:
           inputs:
-            PROXY_URL: { get_attribute: [SOURCE, proxy_url] }
-            PUBLIC_PROXY_URL: { get_attribute: [SOURCE, public_proxy_url] }
-          implementation: proxy/scripts/configure_proxy.sh
+            DOCKER_IMAGE: { get_property: [SOURCE, docker_image] }
+            DOCKER_COMMAND: { get_property: [SOURCE, docker_command] }
+            DOCKER_PORTS: { get_property: [SOURCE, port_mapping] }
+            DOCKER_LABELS: { get_property: [SOURCE, docker_labels] }
+            DOCKER_URL: { get_attribute: [TARGET, docker_url] }
+            PUBLIC_DOCKER_URL: { get_attribute: [TARGET, public_docker_url] }
+            DOCKER_NETWORK_ID: { get_attribute: [TARGET, docker_network_id] }
+            DOCKER_CONTAINER_NAME: { get_property: [SOURCE, docker_container_name] }
+          implementation: component/scripts/start_docker_component.sh
 
   com.toscaruntime.docker.relationships.AdvertiseConsul:
     derived_from: tosca.relationships.Root
+    valid_targets: [com.toscaruntime.consul.capabilities.ConsulDiscoveryService]
     interfaces:
       Configure:
         add_target:
@@ -207,6 +192,7 @@ relationship_types:
 
   com.toscaruntime.docker.relationships.SwarmUseConsul:
     derived_from: tosca.relationships.Root
+    valid_targets: [com.toscaruntime.consul.capabilities.ConsulDiscoveryService]
     attributes:
 # This will be published also to source and target node
       docker_network_id: { get_operation_output: [ SELF, Configure, add_target, DOCKER_NETWORK_ID ] }
@@ -221,6 +207,7 @@ relationship_types:
 
   com.toscaruntime.consul.relationships.JoinCluster:
     derived_from: tosca.relationships.Root
+    valid_targets: [com.toscaruntime.consul.capabilities.FormCluster]
     interfaces:
       Configure:
         add_target:

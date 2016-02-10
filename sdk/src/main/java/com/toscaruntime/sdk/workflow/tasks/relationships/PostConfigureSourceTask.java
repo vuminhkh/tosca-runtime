@@ -28,4 +28,9 @@ public class PostConfigureSourceTask extends AbstractTask {
             WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationship, "postConfiguredSource", true);
         }
     }
+
+    @Override
+    public String toString() {
+        return "Post Configure Source task for " + nodeInstance.getId();
+    }
 }

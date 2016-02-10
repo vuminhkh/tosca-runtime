@@ -28,4 +28,9 @@ public class PreConfigureSourceTask extends AbstractTask {
             }
         }
     }
+
+    @Override
+    public String toString() {
+        return "Pre Configure Source task for " + nodeInstance.getId();
+    }
 }

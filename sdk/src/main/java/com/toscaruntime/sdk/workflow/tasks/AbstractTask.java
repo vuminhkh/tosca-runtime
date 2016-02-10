@@ -39,16 +39,18 @@ public abstract class AbstractTask implements Runnable {
         this.workflowExecution = workflowExecution;
     }
 
-    public synchronized void notifyTaskCompletion() {
+    private void notifyTaskCompletion() {
         dependedByTasks.stream().forEach(dependedByInstance -> dependedByInstance.onDependencyCompletion(this));
+        // The dependency is notified about the completion of the task before the workflow execution
+        // This way the workflow execution can validate that there is no cyclic dependencies
         workflowExecution.onTaskCompletion(this);
     }
 
-    public synchronized void notifyTaskError(Throwable e) {
+    private void notifyTaskError(Throwable e) {
         workflowExecution.onTaskFailure(e);
     }
 
-    public synchronized void onDependencyCompletion(AbstractTask dependency) {
+    private synchronized void onDependencyCompletion(AbstractTask dependency) {
         if (!dependsOnTasks.remove(dependency)) {
             log.error("Notified completion of an unknown dependency {} for task {}", dependency, this);
         } else if (dependsOnTasks.isEmpty()) {
@@ -75,7 +77,7 @@ public abstract class AbstractTask implements Runnable {
         }
     }
 
-    public boolean canRun() {
+    public synchronized boolean canRun() {
         return dependsOnTasks.isEmpty();
     }
 
@@ -113,5 +115,9 @@ public abstract class AbstractTask implements Runnable {
 
     public WorkflowExecution getWorkflowExecution() {
         return workflowExecution;
+    }
+
+    public Set<AbstractTask> getDependsOnTasks() {
+        return dependsOnTasks;
     }
 }

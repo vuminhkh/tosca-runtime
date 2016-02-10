@@ -27,12 +27,9 @@ topology_template:
       type: list
       entry_schema:
         type: string
-    external_network_id:
+    external_network_name:
       type: string
-    dns_name_servers:
-      type: list
-      entry_schema:
-        type: string
+
   outputs:
     public_daemon_url:
       description: The URL to access the docker daemon
@@ -63,7 +60,6 @@ topology_template:
       properties:
         network_name: "dockerDaemonNetwork"
         cidr: "192.168.1.0/24"
-        dns_name_servers: { get_input: dns_name_servers }
     dockerMachine:
       type: com.toscaruntime.openstack.nodes.Compute
       properties:
@@ -73,6 +69,11 @@ topology_template:
         key_pair_name: { get_input: key_pair_name }
         key_path: { get_input: key_path }
         security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
       requirements:
         - network: privateNetwork
         - network: publicNetwork

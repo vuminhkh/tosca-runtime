@@ -87,7 +87,7 @@ public class Compute extends tosca.nodes.Compute {
         try {
             return RetryUtil.doActionWithRetry(
                     () -> sshExecutor.executeScript(nodeId, config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputTexts),
-                    operationArtifactPath, 12, 30000L, RuntimeSshException.class, SshException.class
+                    operationArtifactPath, 12, 10000L, RuntimeSshException.class, SshException.class
             );
         } catch (Throwable e) {
             throw new OperationExecutionException("Unable to execute operation " + operationArtifactPath, e);

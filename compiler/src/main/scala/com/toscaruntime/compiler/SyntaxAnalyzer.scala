@@ -219,7 +219,7 @@ object SyntaxAnalyzer extends YamlParser {
       case map => RequirementDefinition(
         name,
         get[ParsedValue[String]](map, type_token).orElse(get[ParsedValue[String]](map, capability_token)),
-        get[ParsedValue[String]](map, relationship_token),
+        get[ParsedValue[String]](map, relationship_token).orElse(get[ParsedValue[String]](map, relationship_type_token)),
         get[ParsedValue[Int]](map, lower_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[Int]](map, upper_bound_token).getOrElse(ParsedValue(1)),
         get[ParsedValue[String]](map, description_token),

@@ -384,7 +384,7 @@ object SemanticAnalyzer {
 
         nodeTemplate.requirements.foreach { requirements =>
           requirements.foreach {
-            case requirement => compilationErrors ++= analyzeRequirement(nodeTemplates, nodeTemplate.typeName.get.value, typeFound.get, typeFound.get.requirements, requirement, csarPath)
+            case requirement => compilationErrors ++= analyzeRequirement(nodeTemplates, nodeTemplate.name.value, typeFound.get, typeFound.get.requirements, requirement, csarPath)
           }
         }
       }
