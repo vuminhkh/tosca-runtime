@@ -6,11 +6,18 @@ The motivation behind this project is to create a light weight runtime for this 
 * A compiler, which from a tosca recipe, generates deployment code.
 * A runtime which is capable of deploying generated code by the compiler (deployment orchestrator).
 
-Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java.
+Advantage of Tosca Runtime:
+* Agent-less, not any process is spawn on the target VM, so much more rapid, artifact is executed directly from the CLI on the target VM (or docker ...), script's log can be followed by the end user
+* It can work manager-less (only a docker daemon is required), to deploy on docker or even to deploy on a distant IAAS (from the moment when the target VMs are reachable)
+* Each deployment is self-contained, a deployment in failure will never impact others, possibility to stop, move the deployment manager agents to other machine, 
+restart in all transparency without the deployed applications even know about it.
+
+Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java. It focus on the aspects simplicity, light weight, rapidity to develop Tosca recipe, to test and to deploy.
 
 Architecture
 ============================
-Basically, Tosca Runtime is a set of command line tools that make development/deployment of Tosca recipe quicker. Tosca Runtime for the moment target Docker and OpenStack as IaaS Provider.
+Basically, Tosca Runtime is a set of command line tools that make development/deployment of Tosca recipe quicker.
+Tosca Runtime for the moment target Docker and OpenStack as IaaS Provider.
 
 Those are main components and features:
 
@@ -18,8 +25,9 @@ Those are main components and features:
 
 Tosca Runtime compiles and generates deployable code for your archive through 3 steps:
   
-* Syntax analyzer: from tosca code, create syntax tree, after this step, the tosca recipe has valid syntax.
-* Semantic analyzer: from the syntax tree, perform semantic analysis to detect incoherence in the syntax tree (for example: derived from a type which do not exist, property value do not follow its type and constraint etc ...).
+* Syntax analyzer: from tosca code, parse and create syntax tree, after this step, the tosca recipe has valid syntax.
+* Semantic analyzer: from the syntax tree, perform semantic analysis to detect incoherence in the syntax tree 
+(for example: derived from a type which do not exist, property value do not follow its type and constraint etc ...).
 * Code generator: generate code to deploy the tosca recipe.
   
 Usage:
@@ -42,9 +50,14 @@ Tosca Runtime uses Docker to handle deployment lifecycle, the only pre-requisite
 
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/ManagerLessArchitecture.png "Managerless architecture")
 
-In this managerless Tosca Runtime configuration, no manager bootstrap is required to begin to use Tosca Runtime CLI. The deployment can event target a distant IAAS if each created VM has a public ip and is reachable. 
+In this managerless Tosca Runtime configuration, no manager bootstrap is required to begin to use Tosca Runtime CLI. 
+The deployment can event target a distant IAAS if each created VM has a public ip and is reachable. 
 
-* Deployment image management: From installed types and topology archives, Tosca Runtime allows you to create docker images that can be used to deploy your topology. All necessary information are packaged into this image which make the deployment reproducible and can be shared with other people and other team.
+The common workflow to use Tosca Runtime is:
+
+* Create Deployment Image: 
+From installed types and topology archives, Tosca Runtime allows you to create docker images that can be used to deploy your topology.
+All necessary information are packaged into this image which make the deployment reproducible and can be shared with other people and other team.
 
   Usage:
   ```bash
@@ -54,7 +67,8 @@ In this managerless Tosca Runtime configuration, no manager bootstrap is require
   deployments list
   ```
 
-* Agent management: From deployment images, you can create deployment agents which are docker container that handle the lifecycle of your application. You can deploy/undeploy/scale your application thanks to the agents.
+* Create deployment agent from deployment images: you can create deployment agents which are docker container that handle the lifecycle of your application.
+You can deploy/undeploy/scale your application thanks to the agents.
 
   ```bash
   # Create agent (docker container) from deployment image and run install workflow
@@ -69,7 +83,8 @@ In this managerless Tosca Runtime configuration, no manager bootstrap is require
   agents delete myDeployment
   ```
   
-* Bootstrap: The managerless configuration is in general suitable only for developing and testing recipe, you can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
+* Bootstrap: The managerless configuration is in general suitable only for developing and testing recipe.
+You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
 The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
 
   ```bash
@@ -78,4 +93,13 @@ The manager here is in fact a stateless proxy which dispatch the CLI's request t
   # To bootstrap a swarm cluster
   bootstrap -p openstack -t swarm
   ```
-  
+* Target the new bootstrapped daemon: By default when you start to use Tosca Runtime CLI, it targets the local daemon of your machine.
+After the bootstrap operation, you can point the CLI to the new daemon by doing:
+ 
+  ```bash
+  # To bootstrap a single machine with a simple docker daemon and a proxy
+  use -u NEW_DAEMON_URL
+  # To reset to the default local docker daemon configuration
+  use-default
+  ```
+* After that you can begin to work with this bootstrapped daemon in tout transparency as if you are working in local configuration.
