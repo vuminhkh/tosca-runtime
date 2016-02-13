@@ -77,7 +77,7 @@ object CsarsCommand {
           CompilationUtil.showErrors(result)
         }
       case ("delete", (csarName: String, csarVersion: String)) =>
-        FileUtil.delete(repository.resolve(csarName).resolve(csarVersion))
+        Compiler.resolveDependency(csarName, csarVersion, repository).foreach(FileUtil.delete)
         println(s"Deleted [$csarName:$csarVersion]")
       case ("info", (csarName: String, csarVersion: String)) =>
         val result = Compiler.compile(csarName, csarVersion, repository)

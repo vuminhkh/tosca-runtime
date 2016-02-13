@@ -13,6 +13,10 @@ import tosca.relationships.Root;
 @SuppressWarnings("unchecked")
 public class DeploymentUtil {
 
+    public static long getExecutionTime(long before) {
+        return (System.currentTimeMillis() - before) / 1000L;
+    }
+
     public static Set<Root> getRelationshipsBySourceAndTarget(Set<Root> relationshipInstances, tosca.nodes.Root source, tosca.nodes.Root target) {
         return relationshipInstances.stream().filter(instance -> instance.getSource().equals(source) && instance.getTarget().equals(target)).collect(Collectors.toSet());
     }

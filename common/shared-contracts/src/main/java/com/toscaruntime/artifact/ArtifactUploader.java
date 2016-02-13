@@ -8,6 +8,13 @@ package com.toscaruntime.artifact;
 public interface ArtifactUploader {
 
     /**
+     * Must be called to initialize the executor
+     *
+     * @throws Exception
+     */
+    void initialize() throws Exception;
+
+    /**
      * Upload from localPath to remotePath
      *
      * @param localPath  the local file path

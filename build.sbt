@@ -88,8 +88,7 @@ lazy val sshUtil = project.in(file("common/ssh-util"))
   .settings(
     name := "ssh-util",
     libraryDependencies ++= commonDependencies,
-    libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
-    libraryDependencies += "org.apache.sshd" % "sshd-core" % "1.1.0"
+    libraryDependencies += "com.hierynomus" % "sshj" % "0.15.0"
   ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val dockerUtil = project.in(file("common/docker-util"))
@@ -200,7 +199,6 @@ lazy val openstack = project
   .settings(
     name := "openstack",
     libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.1",
-    libraryDependencies += "org.apache.jclouds.driver" % "jclouds-sshj" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-keystone" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-nova" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-cinder" % "1.9.1",

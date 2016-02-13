@@ -13,27 +13,46 @@ data_types:
       operation_retry:
         type: integer
         description: the number of times tosca runtime will retry to instantiate resources on Openstack if failures happens
+        constraints:
+          - greater_or_equal: 1
       wait_between_operation_retry:
         type: scalar-unit.time
         description: wait time in seconds between retry when Openstack failures happen
+        constraints:
+          - greater_or_equal: 1 s
 
   com.toscaruntime.openstack.ComputeFailSafeConfiguration:
     properties:
       connect_retry:
         type: integer
         description: the number of times tosca runtime will retry to connect to the VM, default to infinite
+        constraints:
+          - greater_or_equal: 1
       wait_between_connect_retry:
         type: scalar-unit.time
         description: wait time in seconds between retry when connect fails
+        constraints:
+          - greater_or_equal: 1 s
       artifact_execution_retry:
         type: integer
         description: the number of times tosca runtime will retry to execute artifact if failures happens
+        constraints:
+          - greater_or_equal: 1
       wait_between_artifact_execution_retry:
         type: scalar-unit.time
         description: wait time in seconds between retry when artifact execution failures happen
+        constraints:
+          - greater_or_equal: 1 s
+      wait_before_connection:
+        type: scalar-unit.time
+        description: wait time in seconds before initiliazing connection to the VM
+        constraints:
+          - greater_or_equal: 1 s
       wait_before_artifact_execution:
         type: scalar-unit.time
         description: wait time in seconds before artifact execution (sometimes dns resolution needs sometimes at the beginning)
+        constraints:
+          - greater_or_equal: 1 s
 
 node_types:
 
@@ -54,6 +73,9 @@ node_types:
         type: string
       key_path:
         type: string
+      recipe_location:
+        type: string
+        required: false
       ssh_port:
         type: integer
         default: 22
@@ -79,12 +101,13 @@ node_types:
       openstack_fail_safe:
         type: com.toscaruntime.openstack.OpenstackFailSafeConfiguration
         default:
-          operation_retry: 60
+          operation_retry: 720
           wait_between_operation_retry: 10 s
       compute_fail_safe:
         type: com.toscaruntime.openstack.ComputeFailSafeConfiguration
         default:
-          connect_retry: 600
+          wait_before_connection: 10 s
+          connect_retry: 720
           wait_between_connect_retry: 5 s
           artifact_execution_retry: 6
           wait_between_artifact_execution_retry: 10 s
@@ -101,8 +124,29 @@ node_types:
       openstack_fail_safe:
         type: com.toscaruntime.openstack.OpenstackFailSafeConfiguration
         default:
-          operation_retry: 60
+          operation_retry: 720
           wait_between_operation_retry: 10 s
 
   com.toscaruntime.openstack.nodes.ExternalNetwork:
     derived_from: tosca.nodes.Network
+
+  com.toscaruntime.openstack.nodes.Volume:
+    derived_from: tosca.nodes.BlockStorage
+    properties:
+      availability_zone:
+        type: string
+        required: false
+      volume_description:
+        type: string
+        required: false
+      volume_type:
+        type: string
+        required: false
+      snapshot_id:
+        type: string
+        required: false
+      metadata:
+        type: map
+        required: false
+        entry_schema:
+          type: string

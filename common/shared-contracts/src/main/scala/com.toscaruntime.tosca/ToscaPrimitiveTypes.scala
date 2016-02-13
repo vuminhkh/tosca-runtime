@@ -133,7 +133,7 @@ abstract class ToscaUnitType(valueAsText: String, units: List[ToscaUnit]) extend
   }
 
   def convertToUnit[T <: ToscaUnitType](newUnitAsText: String) = {
-    val newUnit = unitsMap(newUnitAsText)
+    val newUnit = unitsMap(newUnitAsText.toUpperCase())
     val newBase = value.get / newUnit.multiplier
     unit = Some(newUnit)
     base = Some(newBase)

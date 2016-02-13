@@ -346,7 +346,7 @@ object FieldDefinition {
     */
   def isComparableType(valueType: String) = {
     valueType match {
-      case INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY => true
+      case INTEGER | FLOAT | BOOLEAN | TIMESTAMP | VERSION | SIZE | FREQUENCY | TIME => true
       case _ => false
     }
   }

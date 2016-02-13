@@ -148,9 +148,6 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             compute.setServerApi(serverApi);
             if (StringUtils.isNotBlank(externalNetworkId)) {
                 compute.setExternalNetworkId(externalNetworkId);
-            } else if (!externalNetworks.isEmpty()) {
-                // If no external id configured try to pick one of existing external network in the deployment for bootstrap default
-                compute.setExternalNetworkId(externalNetworks.iterator().next().getNetworkId());
             }
             compute.setNetworkId(networkId);
             compute.setFloatingIPApi(floatingIPApi);

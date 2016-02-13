@@ -42,9 +42,17 @@ csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-extended
 csars install /Users/vuminhkh/Projects/samples/apache-load-balancer/
 csars install /Users/vuminhkh/Projects/samples/tomcat-war/
 csars install /Users/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
+
 csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyApacheLoadBalancerDocker/
+
+csars install /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/csars/topologyApacheLoadBalancerOpenstackStandAlone/
+
 deployments create tomcat -c apache-load-balancer-template-docker:*
+
+deployments create tomcat -c apache-load-balancer-template-openstack-standalone:* -i /Users/vuminhkh/Projects/tosca-runtime/compiler/src/test/resources/inputs/topologyApacheLoadBalancerOpenstackStandAlone/inputs.yml -p openstack -b true
+
 deployments run tomcat
+
 agents log tomcat
 
 To clean up:

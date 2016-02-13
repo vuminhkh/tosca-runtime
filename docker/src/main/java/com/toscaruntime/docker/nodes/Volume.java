@@ -40,7 +40,7 @@ public class Volume extends tosca.nodes.BlockStorage {
                 mountPoint = volumeResponse.getMountpoint();
                 driver = volumeResponse.getDriver();
                 initializeAttributes();
-                log.info("Found existing volume {} mounted at {} with driver {}", volumeId, mountPoint, driver);
+                log.info("Volume [{}] : Found existing volume {} mounted at {} with driver {}", getId(), volumeId, mountPoint, driver);
             } catch (Exception e) {
                 // Means volume not found
                 doCreate(volumeId);
@@ -72,7 +72,7 @@ public class Volume extends tosca.nodes.BlockStorage {
         volumeId = volumeResponse.getName();
         mountPoint = volumeResponse.getMountpoint();
         driver = volumeResponse.getDriver();
-        log.info("Created new volume {} mounted at {} with driver {}", volumeId, mountPoint, driver);
+        log.info("Volume [{}]: Created new volume {} mounted at {} with driver {}", getId(), volumeId, mountPoint, driver);
         initializeAttributes();
     }
 

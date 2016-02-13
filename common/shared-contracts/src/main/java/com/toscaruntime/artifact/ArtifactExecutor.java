@@ -10,6 +10,13 @@ import java.util.Map;
 public interface ArtifactExecutor {
 
     /**
+     * Must be called to initialize the executor
+     *
+     * @throws Exception
+     */
+    void initialize() throws Exception;
+
+    /**
      * Execute implementation artifact on the remote host
      *
      * @param operationName name of the operation
@@ -19,15 +26,4 @@ public interface ArtifactExecutor {
      * @throws Exception
      */
     Map<String, String> executeArtifact(String operationName, String artifactPath, Map<String, String> env) throws Exception;
-
-    /**
-     * Execute a command on the remote host.
-     *
-     * @param operationName name of the operation
-     * @param command       the command it-self
-     * @param env           environment variable
-     * @return outputs of the operation
-     * @throws Exception
-     */
-    Map<String, String> executeCommand(String operationName, String command, Map<String, String> env) throws Exception;
 }

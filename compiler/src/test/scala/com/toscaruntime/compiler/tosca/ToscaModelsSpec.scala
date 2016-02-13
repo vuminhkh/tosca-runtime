@@ -34,6 +34,8 @@ class ToscaModelsSpec extends WordSpec with MustMatchers {
       PropertyConstraint.isValueValid("text", FieldDefinition.STRING, PropertyConstraint(ParsedValue(Tokens.max_length_token), ParsedValue("3"))) must be(false)
       PropertyConstraint.isValueValid("text", FieldDefinition.STRING, PropertyConstraint(ParsedValue(Tokens.equal_token), ParsedValue("text"))) must be(true)
       PropertyConstraint.isValueValid("text", FieldDefinition.STRING, PropertyConstraint(ParsedValue(Tokens.equal_token), ParsedValue("another text"))) must be(false)
+      PropertyConstraint.isValueValid("10 s", FieldDefinition.TIME, PropertyConstraint(ParsedValue(Tokens.greater_or_equal_token), ParsedValue("1 s"))) must be(true)
+      PropertyConstraint.isValueValid("10 h", FieldDefinition.TIME, PropertyConstraint(ParsedValue(Tokens.greater_than_token), ParsedValue("1 d"))) must be(false)
     }
   }
 }

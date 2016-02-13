@@ -220,6 +220,7 @@ public abstract class Deployment {
      * @param newInstancesCount new instances count
      */
     public WorkflowExecution scale(String nodeName, int newInstancesCount) {
+        final long before = System.currentTimeMillis();
         DeploymentNode node = this.nodes.get(nodeName);
         if (node == null) {
             throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
@@ -240,7 +241,7 @@ public abstract class Deployment {
             execution.addListener(new WorkflowExecutionListener() {
                 @Override
                 public void onFinish() {
-                    log.info("Finished to scale node [{}] from [{}] to [{}]", nodeName, node.getInstancesCount(), newInstancesCount);
+                    log.info("Finished to scale node [{}] from [{}] to [{}] after [{}] seconds", nodeName, node.getInstancesCount(), newInstancesCount, DeploymentUtil.getExecutionTime(before));
                     node.setInstancesCount(newInstancesCount);
                     nodeInstances.putAll(modification.getInstancesToAdd());
                     relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
@@ -261,7 +262,7 @@ public abstract class Deployment {
             execution.addListener(new WorkflowExecutionListener() {
                 @Override
                 public void onFinish() {
-                    log.info("Finished to scale node [{}] from [{}] to [{}]", nodeName, node.getInstancesCount(), newInstancesCount);
+                    log.info("Finished to scale node [{}] from [{}] to [{}] after [{}] seconds", nodeName, node.getInstancesCount(), newInstancesCount, DeploymentUtil.getExecutionTime(before));
                     node.setInstancesCount(newInstancesCount);
                     nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
                     relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
@@ -278,12 +279,13 @@ public abstract class Deployment {
     }
 
     public WorkflowExecution install() {
+        final long before = System.currentTimeMillis();
         initialize();
         WorkflowExecution execution = workflowEngine.install(nodeInstances, relationshipInstances);
         execution.addListener(new WorkflowExecutionListener() {
             @Override
             public void onFinish() {
-                log.info("Finished to install the deployment with {} instances and {} relationship instances", nodeInstances.size(), relationshipInstances.size());
+                log.info("Finished to install the deployment with [{}] instances and [{}] relationship instances after [{}] seconds", nodeInstances.size(), relationshipInstances.size(), DeploymentUtil.getExecutionTime(before));
             }
 
             @Override
@@ -295,11 +297,12 @@ public abstract class Deployment {
     }
 
     public WorkflowExecution uninstall() {
+        final long before = System.currentTimeMillis();
         WorkflowExecution execution = workflowEngine.uninstall(nodeInstances, relationshipInstances);
         execution.addListener(new WorkflowExecutionListener() {
             @Override
             public void onFinish() {
-                log.info("Finished to uninstall the deployment with {} instances and {} relationship instances", nodeInstances.size(), relationshipInstances.size());
+                log.info("Finished to uninstall the deployment with [{}] instances and [{}] relationship instances after [{}] seconds", nodeInstances.size(), relationshipInstances.size(), DeploymentUtil.getExecutionTime(before));
                 destroy();
             }
 

@@ -1,8 +1,6 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -46,13 +44,10 @@ public class Network extends tosca.nodes.Network {
 
     private Set<Router> createdRouters = Sets.newHashSet();
 
-    private Map<String, ExternalNetwork> externalNetworks;
+    private Set<ExternalNetwork> externalNetworks;
 
     public void setExternalNetworks(Set<ExternalNetwork> externalNetworks) {
-        this.externalNetworks = new HashMap<>();
-        for (ExternalNetwork externalNetwork : externalNetworks) {
-            this.externalNetworks.put(externalNetwork.getNetworkId(), externalNetwork);
-        }
+        this.externalNetworks = externalNetworks;
     }
 
     public void setNetworkApi(NetworkApi networkApi) {
@@ -90,9 +85,10 @@ public class Network extends tosca.nodes.Network {
         if (existing.getSubnets() != null && !existing.getSubnets().isEmpty()) {
             this.subnetId = existing.getSubnets().iterator().next();
         } else {
-            throw new ProviderResourcesNotFoundException("Network " + networkId + " does not have any subnet");
+            throw new ProviderResourcesNotFoundException("Network [" + networkId + "] : Network does not have any subnet");
         }
         setAttribute("provider_resource_name", existing.getName());
+        log.info("Network [{}] : Reuse existing network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
     }
 
     // FIXME This method is only implemented because a VM needs its private network created before it can be created
@@ -133,24 +129,24 @@ public class Network extends tosca.nodes.Network {
                     this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
                     this.subnetId = this.createdSubnet.getId();
                     // Check that we won't create twice router for the same external network
-                    if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.containsKey(externalNetworkId)) {
+                    if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.stream().anyMatch(nw -> externalNetworkId.equals(nw.getNetworkId()))) {
                         // If no external network is found then use the default one if configured
                         createRouter(networkName + "-Router", externalNetworkId);
                     }
-                    for (ExternalNetwork externalNetwork : externalNetworks.values()) {
+                    for (ExternalNetwork externalNetwork : externalNetworks) {
                         createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId());
                     }
                     setAttribute("provider_resource_name", networkName);
+                    log.info("Network [{}] : Created network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
                 }
             } else {
                 org.jclouds.openstack.neutron.v2.domain.Network existing = networkApi.get(networkId);
                 if (existing == null) {
-                    throw new ProviderResourcesNotFoundException("Network not found " + networkId);
+                    throw new ProviderResourcesNotFoundException("Network [" + getId() + "] : network with id [" + networkId + "] cannot be found");
                 }
                 initializeWithExistingNetwork(existing);
             }
             setAttribute("provider_resource_id", this.networkId);
-            log.info("Created network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
         } finally {
             notifyAll();
         }
@@ -167,8 +163,7 @@ public class Network extends tosca.nodes.Network {
                     routerApi.removeInterfaceForSubnet(router.getId(), createdSubnet.getId());
                     routerApi.delete(router.getId());
                 }
-                return null;
-            }, "delete routers", retryNumber, coolDownPeriod, Throwable.class);
+            }, "delete routers", retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete routers " + createdRouters, e);
         }
@@ -176,23 +171,21 @@ public class Network extends tosca.nodes.Network {
             try {
                 FailSafeUtil.doActionWithRetry(() -> {
                     subnetApi.delete(createdSubnet.getId());
-                    return null;
-                }, "delete subnet " + createdSubnet.getName(), retryNumber, coolDownPeriod, Throwable.class);
+                }, "delete subnet " + createdSubnet.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
             } catch (Throwable e) {
-                log.warn("Could not delete subnet " + this.createdSubnet, e);
+                log.warn("Network [" + getId() + "] : Could not delete subnet [" + this.createdSubnet + "]", e);
             }
         }
         if (createdNetwork != null) {
             try {
                 FailSafeUtil.doActionWithRetry(() -> {
                     networkApi.delete(createdNetwork.getId());
-                    return null;
-                }, "delete network " + createdNetwork.getName(), retryNumber, coolDownPeriod, Throwable.class);
+                }, "delete network " + createdNetwork.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
             } catch (Throwable e) {
-                log.warn("Could not delete network " + this.createdNetwork, e);
+                log.warn("Network [" + getId() + "] : Could not delete network [" + this.createdNetwork + "]", e);
             }
         }
-        log.info("Deleted network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
+        log.info("Network [{}] : Deleted network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
     }
 
     public int getOpenstackOperationRetry() {

@@ -9,6 +9,7 @@
     + Requirement satisfaction validation
     + Function validation
     + Node filter
+    + Validate all types non abstract before deployment
   - Requirement properties
   - Relationship properties - Test
   - Function in node type properties declaration
@@ -21,12 +22,7 @@
 
 4.Provider:
   - Openstack:
-    + Deployment artifacts for openstack
-    + Correctly retrieve script execution status and fail the deployment
-    + Review number of retry on error, timeout, make it configurable
     + Manage public_ip for docker on swarm
-    + Manage docker volume
-    + Manage openstack volume
     + Windows support
 
 5.Runtime:

@@ -1,9 +1,11 @@
 package com.toscaruntime.cli.util
 
+import java.util.concurrent.TimeUnit
+
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.rest.model.{AbstractInstance, DeploymentDetails}
 import com.toscaruntime.util.FailSafeUtil
-import FailSafeUtil.Action
+import com.toscaruntime.util.FailSafeUtil.Action
 import com.typesafe.scalalogging.LazyLogging
 import tosca.constants.{InstanceState, RelationshipInstanceState}
 
@@ -87,12 +89,17 @@ object DeployUtil extends LazyLogging {
 
   def printNodesDetails(name: String, details: DeploymentDetails): Unit = {
     println(name + " has " + details.nodes.length + " nodes :")
-    val nodeHeaders = List("Node", "Total Instances", "Created", "Configured", "Started")
+    val nodeHeaders = List("Node", "Total Instances", "Creating", "Created", "Configuring", "Configured", "Starting", "Started", "Stopping", "Deleting")
     val nodesData = details.nodes.map { node =>
+      val startingInstancesCount = countInstances(node.instances, InstanceState.STARTING)
       val startedInstancesCount = countInstances(node.instances, InstanceState.STARTED)
+      val configuringInstancesCount = countInstances(node.instances, InstanceState.CONFIGURING)
       val configuredInstancesCount = countInstances(node.instances, InstanceState.CONFIGURED)
+      val creatingInstancesCount = countInstances(node.instances, InstanceState.CREATING)
       val createdInstancesCount = countInstances(node.instances, InstanceState.CREATED)
-      List(node.id, node.instances.length.toString, createdInstancesCount, configuredInstancesCount, startedInstancesCount)
+      val deletingInstancesCount = countInstances(node.instances, InstanceState.DELETING)
+      val stoppingInstancesCount = countInstances(node.instances, InstanceState.STOPPING)
+      List(node.id, node.instances.length.toString, creatingInstancesCount, createdInstancesCount, configuringInstancesCount, configuredInstancesCount, startingInstancesCount, startedInstancesCount, stoppingInstancesCount, deletingInstancesCount)
     }
     println(TabulatorUtil.format(nodeHeaders :: nodesData))
   }
@@ -194,12 +201,12 @@ object DeployUtil extends LazyLogging {
   def waitForDeploymentAgent(client: ToscaRuntimeClient, deploymentId: String) = {
     FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
-    }, "Wait for deployment " + deploymentId, Integer.MAX_VALUE, 2000L, classOf[Throwable])
+    }, "Wait for deployment " + deploymentId, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])
   }
 
   def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String, target: String) = {
     FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), waitForEver)
-    }, "Wait for bootstrap " + provider, Integer.MAX_VALUE, 2000L, classOf[Throwable])
+    }, "Wait for bootstrap " + provider, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])
   }
 }

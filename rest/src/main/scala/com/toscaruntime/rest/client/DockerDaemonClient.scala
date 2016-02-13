@@ -171,7 +171,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
       .createContainerCmd(deploymentImageId)
       .withExposedPorts(portHttp)
       .withPortBindings(portBindings)
-      .withName(s"toscaruntime_${deploymentId}_agent")
+      .withName(s"toscaruntime_${DockerUtil.normalizeResourceName(deploymentId)}_agent")
       .withLabels(labels).exec
     dockerClient.startContainerCmd(createdContainer.getId).exec()
     bootstrapContext.get("docker_network_id").map {

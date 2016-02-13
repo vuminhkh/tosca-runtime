@@ -154,7 +154,7 @@ public class Container extends Compute {
         log.info("Container [" + getId() + "] : Pulled image " + imageId);
         CreateContainerCmd createContainerCmd = dockerClient.createContainerCmd(imageId + ":" + tag)
                 .withStdinOpen(Boolean.parseBoolean(getPropertyAsString("interactive", "true")))
-                .withName(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + getId())
+                .withName(DockerUtil.normalizeResourceName(config.getDeploymentName() + "_" + getId()))
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
                 .withPortBindings(portBindings);
         List<String> commands = (List<String>) getProperty("commands");
@@ -247,6 +247,7 @@ public class Container extends Compute {
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
         PrintWriter localGeneratedScriptWriter = null;
+        String operationName = Paths.get(operationArtifactPath).getFileName().toString();
         try {
             Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
             final String endOfOutputToken = UUID.randomUUID().toString();
@@ -259,6 +260,7 @@ public class Container extends Compute {
             }
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
             localGeneratedScriptWriter.write(". " + containerScriptPath + "\n");
+            localGeneratedScriptWriter.write("_toscaruntime_rc=$?; if [[ $_toscaruntime_rc != 0 ]]; then echo \"Script exit with status $_toscaruntime_rc\"; exit $_toscaruntime_rc; fi" + "\n");
             localGeneratedScriptWriter.write("echo '" + endOfOutputToken + "'\n");
             localGeneratedScriptWriter.write("printenv\n");
             localGeneratedScriptWriter.flush();
@@ -281,7 +283,7 @@ public class Container extends Compute {
                                 envVars.put(matcher.group(1), matcher.group(2));
                             }
                         } else {
-                            log.info("[{}][{}][{}] {}", getId(), operationArtifactPath, line.getStreamType().toString().toLowerCase(), line.getData());
+                            log.info("[{}][{}][{}] {}", getId(), operationName, line.getStreamType().toString().toLowerCase(), line.getData());
                         }
                     }
                 }

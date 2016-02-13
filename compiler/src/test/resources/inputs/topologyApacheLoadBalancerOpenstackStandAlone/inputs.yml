@@ -1,0 +1,7 @@
+image: "02ddfcbb-9534-44d7-974d-5cfd36dfbcab"
+flavor: "2"
+key_path: "toscaruntime.pem"
+login: "ubuntu"
+key_pair_name: "a4c-manager"
+security_group_names: ["openbar"]
+external_network_name: "net-pub"

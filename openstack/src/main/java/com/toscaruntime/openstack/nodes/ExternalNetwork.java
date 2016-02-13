@@ -13,9 +13,7 @@ public class ExternalNetwork extends tosca.nodes.Network {
 
     private NetworkApi networkApi;
 
-    private String networkName;
-
-    private String networkId;
+    private org.jclouds.openstack.neutron.v2.domain.Network network;
 
     public void setNetworkApi(NetworkApi networkApi) {
         this.networkApi = networkApi;
@@ -24,32 +22,30 @@ public class ExternalNetwork extends tosca.nodes.Network {
     @Override
     public void create() {
         super.create();
-        networkId = getPropertyAsString("network_id");
-        if (StringUtils.isEmpty(networkId)) {
-            networkName = getMandatoryPropertyAsString("network_name");
-            org.jclouds.openstack.neutron.v2.domain.Network openstackNetwork = NetworkUtil.findNetworkByName(networkApi, networkName, true);
-            if (openstackNetwork == null) {
-                throw new ProviderResourcesNotFoundException("Network with name [" + networkName + "] cannot be found");
+        String networkId = getPropertyAsString("network_id");
+        if (StringUtils.isBlank(networkId)) {
+            String networkName = getMandatoryPropertyAsString("network_name");
+            network = NetworkUtil.findNetworkByName(networkApi, networkName, true);
+            if (network == null) {
+                throw new ProviderResourcesNotFoundException("ExternalNetwork [" + getId() + "] : Network with name [" + networkName + "] cannot be found");
             }
-            networkId = openstackNetwork.getId();
-            networkName = openstackNetwork.getName();
+        } else {
+            networkApi.get(networkId);
+            if (network == null) {
+                throw new ProviderResourcesNotFoundException("ExternalNetwork [" + getId() + "] : Network with id [" + networkId + "] cannot be found");
+            }
         }
-        setAttribute("provider_resource_id", networkId);
-        setAttribute("provider_resource_name", networkName);
+        setAttribute("provider_resource_id", network.getId());
+        setAttribute("provider_resource_name", network.getName());
     }
 
     @Override
     public void delete() {
         super.delete();
-        networkId = null;
-        networkName = null;
+        network = null;
     }
 
     public String getNetworkId() {
-        return networkId;
-    }
-
-    public String getNetworkName() {
-        return networkName;
+        return network.getId();
     }
 }

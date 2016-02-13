@@ -1,7 +1,7 @@
 package com.toscaruntime.util;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -14,7 +14,7 @@ public class JSONUtil {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static Map<String, Object> toMap(String json) throws IOException {
-        JavaType mapStringObjectType = OBJECT_MAPPER.getTypeFactory().constructParametrizedType(HashMap.class, String.class, Object.class);
+        JavaType mapStringObjectType = OBJECT_MAPPER.getTypeFactory().constructMapType(LinkedHashMap.class, String.class, Object.class);
         return OBJECT_MAPPER.readValue(json, mapStringObjectType);
     }
 

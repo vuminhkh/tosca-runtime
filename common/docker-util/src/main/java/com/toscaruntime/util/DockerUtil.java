@@ -142,4 +142,8 @@ public class DockerUtil {
             return "127.0.0.1";
         }
     }
+
+    public static String normalizeResourceName(String name) {
+        return name.replaceAll("[^\\p{L}\\p{Nd}]+", "_");
+    }
 }

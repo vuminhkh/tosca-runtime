@@ -61,13 +61,13 @@ public class Volume extends BlockStorage {
             if (metadata != null) {
                 options.metadata(metadata);
             }
-            log.info("Create new volume for " + getId() + " with size in GIB " + sizeInGIB);
+            log.info("Volume [{}] : Create new volume for [{}] with size in GIB [{}]", getId(), sizeInGIB);
             volume = volumeApi.create(sizeInGIB, options);
         } else {
-            log.info("Reusing existing volume " + volumeId + " for " + getId());
+            log.info("Volume [{}] : Reusing existing volume [{}]", volumeId);
             volume = volumeApi.get(volumeId);
             if (volume == null) {
-                throw new ProviderResourcesNotFoundException("Volume [" + volumeId + "] cannot be found");
+                throw new ProviderResourcesNotFoundException("Volume [" + getId() + "] : Volume with id [" + volumeId + "] cannot be found");
             }
         }
     }
@@ -78,7 +78,7 @@ public class Volume extends BlockStorage {
         boolean statusReached = SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isAvailable = status.equals(volume.getStatus());
             if (!isAvailable) {
-                log.info("Volume [{}]: Waiting for volume [{}] to be available, current state [{}]", getId(), volume.getId(), volume.getStatus());
+                log.info("Volume [{}] : Volume [{}] waiting to become [{}], current state [{}]", getId(), volume.getId(), status, volume.getStatus());
                 volume = volumeApi.get(volume.getId());
                 return false;
             } else {
@@ -86,7 +86,7 @@ public class Volume extends BlockStorage {
             }
         }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         if (!statusReached) {
-            throw new ProviderResourceAllocationException("Volume to reach status " + status + " after " + retryNumber + " retries with cool down period of " + coolDownPeriod + " seconds");
+            throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not wait for volume to reach status [" + status + "] after [" + retryNumber + "] retries with cool down period of [" + coolDownPeriod + "] seconds");
         }
     }
 
@@ -94,20 +94,21 @@ public class Volume extends BlockStorage {
     public void start() {
         super.start();
         if (volume == null) {
-            throw new OperationExecutionException("Must create volume before starting it");
+            throw new OperationExecutionException("Volume [" + getId() + "] : Must create volume before starting it");
         }
         waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         if (owner != null) {
             volumeAttachmentApi.attachVolumeToServerAsDevice(volume.getId(), owner.getAttributeAsString("provider_resource_id"), getPropertyAsString("device"));
+            waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.IN_USE);
         }
-        waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.IN_USE);
     }
 
     @Override
     public void stop() {
         super.stop();
         if (volume == null) {
-            throw new OperationExecutionException("Must create volume before stopping it");
+            log.warn("Volume [{}] : Volume has not been created yet", getId());
+            return;
         }
         if (owner != null) {
             String serverId = owner.getAttributeAsString("provider_resource_id");
@@ -117,13 +118,14 @@ public class Volume extends BlockStorage {
                         "Attach floating ip",
                         getOpenstackOperationRetry(),
                         getOpenstackWaitBetweenOperationRetry(),
+                        TimeUnit.SECONDS,
                         Exception.class);
             } catch (Throwable throwable) {
-                throw new ProviderResourceAllocationException("Could not attach volume " + volume.getId() + " to server " + serverId);
+                throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not attach volume " + volume.getId() + " to server " + serverId);
             }
             volumeAttachmentApi.detachVolumeFromServer(volume.getId(), owner.getAttributeAsString("provider_resource_id"));
+            waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         }
-        waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
     }
 
     public int getOpenstackOperationRetry() {

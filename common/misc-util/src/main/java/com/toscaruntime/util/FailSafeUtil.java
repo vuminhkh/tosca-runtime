@@ -1,5 +1,7 @@
 package com.toscaruntime.util;
 
+import java.util.concurrent.TimeUnit;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +43,7 @@ public class FailSafeUtil {
     }
 
     @SafeVarargs
-    public static <T> T doActionWithRetry(Action<T> action, String name, int times, long coolDownInMillis, Class<? extends Throwable>... recoverableErrors) throws Throwable {
+    public static <T> T doActionWithRetry(Action<T> action, String name, int times, long coolDownPeriod, TimeUnit timeUnit, Class<? extends Throwable>... recoverableErrors) throws Throwable {
         int currentTimes = 0;
         while (true) {
             try {
@@ -50,11 +52,11 @@ public class FailSafeUtil {
             } catch (Throwable t) {
                 if (isRecoverableError(t.getClass(), recoverableErrors) && currentTimes < times) {
                     // Retry if it's recoverable error
-                    Thread.sleep(coolDownInMillis);
+                    Thread.sleep(timeUnit.toMillis(coolDownPeriod));
                     if (t.getMessage() == null) {
-                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry ", t);
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry ", t);
                     } else {
-                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry " + t.getMessage());
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry " + t.getMessage());
                     }
                 } else {
                     throw t;
@@ -64,14 +66,14 @@ public class FailSafeUtil {
     }
 
     @SafeVarargs
-    public static void doActionWithRetry(VoidAction action, String name, int times, long coolDownInMillis, Class<? extends Throwable>... recoverableErrors) throws Throwable {
+    public static void doActionWithRetry(VoidAction action, String name, int times, long coolDownPeriod, TimeUnit timeUnit, Class<? extends Throwable>... recoverableErrors) throws Throwable {
         doActionWithRetry(() -> {
             action.doAction();
             return null;
-        }, name, times, coolDownInMillis, recoverableErrors);
+        }, name, times, coolDownPeriod, timeUnit, recoverableErrors);
     }
 
-    public static <T> T doActionWithRetry(NoExceptionAction<T> action, String name, int times, long coolDownInMillis) {
+    public static <T> T doActionWithRetry(NoExceptionAction<T> action, String name, int times, long coolDownPeriod, TimeUnit timeUnit) {
         int currentTimes = 0;
         while (true) {
             try {
@@ -80,14 +82,14 @@ public class FailSafeUtil {
             } catch (RuntimeException e) {
                 if (currentTimes < times) {
                     try {
-                        Thread.sleep(coolDownInMillis);
+                        Thread.sleep(timeUnit.toMillis(coolDownPeriod));
                     } catch (InterruptedException ie) {
                         log.warn("Retry interrupted at " + currentTimes, e);
                     }
                     if (e.getMessage() == null) {
-                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry ", e);
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry ", e);
                     } else {
-                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownInMillis + " and retry " + e.getMessage());
+                        log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry " + e.getMessage());
                     }
                 } else {
                     throw e;
@@ -96,10 +98,10 @@ public class FailSafeUtil {
         }
     }
 
-    public static void doActionWithRetry(VoidNoExceptionAction action, String name, int times, long coolDownInMillis) {
+    public static void doActionWithRetry(VoidNoExceptionAction action, String name, int times, long coolDownPeriod, TimeUnit timeUnit) {
         doActionWithRetry(() -> {
             action.doAction();
             return null;
-        }, name, times, coolDownInMillis);
+        }, name, times, coolDownPeriod, timeUnit);
     }
 }
