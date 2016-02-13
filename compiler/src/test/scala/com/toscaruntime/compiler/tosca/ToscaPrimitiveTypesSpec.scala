@@ -1,5 +1,6 @@
 package com.toscaruntime.compiler.tosca
 
+import com.toscaruntime.tosca._
 import org.scalatest.{MustMatchers, WordSpec}
 
 class ToscaPrimitiveTypesSpec extends WordSpec with MustMatchers {

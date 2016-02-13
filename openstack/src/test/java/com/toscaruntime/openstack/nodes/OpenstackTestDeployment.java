@@ -22,7 +22,17 @@ public class OpenstackTestDeployment extends Deployment {
         propertiesCompute.put("login", "ubuntu");
         propertiesCompute.put("key_pair_name", "toscaruntime");
         propertiesCompute.put("security_group_names", PropertyUtil.toList("[\"default\"]"));
-
+        Map<String, String> failSafeConfig = new HashMap<>();
+        failSafeConfig.put("connect_retry", "20");
+        failSafeConfig.put("wait_between_connect_retry", "10 s");
+        failSafeConfig.put("artifact_execution_retry", "1");
+        failSafeConfig.put("wait_between_artifact_execution_retry", "10 s");
+        failSafeConfig.put("wait_before_artifact_execution", "10 s");
+        Map<String, String> openstackFailSafeConfig = new HashMap<>();
+        openstackFailSafeConfig.put("operation_retry", "1");
+        openstackFailSafeConfig.put("wait_between_operation_retry", "10 s");
+        propertiesCompute.put("openstack_fail_safe", openstackFailSafeConfig);
+        propertiesCompute.put("compute_fail_safe", failSafeConfig);
         initializeNode("Compute", Compute.class, null, null, propertiesCompute, new HashMap<>());
 
 
@@ -30,13 +40,17 @@ public class OpenstackTestDeployment extends Deployment {
         propertiesNetwork.put("network_name", "test-network");
         propertiesNetwork.put("cidr", "192.168.1.0/24");
         propertiesNetwork.put("dns_name_servers", PropertyUtil.toList("[\"8.8.8.8\"]"));
-
+        propertiesNetwork.put("openstack_fail_safe", openstackFailSafeConfig);
         initializeNode("Network", Network.class, null, null, propertiesNetwork, new HashMap<>());
 
         Map<String, Object> propertiesExternalNetwork = new HashMap<>();
         propertiesExternalNetwork.put("network_name", "public");
-
         initializeNode("ExternalNetwork", ExternalNetwork.class, null, null, propertiesExternalNetwork, new HashMap<>());
+
+        Map<String, Object> propertiesVolume = new HashMap<>();
+        propertiesVolume.put("size", "1 GIB");
+        propertiesVolume.put("openstack_fail_safe", openstackFailSafeConfig);
+        initializeNode("Volume", DeletableVolume.class, "Compute", null, propertiesVolume, new HashMap<>());
 
         setDependencies("Compute", "Network");
         setDependencies("Compute", "ExternalNetwork");
@@ -60,6 +74,10 @@ public class OpenstackTestDeployment extends Deployment {
             initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
         }
 
+        for (int volumeIndex = 1; volumeIndex <= 1; volumeIndex++) {
+            DeletableVolume volume = new DeletableVolume();
+            initializeInstance(volume, "Volume", volumeIndex, null, null);
+        }
     }
 
     @Override

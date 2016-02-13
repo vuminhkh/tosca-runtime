@@ -1,5 +1,6 @@
 package tosca.relationships;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import com.toscaruntime.exception.IllegalFunctionException;
@@ -74,14 +75,18 @@ public abstract class Root extends AbstractRuntimeType {
         if (source == null || source.getComputableHost() == null) {
             throw new ToscaRuntimeException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
-        return source.getComputableHost().execute(source.getId(), operationArtifactPath, inputs);
+        Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
+        operationDeploymentArtifacts.putAll(source.getDeploymentArtifacts());
+        return source.getComputableHost().execute(source.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
     }
 
     protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
         if (target == null) {
             throw new ToscaRuntimeException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
-        return target.getComputableHost().execute(target.getId(), operationArtifactPath, inputs);
+        Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
+        operationDeploymentArtifacts.putAll(target.getDeploymentArtifacts());
+        return target.getComputableHost().execute(target.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
     }
 
     public Object evaluateFunction(String functionName, String... paths) {

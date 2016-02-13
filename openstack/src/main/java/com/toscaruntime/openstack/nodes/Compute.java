@@ -1,7 +1,6 @@
 package com.toscaruntime.openstack.nodes;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,16 +22,20 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.OperationExecutionException;
 import com.toscaruntime.exception.ProviderResourceAllocationException;
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
 import com.toscaruntime.exception.ToscaRuntimeException;
-import com.toscaruntime.util.PropertyUtil;
-import com.toscaruntime.util.RetryUtil;
+import com.toscaruntime.openstack.util.FailSafeConfigUtil;
+import com.toscaruntime.tosca.ToscaTime;
+import com.toscaruntime.util.ArtifactExecutionUtil;
+import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SSHExecutor;
+import com.toscaruntime.util.SynchronizationUtil;
 
 @SuppressWarnings("unchecked")
 public class Compute extends tosca.nodes.Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
+
+    public static final String RECIPE_LOCATION = "./.toscaruntime/recipe";
 
     private SSHExecutor sshExecutor;
 
@@ -78,67 +81,19 @@ public class Compute extends tosca.nodes.Compute {
         this.networks = networks;
     }
 
-    private Map<String, String> doExecute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
-        // Convert complex properties to JSON format before execute operation by SSH
-        Map<String, String> inputTexts = new HashMap<>();
-        for (Map.Entry<String, Object> input : inputs.entrySet()) {
-            inputTexts.put(input.getKey(), PropertyUtil.propertyValueToString(input.getValue()));
-        }
+    @Override
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         try {
-            return RetryUtil.doActionWithRetry(
-                    () -> sshExecutor.executeScript(nodeId, config.getArtifactsPath().resolve(operationArtifactPath).toString(), inputTexts),
-                    operationArtifactPath, 12, 10000L, RuntimeSshException.class, SshException.class
-            );
+            return FailSafeUtil.doActionWithRetry(
+                    () -> sshExecutor.executeArtifact(nodeId, RECIPE_LOCATION + "/" + operationArtifactPath
+                            , ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, RECIPE_LOCATION, "/")),
+                    operationArtifactPath,
+                    getArtifactExecutionRetry(),
+                    getWaitBetweenArtifactExecutionRetry(),
+                    RuntimeSshException.class,
+                    SshException.class);
         } catch (Throwable e) {
             throw new OperationExecutionException("Unable to execute operation " + operationArtifactPath, e);
-        }
-    }
-
-    @Override
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
-        if (this.server == null) {
-            throw new ProviderResourcesNotFoundException("Must create the server before executing operation on it");
-        }
-        if (this.config.isBootstrap()) {
-            // Synchronize in bootstrap mode to not create multiple floating ip in the same time
-            synchronized (this) {
-                FloatingIP floatingIP = null;
-                try {
-                    String attachedFloatingIP = getAttributeAsString("public_ip_address");
-                    if (StringUtils.isBlank(attachedFloatingIP)) {
-                        if (this.externalNetworkId != null) {
-                            // In bootstrap mode if the VM does not have any floating ip assigned
-                            // We assign to it a floating ip before executing operation
-                            floatingIP = floatingIPApi.allocateFromPool(this.externalNetworkId);
-                            floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
-                            destroySshExecutor();
-                            initSshExecutor(floatingIP.getIp());
-                            log.info("Bootstrap mode : for node {} created new floating ip {} in bootstrap mode in order to access to the machine", getId(), floatingIP.getIp());
-                        } else {
-                            log.info("Bootstrap mode : for node {} no external network configured, will establish connection with private IP {}", getId(), this.ipAddress);
-                            if (sshExecutor == null) {
-                                initSshExecutor(this.ipAddress);
-                            }
-                        }
-                    } else {
-                        log.info("Bootstrap mode : node {} is connected to external network, will establish connection with public IP {}", getId(), attachedFloatingIP);
-                        if (sshExecutor == null) {
-                            initSshExecutor(attachedFloatingIP);
-                        }
-                    }
-                    return doExecute(nodeId, operationArtifactPath, inputs);
-                } finally {
-                    // Remove the floating ip at the end of the operation
-                    if (floatingIP != null) {
-                        try {
-                            floatingIPApi.delete(floatingIP.getId());
-                        } catch (Exception ignored) {
-                        }
-                    }
-                }
-            }
-        } else {
-            return doExecute(nodeId, operationArtifactPath, inputs);
         }
     }
 
@@ -153,6 +108,10 @@ public class Compute extends tosca.nodes.Compute {
         String diskConfig = getPropertyAsString("disk_config");
         String keyPairName = getPropertyAsString("key_pair_name");
         CreateServerOptions createServerOptions = new CreateServerOptions();
+
+        int retryNumber = getOpenstackOperationRetry();
+        long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
+
         if (StringUtils.isNotBlank(adminPass)) {
             createServerOptions.adminPass(adminPass);
         }
@@ -178,7 +137,9 @@ public class Compute extends tosca.nodes.Compute {
         for (Network internalNetwork : networks) {
             boolean networkCreate = false;
             try {
-                networkCreate = internalNetwork.waitForNetworkCreated(1, TimeUnit.HOURS);
+                int networkCreateRetry = internalNetwork.getOpenstackOperationRetry();
+                long waitBetweenNetworkCreationRetry = internalNetwork.getOpenstackWaitBetweenOperationRetry();
+                networkCreate = internalNetwork.waitForNetworkCreated(networkCreateRetry * waitBetweenNetworkCreationRetry, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
             }
             if (!networkCreate) {
@@ -203,8 +164,10 @@ public class Compute extends tosca.nodes.Compute {
                 createServerOptions.getNetworks(),
                 createServerOptions.getSecurityGroupNames(),
                 userData);
-        ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryPropertyAsString("image"), getMandatoryPropertyAsString("flavor"), createServerOptions);
-        this.server = serverApi.get(serverCreated.getId());
+        FailSafeUtil.doActionWithRetry(() -> {
+            ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryPropertyAsString("image"), getMandatoryPropertyAsString("flavor"), createServerOptions);
+            this.server = serverApi.get(serverCreated.getId());
+        }, "Create compute " + getId(), retryNumber, coolDownPeriod);
         log.info("Created server with id " + this.server);
     }
 
@@ -230,24 +193,35 @@ public class Compute extends tosca.nodes.Compute {
         this.sshExecutor = new SSHExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath);
         try {
             String operationName = "create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath;
-            RetryUtil.Action<Void> action = () -> {
-                sshExecutor.init();
-                return null;
-            };
-            RetryUtil.doActionWithRetry(action, operationName, 240, 5000L, RuntimeSshException.class, SshException.class);
+            FailSafeUtil.doActionWithRetry(() -> sshExecutor.init(), operationName, getConnectRetry(), getWaitBetweenConnectRetry(), RuntimeSshException.class, SshException.class);
+            // Sometimes the created VM needs sometimes to initialize and to resolve DNS
+            Thread.sleep(getWaitBeforeArtifactExecution());
+            // Upload the recipe to the remote host
+            sshExecutor.upload(this.config.getArtifactsPath().toString(), RECIPE_LOCATION);
         } catch (Throwable e) {
             log.error("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
             throw new OperationExecutionException("Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
         }
     }
 
+    private void attachFloatingIP(String externalNetworkId, int retryNumber, long coolDownPeriod) {
+        FloatingIP floatingIP = FailSafeUtil.doActionWithRetry(() -> this.floatingIPApi.allocateFromPool(externalNetworkId),
+                "Allocation floating ip to compute " + getId(), retryNumber, coolDownPeriod);
+        this.createdFloatingIPs.add(floatingIP);
+        this.floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
+        setAttribute("public_ip_address", floatingIP.getIp());
+        log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
+    }
+
     @Override
     public void start() {
         super.start();
+        int retryNumber = getOpenstackOperationRetry();
+        long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         if (this.server == null) {
-            throw new ToscaRuntimeException("Must create the server before starting it");
+            throw new OperationExecutionException("Must create the server before starting it");
         }
-        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+        SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isUp = Server.Status.ACTIVE.equals(server.getStatus())
                     && server.getAddresses() != null
                     && !server.getAddresses().isEmpty();
@@ -258,23 +232,35 @@ public class Compute extends tosca.nodes.Compute {
             } else {
                 return true;
             }
-        }, 2, TimeUnit.SECONDS);
+        }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
         for (ExternalNetwork externalNetwork : this.externalNetworks) {
-            FloatingIP floatingIP = this.floatingIPApi.allocateFromPool(externalNetwork.getNetworkId());
-            this.createdFloatingIPs.add(floatingIP);
-            this.floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
-            setAttribute("public_ip_address", floatingIP.getIp());
-            log.info("Attached floating ip " + floatingIP.getIp() + " to compute " + this.getId());
+            attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod);
+        }
+        if (this.config.isBootstrap() && StringUtils.isNotBlank(this.externalNetworkId)) {
+            // In bootstrap mode and if external network id can be found in the context, we attach automatically a floating ip
+            attachFloatingIP(this.externalNetworkId, retryNumber, coolDownPeriod);
         }
         setAttribute("ip_address", this.ipAddress);
         setAttribute("provider_resource_id", server.getId());
         setAttribute("provider_resource_name", server.getName());
-        if (!this.config.isBootstrap()) {
-            // If it's not in bootstrap mode initialize immediately ssh session
-            initSshExecutor(ipAddress);
-        }
+        initSshExecutor(getIpAddressForSSHSession());
         log.info("Started server with info " + server);
+    }
+
+    private String getIpAddressForSSHSession() {
+        if (!this.config.isBootstrap()) {
+            return ipAddress;
+        } else {
+            String attachedFloatingIP = getAttributeAsString("public_ip_address");
+            if (StringUtils.isBlank(attachedFloatingIP)) {
+                log.warn("Bootstrap mode is enabled but no public_ip_address can be found on the compute, will use private ip");
+                return ipAddress;
+            } else {
+                log.info("Bootstrap mode is enabled, use public ip " + attachedFloatingIP + " to initialize SSH session");
+                return attachedFloatingIP;
+            }
+        }
     }
 
     @Override
@@ -284,9 +270,11 @@ public class Compute extends tosca.nodes.Compute {
             log.warn("Server has not been started yet");
             return;
         }
+        int retryNumber = getOpenstackOperationRetry();
+        long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         destroySshExecutor();
         this.serverApi.stop(this.server.getId());
-        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+        SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isShutOff = Server.Status.SHUTOFF.equals(server.getStatus());
             if (!isShutOff) {
                 log.info("Compute [{}]: Waiting for server [{}] to be shutdown, current state [{}]", getId(), server.getId(), server.getStatus());
@@ -295,7 +283,7 @@ public class Compute extends tosca.nodes.Compute {
             } else {
                 return true;
             }
-        }, 2, TimeUnit.SECONDS);
+        }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         log.info("Stopped server with id " + this.server);
     }
 
@@ -306,13 +294,15 @@ public class Compute extends tosca.nodes.Compute {
             log.warn("Server has not been started yet");
             return;
         }
+        int retryNumber = getOpenstackOperationRetry();
+        long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         for (FloatingIP floatingIP : createdFloatingIPs) {
             this.floatingIPApi.delete(floatingIP.getId());
         }
         this.createdFloatingIPs.clear();
         String serverId = this.server.getId();
         this.serverApi.delete(this.server.getId());
-        RetryUtil.waitUntilPredicateIsSatisfied(() -> {
+        SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isDeleted = Server.Status.DELETED.equals(server.getStatus());
             if (!isDeleted) {
                 log.info("Compute [{}]: Waiting for server [{}] to be deleted, current state [{}]", getId(), server.getId(), server.getStatus());
@@ -321,12 +311,43 @@ public class Compute extends tosca.nodes.Compute {
             } else {
                 return true;
             }
-        }, 2, TimeUnit.SECONDS);
+        }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         log.info("Deleted server with id " + serverId);
         this.server = null;
         this.removeAttribute("ip_address");
         this.removeAttribute("provider_resource_id");
         this.removeAttribute("provider_resource_name");
         this.removeAttribute("public_ip_address");
+    }
+
+    public int getOpenstackOperationRetry() {
+        return FailSafeConfigUtil.getOpenstackOperationRetry(getProperties());
+    }
+
+    public long getOpenstackWaitBetweenOperationRetry() {
+        return FailSafeConfigUtil.getOpenstackWaitBetweenOperationRetry(getProperties());
+    }
+
+    public int getConnectRetry() {
+        return Integer.parseInt(getPropertyAsString("compute_fail_safe.connect_retry"));
+    }
+
+    public long getWaitBetweenConnectRetry() {
+        String waitBetweenConnectRetry = getPropertyAsString("compute_fail_safe.wait_between_connect_retry");
+        return new ToscaTime(waitBetweenConnectRetry).value().get().longValue();
+    }
+
+    public int getArtifactExecutionRetry() {
+        return Integer.parseInt(getPropertyAsString("compute_fail_safe.artifact_execution_retry"));
+    }
+
+    public long getWaitBetweenArtifactExecutionRetry() {
+        String waitBetweenConnectRetry = getPropertyAsString("compute_fail_safe.wait_between_artifact_execution_retry");
+        return new ToscaTime(waitBetweenConnectRetry).value().get().longValue();
+    }
+
+    public long getWaitBeforeArtifactExecution() {
+        String waitBeforeArtifactExecution = getPropertyAsString("compute_fail_safe.wait_before_artifact_execution");
+        return new ToscaTime(waitBeforeArtifactExecution).value().get().longValue();
     }
 }

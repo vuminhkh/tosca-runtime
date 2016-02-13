@@ -6,6 +6,35 @@ template_author: mkv
 imports:
   - tosca-normative-types:*
 
+data_types:
+
+  com.toscaruntime.openstack.OpenstackFailSafeConfiguration:
+    properties:
+      operation_retry:
+        type: integer
+        description: the number of times tosca runtime will retry to instantiate resources on Openstack if failures happens
+      wait_between_operation_retry:
+        type: scalar-unit.time
+        description: wait time in seconds between retry when Openstack failures happen
+
+  com.toscaruntime.openstack.ComputeFailSafeConfiguration:
+    properties:
+      connect_retry:
+        type: integer
+        description: the number of times tosca runtime will retry to connect to the VM, default to infinite
+      wait_between_connect_retry:
+        type: scalar-unit.time
+        description: wait time in seconds between retry when connect fails
+      artifact_execution_retry:
+        type: integer
+        description: the number of times tosca runtime will retry to execute artifact if failures happens
+      wait_between_artifact_execution_retry:
+        type: scalar-unit.time
+        description: wait time in seconds between retry when artifact execution failures happen
+      wait_before_artifact_execution:
+        type: scalar-unit.time
+        description: wait time in seconds before artifact execution (sometimes dns resolution needs sometimes at the beginning)
+
 node_types:
 
   com.toscaruntime.openstack.nodes.Compute:
@@ -47,6 +76,19 @@ node_types:
       config_drive:
         type: boolean
         required: false
+      openstack_fail_safe:
+        type: com.toscaruntime.openstack.OpenstackFailSafeConfiguration
+        default:
+          operation_retry: 60
+          wait_between_operation_retry: 10 s
+      compute_fail_safe:
+        type: com.toscaruntime.openstack.ComputeFailSafeConfiguration
+        default:
+          connect_retry: 600
+          wait_between_connect_retry: 5 s
+          artifact_execution_retry: 6
+          wait_between_artifact_execution_retry: 10 s
+          wait_before_artifact_execution: 10 s
 
   com.toscaruntime.openstack.nodes.Network:
     derived_from: tosca.nodes.Network
@@ -56,6 +98,11 @@ node_types:
         entry_schema:
           type: string
         required: false
+      openstack_fail_safe:
+        type: com.toscaruntime.openstack.OpenstackFailSafeConfiguration
+        default:
+          operation_retry: 60
+          wait_between_operation_retry: 10 s
 
   com.toscaruntime.openstack.nodes.ExternalNetwork:
     derived_from: tosca.nodes.Network

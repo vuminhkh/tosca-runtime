@@ -4,10 +4,12 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.ContextBuilder;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
+import org.jclouds.openstack.cinder.v1.CinderApi;
+import org.jclouds.openstack.cinder.v1.CinderApiMetadata;
+import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.neutron.v2.NeutronApi;
 import org.jclouds.openstack.neutron.v2.NeutronApiMetadata;
 import org.jclouds.openstack.neutron.v2.extensions.RouterApi;
@@ -16,6 +18,7 @@ import org.jclouds.openstack.neutron.v2.features.SubnetApi;
 import org.jclouds.openstack.nova.v2_0.NovaApi;
 import org.jclouds.openstack.nova.v2_0.NovaApiMetadata;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
+import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 
 import com.google.common.collect.ImmutableSet;
@@ -24,14 +27,34 @@ import com.toscaruntime.exception.ProviderInitializationException;
 import com.toscaruntime.openstack.nodes.Compute;
 import com.toscaruntime.openstack.nodes.ExternalNetwork;
 import com.toscaruntime.openstack.nodes.Network;
+import com.toscaruntime.openstack.nodes.Volume;
 import com.toscaruntime.openstack.util.NetworkUtil;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
+import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Root;
 
 public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
+
+    private ServerApi serverApi;
+
+    private NetworkApi networkApi;
+
+    private SubnetApi subnetApi;
+
+    private FloatingIPApi floatingIPApi;
+
+    private RouterApi routerApi;
+
+    private String networkId;
+
+    private String externalNetworkId;
+
+    private VolumeApi volumeApi;
+
+    private VolumeAttachmentApi volumeAttachmentApi;
 
     private String getNetworkIdFromContext(NetworkApi networkApi, Map<String, String> providerProperties, Map<String, Object> bootstrapContext, boolean isExternal) {
         String networkIdPropertyName;
@@ -81,27 +104,43 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
                 .overrides(overrideProperties)
                 .buildApi(NeutronApi.class);
 
+        CinderApi cinderApi = ContextBuilder
+                .newBuilder(new CinderApiMetadata())
+                .endpoint(keystoneUrl)
+                .credentials(tenant + ":" + user, password)
+                .modules(modules)
+                .overrides(overrideProperties)
+                .buildApi(CinderApi.class);
+
         if (!novaApi.getConfiguredRegions().contains(region)) {
             throw new ProviderInitializationException("Nova : Region " + region + " do not exist, available regions are " + novaApi.getConfiguredRegions());
         }
         if (!neutronApi.getConfiguredRegions().contains(region)) {
             throw new ProviderInitializationException("Neutron : Region " + region + " do not exist, available regions are " + neutronApi.getConfiguredRegions());
         }
-        ServerApi serverApi = novaApi.getServerApi(region);
-        NetworkApi networkApi = neutronApi.getNetworkApi(region);
-        SubnetApi subnetApi = neutronApi.getSubnetApi(region);
-        FloatingIPApi floatingIPApi = novaApi.getFloatingIPApi(region).get();
-        RouterApi routerApi = neutronApi.getRouterApi(region).get();
+        serverApi = novaApi.getServerApi(region);
+        networkApi = neutronApi.getNetworkApi(region);
+        subnetApi = neutronApi.getSubnetApi(region);
+        floatingIPApi = novaApi.getFloatingIPApi(region).get();
+        routerApi = neutronApi.getRouterApi(region).get();
+        volumeApi = cinderApi.getVolumeApi(region);
+        volumeAttachmentApi = novaApi.getVolumeAttachmentApi(region).get();
 
-        Set<ExternalNetwork> externalNetworks = deployment.getNodeInstancesByType(ExternalNetwork.class);
-        Set<Compute> computes = deployment.getNodeInstancesByType(Compute.class);
-        Set<Network> networks = deployment.getNodeInstancesByType(Network.class);
         /**
          * Network Id and External Network Id if defined are default values that will be injected into every compute
          * We search first in provider configuration, if not found then we'll look into bootstrap context
          */
-        String networkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, false);
-        String externalNetworkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, true);
+        networkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, false);
+        externalNetworkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, true);
+        postConstructInstances(deployment.getNodeInstances(), deployment.getRelationshipInstances());
+    }
+
+    @Override
+    public void postConstructInstances(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
+        Set<ExternalNetwork> externalNetworks = DeploymentUtil.getNodeInstancesByType(nodeInstances, ExternalNetwork.class);
+        Set<Compute> computes = DeploymentUtil.getNodeInstancesByType(nodeInstances, Compute.class);
+        Set<Network> networks = DeploymentUtil.getNodeInstancesByType(nodeInstances, Network.class);
+        Set<Volume> volumes = DeploymentUtil.getNodeInstancesByType(nodeInstances, Volume.class);
         for (ExternalNetwork externalNetwork : externalNetworks) {
             externalNetwork.setNetworkApi(networkApi);
         }
@@ -115,10 +154,11 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             }
             compute.setNetworkId(networkId);
             compute.setFloatingIPApi(floatingIPApi);
-            Set<ExternalNetwork> connectedExternalNetworks = deployment.getTargetInstancesOfRelationship(compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
-            Set<Network> connectedInternalNetworks = deployment.getTargetInstancesOfRelationship(compute.getId(), tosca.relationships.Network.class, Network.class);
+            Set<ExternalNetwork> connectedExternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
+            Set<Network> connectedInternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, Network.class);
             compute.setNetworks(connectedInternalNetworks);
             compute.setExternalNetworks(connectedExternalNetworks);
+            compute.getChildren().stream().filter(child -> child instanceof Volume).forEach(child -> ((Volume) child).setOwner(compute));
         }
         for (Network network : networks) {
             network.setNetworkApi(networkApi);
@@ -127,11 +167,9 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
             network.setExternalNetworkId(externalNetworkId);
             network.setRouterApi(routerApi);
         }
-    }
-
-    @Override
-    public void postConstructExtension(Map<String, Root> nodes, Set<tosca.relationships.Root> relationships) {
-        // FIXME implement this to be able to scale on openstack
-        throw new NotImplementedException("WIP");
+        for (Volume volume : volumes) {
+            volume.setVolumeApi(volumeApi);
+            volume.setVolumeAttachmentApi(volumeAttachmentApi);
+        }
     }
 }

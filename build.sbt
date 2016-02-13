@@ -65,18 +65,12 @@ lazy val common = project
   .settings(commonSettings: _*)
   .settings(
     name := "common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, constant, exception, restModel).enablePlugins(UniversalPlugin)
+  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, sharedContracts, restModel).enablePlugins(UniversalPlugin)
 
-lazy val constant = project.in(file("common/constant"))
+lazy val sharedContracts = project.in(file("common/shared-contracts"))
   .settings(commonSettings: _*)
   .settings(
-    name := "constant"
-  ).enablePlugins(UniversalPlugin)
-
-lazy val exception = project.in(file("common/exception"))
-  .settings(commonSettings: _*)
-  .settings(
-    name := "exception"
+    name := "shared-contracts"
   ).enablePlugins(UniversalPlugin)
 
 lazy val miscUtil = project.in(file("common/misc-util"))
@@ -87,7 +81,7 @@ lazy val miscUtil = project.in(file("common/misc-util"))
     libraryDependencies ++= testDependencies,
     libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4"
-  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val sshUtil = project.in(file("common/ssh-util"))
   .settings(commonSettings: _*)
@@ -96,7 +90,7 @@ lazy val sshUtil = project.in(file("common/ssh-util"))
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.52",
     libraryDependencies += "org.apache.sshd" % "sshd-core" % "1.1.0"
-  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val dockerUtil = project.in(file("common/docker-util"))
   .settings(commonSettings: _*)
@@ -108,7 +102,7 @@ lazy val dockerUtil = project.in(file("common/docker-util"))
     libraryDependencies += "org.glassfish.hk2" % "hk2-api" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2.external" % "javax.inject" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2" % "hk2-locator" % "2.4.0-b32"
-  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val fileUtil = project.in(file("common/file-util"))
   .settings(commonSettings: _*)
@@ -116,7 +110,7 @@ lazy val fileUtil = project.in(file("common/file-util"))
     name := "file-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
-  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val gitUtil = project.in(file("common/git-util"))
   .settings(commonSettings: _*)
@@ -124,7 +118,7 @@ lazy val gitUtil = project.in(file("common/git-util"))
     name := "git-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.1.1.201511131810-r"
-  ).dependsOn(exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val restModel = project.in(file("common/rest-model"))
   .settings(commonSettings: _*)
@@ -142,7 +136,7 @@ lazy val rest = project.in(file("rest"))
     name := "rest",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
-  ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, constant, exception).enablePlugins(UniversalPlugin)
+  ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project
   .settings(commonSettings: _*)
@@ -225,7 +219,7 @@ lazy val sdk = project
     libraryDependencies ++= testDependencies,
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
     libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
-  ).dependsOn(miscUtil, constant, exception).enablePlugins(JavaAppPackaging)
+  ).dependsOn(miscUtil, sharedContracts).enablePlugins(JavaAppPackaging)
 
 lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
 

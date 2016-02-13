@@ -1,7 +1,7 @@
-package com.toscaruntime.compiler.tosca
+package com.toscaruntime.tosca
 
 import java.text.SimpleDateFormat
-import java.util.{Date, TimeZone}
+import java.util.Date
 
 import com.toscaruntime.exception.InvalidValueForToscaTypeException
 
@@ -111,8 +111,18 @@ abstract class ToscaUnitType(valueAsText: String, units: List[ToscaUnit]) extend
 
   val unitsMap: Map[String, ToscaUnit] = units.map(unit => (unit.unit, unit)).toMap
 
-  override val value: Option[BigDecimal] = parseUnitType(valueAsText).flatMap {
+  private var parsedValue = parseUnitType(valueAsText)
+
+  override val value: Option[BigDecimal] = parsedValue.flatMap {
     case (valuePart: String, unit: ToscaUnit) => Try(BigDecimal(valuePart) * unit.multiplier).toOption
+  }
+
+  var base: Option[BigDecimal] = parsedValue.map {
+    case (valuePart, _) => BigDecimal(valuePart)
+  }
+
+  var unit: Option[ToscaUnit] = parsedValue.map {
+    case (_, unitPart) => unitPart
   }
 
   private def parseUnitType(valueAsText: String): Option[(String, ToscaUnit)] = {
@@ -120,6 +130,15 @@ abstract class ToscaUnitType(valueAsText: String, units: List[ToscaUnit]) extend
     if (tokens.length == 2 && tokens(0).nonEmpty && tokens(1).nonEmpty) {
       unitsMap.get(tokens(1).toUpperCase()).map((tokens(0), _))
     } else None
+  }
+
+  def convertToUnit[T <: ToscaUnitType](newUnitAsText: String) = {
+    val newUnit = unitsMap(newUnitAsText)
+    val newBase = value.get / newUnit.multiplier
+    unit = Some(newUnit)
+    base = Some(newBase)
+    parsedValue = Some(newBase.toString, newUnit)
+    this
   }
 
   override def compareParsedValue(left: BigDecimal, right: BigDecimal): Int = left.compare(right)

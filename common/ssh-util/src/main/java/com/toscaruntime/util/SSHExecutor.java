@@ -10,12 +10,15 @@ import org.apache.sshd.client.session.ClientSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.artifact.ArtifactExecutor;
+import com.toscaruntime.artifact.ArtifactUploader;
+
 /**
  * An utility to execute scripts commands by SSH on remote server
  *
  * @author Minh Khang VU
  */
-public class SSHExecutor implements Closeable {
+public class SSHExecutor implements Closeable, ArtifactExecutor, ArtifactUploader {
 
     private static final SshClient SSH_CLIENT = SshClient.setUpDefaultClient();
 
@@ -45,8 +48,6 @@ public class SSHExecutor implements Closeable {
 
     private synchronized void connect() throws Exception {
         this.clientSession = SSHUtil.connect(SSH_CLIENT, user, pemPath, ip, port, TIME_OUT, TIME_UNIT);
-        // This to ensure that the channel is opened and executable
-        this.clientSession.createExecChannel("ls").close(false).await(TIME_OUT, TIME_UNIT);
     }
 
     public synchronized void init() throws Exception {
@@ -73,15 +74,24 @@ public class SSHExecutor implements Closeable {
         log.info("Session has been closed for " + user + "@" + ip);
     }
 
+    @Override
+    public Map<String, String> executeArtifact(String operationName, String scriptPath, Map<String, String> env) throws Exception {
+        log.info("[{}] script {} with environments {}", operationName, scriptPath, env);
+        checkConnection();
+        return SSHUtil.executeScript(operationName, clientSession, scriptPath, env, TIME_OUT, TIME_UNIT);
+    }
+
+    @Override
     public Map<String, String> executeCommand(String operationName, String command, Map<String, String> env) throws Exception {
         log.info("[{}] command {} with environments {}", operationName, command, env);
         checkConnection();
         return SSHUtil.executeCommand(operationName, clientSession, command, env, TIME_OUT, TIME_UNIT);
     }
 
-    public Map<String, String> executeScript(String operationName, String scriptPath, Map<String, String> env) throws Exception {
-        log.info("[{}] script {} with environments {}", operationName, scriptPath, env);
+    @Override
+    public void upload(String localPath, String remotePath) throws Exception {
+        log.info("Upload file from {} to {}", localPath, remotePath);
         checkConnection();
-        return SSHUtil.executeScript(operationName, clientSession, scriptPath, env, TIME_OUT, TIME_UNIT);
+        SSHUtil.upload(clientSession, localPath, remotePath, TIME_OUT, TIME_UNIT);
     }
 }

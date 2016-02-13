@@ -43,7 +43,7 @@ public class MockCompute extends Compute {
     }
 
     @Override
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs) {
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         log.info("{} execute for {} operation {} with inputs {}", getId(), nodeId, operationArtifactPath, inputs);
         return new HashMap<>();
     }

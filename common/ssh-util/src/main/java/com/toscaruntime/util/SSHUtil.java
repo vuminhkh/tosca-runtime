@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
@@ -13,9 +14,11 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.channel.ChannelExec;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.channel.ClientChannel;
 import org.apache.sshd.client.future.ConnectFuture;
+import org.apache.sshd.client.scp.ScpClient;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.RuntimeSshException;
 import org.slf4j.Logger;
@@ -64,17 +67,49 @@ public class SSHUtil {
     /**
      * Run a script and return the standard output of the session
      *
-     * @param operationName Name of the operation
-     * @param session       the SSH session
-     * @param scriptPath    the path to the script to execute
-     * @param env           the environment variables
-     * @param timeout       the timeout for each wait action on the session
-     * @param timeUnit      unit of the timeout
+     * @param operationName    Name of the operation
+     * @param session          the SSH session
+     * @param remoteScriptPath the path to the script to execute at the remote machinve
+     * @param env              the environment variables
+     * @param timeout          the timeout for each wait action on the session
+     * @param timeUnit         unit of the timeout
      * @return all captured environment variables produced by printenv after execution of the command
      * @throws IOException
      */
-    public static Map<String, String> executeScript(String operationName, ClientSession session, final String scriptPath, final Map<String, String> env, long timeout, TimeUnit timeUnit) throws IOException, InterruptedException {
-        return runShellActionWithSession(operationName, session, new ExecuteScriptWithShellAction(scriptPath), env, timeout, timeUnit);
+    public static Map<String, String> executeScript(String operationName, ClientSession session, final String remoteScriptPath, final Map<String, String> env, long timeout, TimeUnit timeUnit) throws IOException, InterruptedException {
+        return runShellActionWithSession(operationName, session, new ExecuteScriptWithShellAction(remoteScriptPath), env, timeout, timeUnit);
+    }
+
+    /**
+     * Upload a directory or a file to the remote path. If local path is a directory, all of its children will be uploaded to the remote directory.
+     * For ex: local path /toto has children /toto/tata, /toto/titi and remote path is /somePath/that/does/not/exist in this case, on the remote machine,
+     * those files will be uploaded as /somePath/that/does/not/exist/tata and /somePath/that/does/not/exist/titi.
+     * If remote path is /somePath/that/exists then the files will be uploaded at /somePath/that/exists/toto/tata /somePath/that/exists/toto/titi
+     *
+     * @param session    the SSH session
+     * @param localPath  the local path
+     * @param remotePath the remote path
+     * @throws IOException
+     */
+    public static void upload(ClientSession session, String localPath, String remotePath, long timeout, TimeUnit timeUnit) throws IOException {
+        ScpClient scpClient = session.createScpClient();
+        Path nioPath = Paths.get(localPath);
+        if (!Files.isReadable(nioPath)) {
+            throw new IOException("File is not readable " + localPath);
+        }
+        Path nioRemotePath = Paths.get(remotePath);
+        ChannelExec channelExec = session.createExecChannel("mkdir -p " + nioRemotePath.getParent());
+        if (!channelExec.open().await(timeout, timeUnit)) {
+            throw new IOException("Could not open channel to prepare remote path " + remotePath);
+        }
+        channelExec.waitFor(EnumSet.of(ClientChannel.ClientChannelEvent.CLOSED), timeUnit.toMillis(timeout));
+        // It's not really big deal if we do not wait until it's really closed
+        channelExec.close(false).await(5, TimeUnit.SECONDS);
+        if (Files.isDirectory(nioPath)) {
+            scpClient.upload(nioPath, remotePath, ScpClient.Option.Recursive);
+        } else {
+            scpClient.upload(nioPath, remotePath);
+        }
     }
 
     private interface DoWithShellAction {
@@ -86,35 +121,32 @@ public class SSHUtil {
 
     private static void setEnv(PrintWriter commandWriter, Map<String, String> env) {
         if (env != null) {
-            for (Map.Entry<String, String> envEntry : env.entrySet()) {
-                if (envEntry.getValue() != null) {
-                    String escapedEnvValue = envEntry.getValue().replace("'", "'\\''");
-                    doExecuteCommand(commandWriter, "export " + envEntry.getKey() + "='" + escapedEnvValue + "'");
-                }
-            }
+            env.entrySet().stream().filter(envEntry -> envEntry.getValue() != null).forEach(
+                    envEntry -> doExecuteCommand(commandWriter, "export " + envEntry.getKey() + "='" + envEntry.getValue() + "'")
+            );
         }
     }
 
     private static class ExecuteScriptWithShellAction implements DoWithShellAction {
 
-        private Path scriptPath;
+        private String scriptPath;
+
+        private String name;
 
         public ExecuteScriptWithShellAction(String scriptPath) {
-            this.scriptPath = Paths.get(scriptPath);
+            this.scriptPath = scriptPath;
+            this.name = Paths.get(scriptPath).getFileName().toString();
         }
 
         @Override
         public String getCommandName() {
-            return scriptPath.getFileName().toString();
+            return this.name;
         }
 
         @Override
         public void doWithShell(ClientSession session, PrintWriter commandWriter) throws IOException {
-            String remoteDirectory = "/tmp";
-            String remoteFile = remoteDirectory + "/" + UUID.randomUUID().toString() + scriptPath.getFileName();
-            session.createScpClient().upload(scriptPath, remoteFile);
-            doExecuteCommand(commandWriter, "chmod +x " + remoteFile);
-            doExecuteCommand(commandWriter, ". " + remoteFile);
+            doExecuteCommand(commandWriter, "chmod +x " + scriptPath);
+            doExecuteCommand(commandWriter, ". " + scriptPath);
         }
     }
 

@@ -35,9 +35,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.toscaruntime.exception.OperationExecutionException;
 import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.DockerStreamDecoder;
 import com.toscaruntime.util.DockerUtil;
-import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Compute;
 
@@ -241,12 +241,8 @@ public class Container extends Compute {
         });
     }
 
-    /**
-     * Use docker exec to run scripts inside docker container
-     *
-     * @param operationArtifactPath the relative path to the script in the recipe
-     */
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables) {
+    @Override
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables, Map<String, String> deploymentArtifacts) {
         log.info("Container [{}] : Executing script [{}] for node [{}] with env [{}]", getId(), operationArtifactPath, nodeId, environmentVariables);
         String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
         String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
@@ -257,23 +253,9 @@ public class Container extends Compute {
             Files.createDirectories(localGeneratedScriptPath.getParent());
             localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
             localGeneratedScriptWriter.write("#!/bin/bash\n");
-            if (environmentVariables != null) {
-                for (Map.Entry<String, Object> envEntry : environmentVariables.entrySet()) {
-                    String envValue = PropertyUtil.propertyValueToString(envEntry.getValue());
-                    if (envValue != null) {
-                        String escapedEnvValue = envValue.replace("'", "'\\''");
-                        localGeneratedScriptWriter.write("export " + envEntry.getKey() + "='" + escapedEnvValue + "'\n");
-                    }
-                }
-            }
-            Map<String, String> allArtifacts = getHostDeploymentArtifacts();
-            if (allArtifacts != null && !allArtifacts.isEmpty()) {
-                for (Map.Entry<String, String> deploymentEntry : allArtifacts.entrySet()) {
-                    if (deploymentEntry.getValue() != null) {
-                        String escapedEnvValue = deploymentEntry.getValue().replace("'", "'\\''");
-                        localGeneratedScriptWriter.write("export " + deploymentEntry.getKey() + "='" + RECIPE_LOCATION + "/" + escapedEnvValue + "'\n");
-                    }
-                }
+            Map<String, String> allInputs = ArtifactExecutionUtil.processInputs(environmentVariables, deploymentArtifacts, RECIPE_LOCATION, "/");
+            for (Map.Entry<String, String> inputEntry : allInputs.entrySet()) {
+                localGeneratedScriptWriter.write("export " + inputEntry.getKey() + "='" + inputEntry.getValue() + "'\n");
             }
             localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
             localGeneratedScriptWriter.write(". " + containerScriptPath + "\n");

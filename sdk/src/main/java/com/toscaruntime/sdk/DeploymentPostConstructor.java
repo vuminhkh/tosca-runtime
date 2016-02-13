@@ -18,10 +18,10 @@ public interface DeploymentPostConstructor {
     void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext);
 
     /**
-     * Post construct modification of a deployment (add new instances).
+     * Post construct created instances for the deployment. This method is used to post construct newly created instances for the deployment.
      *
-     * @param nodes         nodes to initialize
-     * @param relationships relationships to initialize
+     * @param nodeInstances         nodes to initialize
+     * @param relationshipInstances relationships to initialize
      */
-    void postConstructExtension(Map<String, Root> nodes, Set<tosca.relationships.Root> relationships);
+    void postConstructInstances(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances);
 }

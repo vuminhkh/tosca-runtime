@@ -73,7 +73,7 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
     }
 
     @Override
-    public void postConstructExtension(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
+    public void postConstructInstances(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
         if (nodeInstances != null) {
             for (Container container : DeploymentUtil.getNodeInstancesByType(nodeInstances, Container.class)) {
                 Set<Network> connectedNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, container.getId(), tosca.relationships.Network.class, Network.class);

@@ -54,7 +54,7 @@ public class DockerNodesTest {
             Assert.assertEquals("Volume_1_1", volume.getAttributeAsString("tosca_id"));
             Assert.assertEquals("Volume", volume.getAttributeAsString("tosca_name"));
 
-            Map<String, String> outputs = compute.execute("testWriteToVolume", "testWriteToVolume.sh", ImmutableMap.<String, Object>builder().put("FILE_CONTENT", "A great content").build());
+            Map<String, String> outputs = compute.execute("testWriteToVolume", "testWriteToVolume.sh", ImmutableMap.<String, Object>builder().put("FILE_CONTENT", "A great content").build(), new HashMap<>());
             Assert.assertEquals("A great content", outputs.get("WRITTEN"));
         } finally {
             testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);

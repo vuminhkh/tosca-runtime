@@ -52,10 +52,10 @@ public class OpenstackNodesTest {
             Assert.assertEquals("ExternalNetwork_1", externalNetwork.getAttributeAsString("tosca_id"));
             Assert.assertEquals("ExternalNetwork", externalNetwork.getAttributeAsString("tosca_name"));
 
-            Map<String, String> outputs = compute.execute("testOutput", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build());
+            Map<String, String> outputs = compute.execute("testOutput", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build(), new HashMap<>());
             Assert.assertEquals("Hello I'm John", outputs.get("OUTPUT_TEST"));
 
-            outputs = compute.execute("testJava", "javaHelp.sh", Maps.newHashMap());
+            outputs = compute.execute("testJava", "javaHelp.sh", Maps.newHashMap(), new HashMap<>());
             Assert.assertNotNull(outputs.get("JAVA_HELP"));
         } finally {
             testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);

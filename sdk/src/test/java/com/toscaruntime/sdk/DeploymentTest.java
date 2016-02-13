@@ -55,7 +55,7 @@ public class DeploymentTest {
         allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
         Assert.assertEquals(3, allWebServers.size());
         Assert.assertEquals(3, allJavas.size());
-        Mockito.verify(postConstructor, Mockito.times(1)).postConstructExtension(Mockito.anyMap(), Mockito.anySet());
+        Mockito.verify(postConstructor, Mockito.times(1)).postConstructInstances(Mockito.anyMap(), Mockito.anySet());
         mockDeployment.scale("WebServer", 1).waitForCompletion(2, TimeUnit.MINUTES);
         allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
         allJavas = mockDeployment.getNodeInstancesByNodeName("Java");

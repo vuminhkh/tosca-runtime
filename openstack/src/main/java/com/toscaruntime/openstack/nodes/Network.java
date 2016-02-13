@@ -19,8 +19,9 @@ import org.slf4j.LoggerFactory;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.openstack.util.NetworkUtil;
-import com.toscaruntime.util.RetryUtil;
+import com.toscaruntime.util.FailSafeUtil;
 
 @SuppressWarnings("unchecked")
 public class Network extends tosca.nodes.Network {
@@ -158,37 +159,47 @@ public class Network extends tosca.nodes.Network {
     @Override
     public void delete() {
         super.delete();
+        int retryNumber = getOpenstackOperationRetry();
+        long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         try {
-            RetryUtil.doActionWithRetry(() -> {
+            FailSafeUtil.doActionWithRetry(() -> {
                 for (Router router : createdRouters) {
                     routerApi.removeInterfaceForSubnet(router.getId(), createdSubnet.getId());
                     routerApi.delete(router.getId());
                 }
                 return null;
-            }, "delete routers", 30, 2000L, Throwable.class);
+            }, "delete routers", retryNumber, coolDownPeriod, Throwable.class);
         } catch (Throwable e) {
             log.warn("Could not delete routers " + createdRouters, e);
         }
         if (createdSubnet != null) {
             try {
-                RetryUtil.doActionWithRetry(() -> {
+                FailSafeUtil.doActionWithRetry(() -> {
                     subnetApi.delete(createdSubnet.getId());
                     return null;
-                }, "delete subnet " + createdSubnet.getName(), 30, 2000L, Throwable.class);
+                }, "delete subnet " + createdSubnet.getName(), retryNumber, coolDownPeriod, Throwable.class);
             } catch (Throwable e) {
                 log.warn("Could not delete subnet " + this.createdSubnet, e);
             }
         }
         if (createdNetwork != null) {
             try {
-                RetryUtil.doActionWithRetry(() -> {
+                FailSafeUtil.doActionWithRetry(() -> {
                     networkApi.delete(createdNetwork.getId());
                     return null;
-                }, "delete network " + createdNetwork.getName(), 30, 2000L, Throwable.class);
+                }, "delete network " + createdNetwork.getName(), retryNumber, coolDownPeriod, Throwable.class);
             } catch (Throwable e) {
                 log.warn("Could not delete network " + this.createdNetwork, e);
             }
         }
         log.info("Deleted network <" + this.networkId + "> with subnet <" + this.subnetId + ">");
+    }
+
+    public int getOpenstackOperationRetry() {
+        return FailSafeConfigUtil.getOpenstackOperationRetry(getProperties());
+    }
+
+    public long getOpenstackWaitBetweenOperationRetry() {
+        return FailSafeConfigUtil.getOpenstackWaitBetweenOperationRetry(getProperties());
     }
 }

@@ -26,4 +26,8 @@ public class JSONUtil {
     public static String toString(Object object) throws JsonProcessingException {
         return OBJECT_MAPPER.writeValueAsString(object);
     }
+
+    public static <T> T toObject(Map<String, Object> raw, Class<T> clazz) throws IOException {
+        return OBJECT_MAPPER.convertValue(raw, clazz);
+    }
 }

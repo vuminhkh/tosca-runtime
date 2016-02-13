@@ -165,7 +165,7 @@ public abstract class Root extends AbstractRuntimeType {
             Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
             inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getId(), siblingInputDefinitions));
         }
-        return host.execute(getId(), operationArtifactPath, inputs);
+        return host.execute(getId(), operationArtifactPath, inputs, getDeploymentArtifacts());
     }
 
     public void create() {

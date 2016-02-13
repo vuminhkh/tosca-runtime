@@ -2,8 +2,8 @@ package com.toscaruntime.cli.util
 
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.rest.model.{AbstractInstance, DeploymentDetails}
-import com.toscaruntime.util.RetryUtil
-import com.toscaruntime.util.RetryUtil.Action
+import com.toscaruntime.util.FailSafeUtil
+import FailSafeUtil.Action
 import com.typesafe.scalalogging.LazyLogging
 import tosca.constants.{InstanceState, RelationshipInstanceState}
 
@@ -192,13 +192,13 @@ object DeployUtil extends LazyLogging {
   }
 
   def waitForDeploymentAgent(client: ToscaRuntimeClient, deploymentId: String) = {
-    RetryUtil.doActionWithRetry(new Action[Any] {
+    FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
     }, "Wait for deployment " + deploymentId, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }
 
   def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String, target: String) = {
-    RetryUtil.doActionWithRetry(new Action[Any] {
+    FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), waitForEver)
     }, "Wait for bootstrap " + provider, Integer.MAX_VALUE, 2000L, classOf[Throwable])
   }

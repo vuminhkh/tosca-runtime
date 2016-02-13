@@ -87,7 +87,7 @@ public class ContainerTest {
             network.create();
             container.create();
             container.start();
-            Map<String, String> outputs = container.execute("test", "javaHelp.sh", Maps.newHashMap());
+            Map<String, String> outputs = container.execute("test", "javaHelp.sh", Maps.newHashMap(), Maps.newHashMap());
             Assert.assertNotNull(outputs.get("JAVA_HELP"));
             Assert.assertNotNull(network.getNetworkId());
         } catch (Exception e) {
@@ -102,7 +102,6 @@ public class ContainerTest {
     @Test
     public void testCreateContainer() throws MalformedURLException {
         Container container = createContainer("ubuntu");
-        container.setDeploymentArtifacts(ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
         try {
             container.create();
             container.start();
@@ -111,7 +110,7 @@ public class ContainerTest {
             Assert.assertEquals(80, containerInspect.getNetworkSettings().getPorts().getBindings().keySet().iterator().next().getPort());
             Assert.assertEquals(InternetProtocol.TCP, containerInspect.getNetworkSettings().getPorts().getBindings().keySet().iterator().next().getProtocol());
             Assert.assertNotNull(container.getAttribute("ip_address"));
-            Map<String, String> outputs = container.execute("test", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build());
+            Map<String, String> outputs = container.execute("test", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build(), ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
             Assert.assertEquals("Hello I'm John", outputs.get("OUTPUT_TEST"));
             Assert.assertEquals(Container.RECIPE_LOCATION + "/path/to/confDir", outputs.get("conf_artifact"));
         } catch (Exception e) {

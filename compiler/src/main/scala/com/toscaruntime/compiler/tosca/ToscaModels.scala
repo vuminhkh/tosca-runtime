@@ -1,6 +1,7 @@
 package com.toscaruntime.compiler.tosca
 
 import com.toscaruntime.compiler.Tokens
+import com.toscaruntime.tosca._
 
 import scala.util.parsing.input.Positional
 
