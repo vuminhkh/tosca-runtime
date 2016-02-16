@@ -1,6 +1,6 @@
 package com.toscaruntime.cli.command
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
@@ -44,24 +44,34 @@ object CsarsCommand {
     """.stripMargin
   )
 
+  def listCsars(repository: Path, filter: Option[String]) = {
+    val allCsars = FileUtil.listChildrenDirectories(repository, filter.map(List(_)).getOrElse(List.empty).toArray: _*).asScala.toSeq
+    allCsars.flatMap {
+      case csarAllVersions => FileUtil.listChildrenDirectories(csarAllVersions).asScala.map((csarAllVersions, _))
+    }
+  }
+
+  private def printCsarsList(repository: Path, filter: Option[String]) = {
+    val headers = List("Name", "Version", "Last modified")
+    val allCsarsData = listCsars(repository, filter).map {
+      case (csar, version) => List(csar.getFileName.toString, version.getFileName.toString, Files.getLastModifiedTime(version).toString)
+    }.toList
+    if (allCsarsData.nonEmpty) {
+      TabulatorUtil.format(headers :: allCsarsData)
+    } else {
+      "No csar found"
+    }
+  }
+
+  def deleteCsar(repository: Path, csarName: String, csarVersion: String) = {
+    Compiler.getCsarPath(csarName, csarVersion, repository).foreach(FileUtil.delete)
+  }
+
   lazy val instance = Command("csars", csarsHelp)(_ => csarsArgsParser) { (state, args) =>
     val basedir = state.attributes.get(Attributes.basedirAttribute).get
     val repository = basedir.resolve("repository")
     args.head match {
-      case ("list", filter: Option[String]) =>
-        val headers = List("Name", "Version", "Last modified")
-        val allCsars = FileUtil.listChildrenDirectories(repository, filter.map(List(_)).getOrElse(List.empty).toArray: _*).asScala.toSeq
-        val allCsarsData = allCsars.flatMap {
-          case csarAllVersions =>
-            FileUtil.listChildrenDirectories(csarAllVersions).asScala.map { version =>
-              List(csarAllVersions.getFileName.toString, version.getFileName.toString, Files.getLastModifiedTime(version).toString)
-            }.toList
-        }.toList
-        if (allCsarsData.nonEmpty) {
-          println(TabulatorUtil.format(headers :: allCsarsData))
-        } else {
-          println("No csar found")
-        }
+      case ("list", filter: Option[String]) => printCsarsList(repository, filter)
       case ("compile", csarPath: String) =>
         val result = Compiler.compile(Paths.get(csarPath), repository)
         if (result.isSuccessful) {
@@ -77,7 +87,7 @@ object CsarsCommand {
           CompilationUtil.showErrors(result)
         }
       case ("delete", (csarName: String, csarVersion: String)) =>
-        Compiler.resolveDependency(csarName, csarVersion, repository).foreach(FileUtil.delete)
+        deleteCsar(repository, csarName, csarVersion)
         println(s"Deleted [$csarName:$csarVersion]")
       case ("info", (csarName: String, csarVersion: String)) =>
         val result = Compiler.compile(csarName, csarVersion, repository)

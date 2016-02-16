@@ -43,7 +43,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "tosca-runtime-parent"
-  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
@@ -282,3 +282,23 @@ lazy val cli = project
     stage <<= (stage in Universal) dependsOn downloadSbtLauncher,
     dist <<= (packageZipTarball in Universal) dependsOn stage
   ).dependsOn(compiler, runtime, rest).enablePlugins(UniversalPlugin)
+
+lazy val copyProviders = taskKey[Unit]("Copy provider resources for integration tests.")
+
+lazy val itTest = project.in(file("test"))
+  .configs(IntegrationTest)
+  .settings(commonSettings: _*)
+  .settings(Defaults.itSettings : _*)
+  .settings(
+    name := "it-test",
+    libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.5" % "it,test",
+    copyProviders := {
+      val dockerProviderTarget = target.value / "prepare-test" / "docker-provider-types" / version.value
+      dockerProviderTarget.mkdirs()
+      val openstackProviderTarget = target.value / "prepare-test" / "openstack-provider-types" / version.value
+      openstackProviderTarget.mkdirs()
+      IO.copyDirectory((stage in docker).value, dockerProviderTarget)
+      IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
+    },
+    test in IntegrationTest <<= (test in IntegrationTest).dependsOn(copyProviders, stage in deployer, stage in proxy)
+  ).dependsOn(cli).enablePlugins(UniversalPlugin)

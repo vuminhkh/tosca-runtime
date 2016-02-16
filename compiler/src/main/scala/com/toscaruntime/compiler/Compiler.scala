@@ -23,17 +23,17 @@ object Compiler extends LazyLogging {
 
   val repositoryDependencyPattern = """([^\s:]*):([^\s]*)""".r
 
-  private def resolveDependenciesForCompilationWithRepository(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
-    resolveWithRepository(repositoryDependencyPattern.pattern, dependencyDefinition, repository).map {
+  private def resolveToscaRecipe(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
+    doResolve(repositoryDependencyPattern.pattern, dependencyDefinition, repository).map {
       case (dependencyName, dependencyVersion, resolvedDependency) => (dependencyName + ":" + dependencyVersion, resolvedDependency.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(dependencyName))
     }
   }
 
-  private def resolveDependenciesForAssemblyWithRepository(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
-    resolveWithRepository(repositoryDependencyPattern.pattern, dependencyDefinition, repository)
+  private def resolveCsarPath(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
+    doResolve(repositoryDependencyPattern.pattern, dependencyDefinition, repository)
   }
 
-  private def resolveWithRepository(pattern: Pattern, dependencyDefinition: String, repository: Path) = {
+  private def doResolve(pattern: Pattern, dependencyDefinition: String, repository: Path) = {
     val matcher = pattern.matcher(dependencyDefinition)
     if (matcher.matches()) {
       val dependencyName = matcher.group(1)
@@ -59,27 +59,46 @@ object Compiler extends LazyLogging {
     } else None
   }
 
-  def resolveDependency(csarName: String,
-                        csarVersion: String,
-                        repository: Path) = {
-    val dependencyResolver = resolveDependenciesForCompilationWithRepository(repository)
+  /**
+    * This method resolve a dependency and point to its recipe's directory
+    *
+    * @param csarName    name of the csar
+    * @param csarVersion version of the csar
+    * @param repository  repository
+    * @return path to the recipe's directory of the csar
+    */
+  def getCsarToscaRecipePath(csarName: String, csarVersion: String, repository: Path) = {
+    val dependencyResolver = resolveToscaRecipe(repository)
     dependencyResolver(csarName + ":" + csarVersion, None).map(_._2)
+  }
+
+  /**
+    * This method resolve a dependency and returns its path in the repository
+    *
+    * @param csarName    name of the csar
+    * @param csarVersion version of the csar
+    * @param repository  repository
+    * @return path to the recipe's directory of the csar
+    */
+  def getCsarPath(csarName: String, csarVersion: String, repository: Path) = {
+    val dependencyResolver = resolveCsarPath(repository)
+    dependencyResolver(csarName + ":" + csarVersion, None).map(_._3)
   }
 
   def compile(csarName: String,
               csarVersion: String,
               repository: Path): CompilationResult = {
-    val dependencyResolver = resolveDependenciesForCompilationWithRepository(repository)
+    val dependencyResolver = resolveToscaRecipe(repository)
     val csarPathOpt = dependencyResolver(csarName + ":" + csarVersion, None)
     csarPathOpt.map(csarPath => compile(csarPath._2, dependencyResolver)).getOrElse(throw new DependencyNotFoundException(s"Csar $csarName:$csarVersion not found in repository $repository"))
   }
 
   def compile(path: Path, repository: Path): CompilationResult = {
-    compile(path, resolveDependenciesForCompilationWithRepository(repository))
+    compile(path, resolveToscaRecipe(repository))
   }
 
   def install(path: Path, repository: Path): CompilationResult = {
-    val dependencyResolver = resolveDependenciesForCompilationWithRepository(repository)
+    val dependencyResolver = resolveToscaRecipe(repository)
     compile(path, dependencyResolver, mutable.Map.empty, {
       case compilationResult: CompilationResult =>
         if (compilationResult.isSuccessful) {
@@ -173,7 +192,7 @@ object Compiler extends LazyLogging {
                outputPath: Path,
                repositoryPath: Path,
                inputs: Option[Path]): CompilationResult = {
-    assembly(topologyPath, outputPath, repositoryPath, inputs, resolveDependenciesForAssemblyWithRepository(repositoryPath))
+    assembly(topologyPath, outputPath, repositoryPath, inputs, resolveCsarPath(repositoryPath))
   }
 
   def assembly(topologyPath: Path,

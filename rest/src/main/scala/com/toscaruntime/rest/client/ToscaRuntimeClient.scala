@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.{BadClientConfigurationException, DaemonResourcesNotFoundException}
+import com.toscaruntime.exception.{BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.JsObject
@@ -67,10 +67,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def deploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
     val deployResponse = wsClient.url(url).post("").map { response =>
-      response.json.as[RestResponse[DeploymentDetails]].data.get
-    }
-    deployResponse.onFailure {
-      case e => logger.error(s"Could not deploy deployment $deploymentId", e)
+      if (response.status == 200) {
+        response.json.as[RestResponse[DeploymentDetails]].data.get
+      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch install workflow : \n" + response.body)
     }
     deployResponse
   }
@@ -78,10 +77,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def undeploy(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
     val undeployResponse = wsClient.url(url).delete().map { response =>
-      response.json.as[RestResponse[DeploymentDetails]].data.get
-    }
-    undeployResponse.onFailure {
-      case e => logger.error(s"Could not undeploy deployment $deploymentId", e)
+      if (response.status == 200) {
+        response.json.as[RestResponse[DeploymentDetails]].data.get
+      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch uninstall workflow : \n" + response.body)
     }
     undeployResponse
   }
@@ -89,10 +87,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
     val url = getDeploymentAgentURL(deploymentId)
     val scaleResponse = wsClient.url(s"$url/nodes/$nodeName/instancesCount").withQueryString(("newInstancesCount", instancesCount.toString)).put("").map { response =>
-      response.json.as[RestResponse[DeploymentDetails]].data.get
-    }
-    scaleResponse.onFailure {
-      case e => logger.error(s"Could not perform scaling of $nodeName to $instancesCount for the deployment $deploymentId", e)
+      if (response.status == 200) {
+        response.json.as[RestResponse[DeploymentDetails]].data.get
+      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch scale workflow : \n" + response.body)
     }
     scaleResponse
   }

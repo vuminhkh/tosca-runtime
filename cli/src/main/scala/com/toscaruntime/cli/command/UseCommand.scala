@@ -80,8 +80,12 @@ object UseCommand {
     if (fail) state.fail else state
   }
 
+  def getDockerConfigPath(basedir: Path) = {
+    basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
+  }
+
   def switchConfiguration(url: String, cert: String, basedir: Path) = {
-    val dockerConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
+    val dockerConfigPath = getDockerConfigPath(basedir)
     val dockerCertPath = dockerConfigPath.resolve("cert")
     if (Files.exists(dockerCertPath)) {
       FileUtil.delete(dockerCertPath)
@@ -106,10 +110,11 @@ object UseCommand {
            |docker.io.dockerCertPath=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
+    dockerConfigPath
   }
 
   def getConfiguration(basedir: Path) = {
-    val dockerConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
+    val dockerConfigPath = getDockerConfigPath(basedir)
     val dockerConfigFilePath = dockerConfigPath.resolve("provider.conf")
     if (Files.exists(dockerConfigFilePath)) {
       println(s"Found existing configuration at [$dockerConfigPath]")

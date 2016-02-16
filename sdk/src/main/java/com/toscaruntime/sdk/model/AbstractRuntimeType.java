@@ -11,6 +11,8 @@ import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
 
+import tosca.constants.InstanceState;
+
 public abstract class AbstractRuntimeType {
 
     /**
@@ -27,7 +29,7 @@ public abstract class AbstractRuntimeType {
 
     protected DeploymentConfig config;
 
-    protected String state = "initial";
+    protected String state = InstanceState.INITIAL;
 
     protected Map<String, Object> properties = new HashMap<>();
 

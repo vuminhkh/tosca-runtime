@@ -1,6 +1,6 @@
 package com.toscaruntime.cli.command
 
-import com.toscaruntime.cli.util.DeployUtil
+import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.constant.ProviderConstant
 import sbt.complete.DefaultParsers._
@@ -32,10 +32,10 @@ object TeardownCommand {
     val target = argsMap.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET)
     val logCallback = client.tailBootstrapLog(providerName, target, System.out)
     try {
-      val details = DeployUtil.teardown(client, providerName, target)
+      val details = AgentUtil.teardown(client, providerName, target)
       client.deleteBootstrapAgent(providerName, target)
       client.deleteBootstrapImage(providerName, target)
-      DeployUtil.printDetails(s"Bootstrap $providerName", details)
+      AgentUtil.printDetails(s"Bootstrap $providerName", details)
     } finally {
       logCallback.close()
     }

@@ -18,26 +18,33 @@ import scala.language.postfixOps
   *
   * @author Minh Khang VU
   */
-object DeployUtil extends LazyLogging {
+object AgentUtil extends LazyLogging {
 
   private val waitForEver = 365 day
 
-  def listDeploymentAgents(client: ToscaRuntimeClient) = {
-    val deploymentAgents = Await.result(client.listDeploymentAgents(), waitForEver)
-    if (deploymentAgents.nonEmpty) {
-      println("Daemon has " + deploymentAgents.length + " deployment agent(s) : ")
+  def printDeploymentAgentsList(agentsList: List[List[String]]) = {
+    if (agentsList.nonEmpty) {
+      println("Daemon has " + agentsList.length + " deployment agent(s) : ")
       val headers = List("Deployment Id", "Status", "Created", "IP", "Container Id")
-      val deploymentsData = deploymentAgents.map { deployment =>
-        List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
-      }
-      println(TabulatorUtil.format(headers :: deploymentsData))
+      println(TabulatorUtil.format(headers :: agentsList))
     } else {
       println("No deployment agent found")
     }
   }
 
+  def listDeploymentAgents(client: ToscaRuntimeClient) = {
+    val deploymentAgents = Await.result(client.listDeploymentAgents(), waitForEver)
+    deploymentAgents.map { deployment =>
+      List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
+    }
+  }
+
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
     Await.result(client.deploy(deploymentId), waitForEver)
+  }
+
+  def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.undeploy(deploymentId), waitForEver)
   }
 
   def bootstrap(client: ToscaRuntimeClient, provider: String, target: String) = {
@@ -61,36 +68,31 @@ object DeployUtil extends LazyLogging {
     instances.foldLeft(0)((instanceCount, instance) => if (instance.state == state) instanceCount + 1 else instanceCount).toString
   }
 
-  def printDetails(name: String, details: DeploymentDetails): Unit = {
-    printNodesDetails(name, details)
-    printRelationshipsDetails(name, details)
-    printOutputsDetails(name, details)
+  def printDetails(deploymentId: String, details: DeploymentDetails): Unit = {
+    printNodesDetails(deploymentId, getNodesDetails(details))
+    printRelationshipsDetails(deploymentId, getRelationshipsDetails(details))
+    printOutputsDetails(deploymentId, getOutputsDetails(details))
   }
 
-  def printRelationshipsDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
-    printRelationshipsDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
-  }
-
-  def printRelationshipsDetails(name: String, details: DeploymentDetails): Unit = {
-    println(name + " has " + details.relationships.length + " relationships :")
-    val relationshipHeaders = List("Source", "Target", "Total Instance", "Pre-Configured", "Post-Configured", "Established")
-    val relationshipsData = details.relationships.map { relationship =>
+  def getRelationshipsDetails(details: DeploymentDetails) = {
+    details.relationships.map { relationship =>
+      val initialInstancesCount = countInstances(relationship.relationshipInstances, InstanceState.INITIAL)
       val preConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.PRE_CONFIGURED)
       val postConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.POST_CONFIGURED)
       val establishedConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.ESTABLISHED)
-      List(relationship.sourceNodeId, relationship.targetNodeId, relationship.relationshipInstances.length.toString, preConfiguredInstancesCount, postConfiguredInstancesCount, establishedConfiguredInstancesCount)
+      List(relationship.sourceNodeId, relationship.targetNodeId, relationship.relationshipInstances.length.toString, initialInstancesCount, preConfiguredInstancesCount, postConfiguredInstancesCount, establishedConfiguredInstancesCount)
     }
+  }
+
+  def printRelationshipsDetails(name: String, relationshipsData: List[List[String]]): Unit = {
+    println(name + " has " + relationshipsData.length + " relationships :")
+    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configured", "Post-Configured", "Established")
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 
-  def printNodesDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
-    printNodesDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
-  }
-
-  def printNodesDetails(name: String, details: DeploymentDetails): Unit = {
-    println(name + " has " + details.nodes.length + " nodes :")
-    val nodeHeaders = List("Node", "Total Instances", "Creating", "Created", "Configuring", "Configured", "Starting", "Started", "Stopping", "Deleting")
-    val nodesData = details.nodes.map { node =>
+  def getNodesDetails(details: DeploymentDetails) = {
+    details.nodes.map { node =>
+      val initialInstancesCount = countInstances(node.instances, InstanceState.INITIAL)
       val startingInstancesCount = countInstances(node.instances, InstanceState.STARTING)
       val startedInstancesCount = countInstances(node.instances, InstanceState.STARTED)
       val configuringInstancesCount = countInstances(node.instances, InstanceState.CONFIGURING)
@@ -99,8 +101,13 @@ object DeployUtil extends LazyLogging {
       val createdInstancesCount = countInstances(node.instances, InstanceState.CREATED)
       val deletingInstancesCount = countInstances(node.instances, InstanceState.DELETING)
       val stoppingInstancesCount = countInstances(node.instances, InstanceState.STOPPING)
-      List(node.id, node.instances.length.toString, creatingInstancesCount, createdInstancesCount, configuringInstancesCount, configuredInstancesCount, startingInstancesCount, startedInstancesCount, stoppingInstancesCount, deletingInstancesCount)
+      List(node.id, node.instances.length.toString, initialInstancesCount, creatingInstancesCount, createdInstancesCount, configuringInstancesCount, configuredInstancesCount, startingInstancesCount, startedInstancesCount, stoppingInstancesCount, deletingInstancesCount)
     }
+  }
+
+  def printNodesDetails(deploymentId: String, nodesData: List[List[String]]): Unit = {
+    println(deploymentId + " has " + nodesData.length + " nodes :")
+    val nodeHeaders = List("Node", "Total Instances", "Initial", "Creating", "Created", "Configuring", "Configured", "Starting", "Started", "Stopping", "Deleting")
     println(TabulatorUtil.format(nodeHeaders :: nodesData))
   }
 
@@ -181,20 +188,19 @@ object DeployUtil extends LazyLogging {
     }
   }
 
-  def printOutputsDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
-    printOutputsDetails("Deployment " + deploymentId, getDeploymentDetails(client, deploymentId))
+  def getOutputsDetails(details: DeploymentDetails) = {
+    details.outputs.map { output =>
+      List(output._1, output._2.toString)
+    }.toList
   }
 
-  def printOutputsDetails(name: String, details: DeploymentDetails): Unit = {
-    if (details.outputs.nonEmpty) {
-      println("Outputs for " + name + " :")
+  def printOutputsDetails(deploymentId: String, outputsData: List[List[String]]): Unit = {
+    if (outputsData.nonEmpty) {
+      println("Outputs for " + deploymentId + " :")
       val outputHeaders = List("Name", "Value")
-      val outputsData = details.outputs.map { output =>
-        List(output._1, output._2.toString)
-      }.toList
       println(TabulatorUtil.format(outputHeaders :: outputsData))
     } else {
-      println(name + " does not have any output")
+      println(deploymentId + " does not have any output")
     }
   }
 

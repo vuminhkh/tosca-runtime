@@ -71,3 +71,6 @@ deployments run demo-lifecycle
 agents log demo-lifecycle
 
 10/ Install Alien
+
+11/ Performance comparison in the same condition:
+

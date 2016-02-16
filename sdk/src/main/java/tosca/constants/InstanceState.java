@@ -2,6 +2,8 @@ package tosca.constants;
 
 public class InstanceState {
 
+    public static final String INITIAL = "initial";
+
     public static final String CREATING = "creating";
 
     public static final String CREATED = "created";

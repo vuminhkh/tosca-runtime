@@ -2,7 +2,7 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Files
 
-import com.toscaruntime.cli.util.{CompilationUtil, DeployUtil}
+import com.toscaruntime.cli.util.{CompilationUtil, AgentUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.constant.ProviderConstant
@@ -73,9 +73,9 @@ object BootStrapCommand {
         val containerId = client.createBootstrapAgent(providerName, target).getId
         val logCallback = client.tailContainerLog(containerId, System.out)
         try {
-          DeployUtil.waitForBootstrapAgent(client, providerName, target)
-          val details = DeployUtil.bootstrap(client, providerName, target)
-          DeployUtil.printDetails(s"Bootstrapped [$providerName]", details)
+          AgentUtil.waitForBootstrapAgent(client, providerName, target)
+          val details = AgentUtil.bootstrap(client, providerName, target)
+          AgentUtil.printDetails(s"Bootstrapped [$providerName]", details)
         } finally {
           logCallback.close()
         }

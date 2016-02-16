@@ -1,0 +1,38 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Wordpress partial topology for docker
+template_name: wordpress-template-docker-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - wordpress-template:1.1.0-SNAPSHOT
+  - docker-provider-types:*
+
+topology_template:
+
+  inputs:
+    os_arch:
+      type: string
+      required: false
+
+  outputs:
+    wordpress_url:
+      description: The Wordpress URL here with exposed port mapped
+      value: { concat: ["http://", get_attribute: [computeWww, public_ip_address], ":", get_property: [computeWww, "port_mappings[0].to"], get_property: [wordpress, context_root] ] }
+
+  node_templates:
+
+    computeDb:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+
+    computeWww:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+        exposed_ports:
+          - port: 80
+        port_mappings:
+          - from: 80
+            to: 50004
