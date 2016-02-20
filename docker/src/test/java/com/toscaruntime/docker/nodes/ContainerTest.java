@@ -16,7 +16,6 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.InternetProtocol;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.model.DeploymentConfig;
@@ -76,7 +75,7 @@ public class ContainerTest {
 
     @Test
     public void testContainerWithNetwork() throws MalformedURLException {
-        Container container = createContainer("java");
+        Container container = createContainer("toscaruntime/ubuntu-trusty");
         Network network = new Network();
         network.setDockerClient(container.getDockerClient());
         network.setIndex(1);
@@ -87,8 +86,8 @@ public class ContainerTest {
             network.create();
             container.create();
             container.start();
-            Map<String, String> outputs = container.execute("test", "javaHelp.sh", Maps.newHashMap(), Maps.newHashMap());
-            Assert.assertNotNull(outputs.get("JAVA_HELP"));
+            Map<String, String> outputs = container.execute("test", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build(), ImmutableMap.<String, String>builder().put("conf_artifact", "path/to/confDir").build());
+            Assert.assertEquals("Hello I'm John", outputs.get("OUTPUT_TEST"));
             Assert.assertNotNull(network.getNetworkId());
         } catch (Exception e) {
             logger.error("Error in test", e);
@@ -101,7 +100,7 @@ public class ContainerTest {
 
     @Test
     public void testCreateContainer() throws MalformedURLException {
-        Container container = createContainer("ubuntu");
+        Container container = createContainer("toscaruntime/ubuntu-trusty");
         try {
             container.create();
             container.start();

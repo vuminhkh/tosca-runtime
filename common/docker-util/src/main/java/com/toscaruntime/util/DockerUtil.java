@@ -35,6 +35,29 @@ public class DockerUtil {
     public static DockerClient buildDockerClient(Map<String, String> providerProperties) {
         Properties properties = new Properties();
         properties.putAll(providerProperties);
+        String url = (String) properties.remove(DOCKER_URL_KEY);
+        if (StringUtils.isBlank(url)) {
+            url = DEFAULT_DOCKER_URL_FOR_LINUX;
+        }
+        String certPath = (String) properties.remove(DOCKER_CERT_PATH_KEY);
+        try {
+            URL parsedUrl = new URL(url);
+            switch (parsedUrl.getProtocol()) {
+                case "http":
+                    properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
+                    break;
+                case "https":
+                    properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
+                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "1");
+                    properties.put(DockerClientConfig.DOCKER_CERT_PATH, certPath);
+                    break;
+                default:
+                    properties.put(DockerClientConfig.DOCKER_HOST, url);
+                    break;
+            }
+        } catch (MalformedURLException e) {
+            properties.put(DockerClientConfig.DOCKER_HOST, url);
+        }
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
         DockerCmdExecFactoryImpl execFactory = new DockerCmdExecFactoryImpl();
         execFactory.withMaxTotalConnections(Integer.MAX_VALUE);
@@ -42,11 +65,7 @@ public class DockerUtil {
         return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(execFactory).build();
     }
 
-    public static DockerClient buildDockerClient() {
-        return DockerClientBuilder.getInstance().build();
-    }
-
-    public static String getDockerURL(Map<String, String> providerProperties) {
+    private static String getDockerURL(Map<String, String> providerProperties) {
         return providerProperties.getOrDefault(DOCKER_URL_KEY, DEFAULT_DOCKER_URL_FOR_LINUX);
     }
 

@@ -166,7 +166,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
     labels.putAll(labels)
     val portHttp: ExposedPort = ExposedPort.tcp(9000)
     val portBindings: Ports = new Ports
-    portBindings.bind(portHttp, Ports.Binding(null))
+    portBindings.bind(portHttp, Ports.binding(null))
     val createdContainer = dockerClient
       .createContainerCmd(deploymentImageId)
       .withExposedPorts(portHttp)
