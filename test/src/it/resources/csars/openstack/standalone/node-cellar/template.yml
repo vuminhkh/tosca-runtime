@@ -1,0 +1,60 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Node cellar partial topology for openstack
+template_name: Nodecellar-template-openstack-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - Nodecellar:0.1.0-SNAPSHOT
+  - openstack-provider-types:*
+
+topology_template:
+
+  node_templates:
+
+    MongoHost:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: publicNetwork
+        - network: Network
+
+    NodejsHost:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: publicNetwork
+        - network: Network
+
+    Network:
+      type: com.toscaruntime.openstack.nodes.Network
+      properties:
+        network_name: nodeCellarStandAlone
+        cidr: "192.168.1.0/24"
+
+    publicNetwork:
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
+      properties:
+        network_name: { get_input: external_network_name}

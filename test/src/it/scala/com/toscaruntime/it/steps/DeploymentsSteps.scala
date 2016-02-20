@@ -1,7 +1,5 @@
 package com.toscaruntime.it.steps
 
-import java.nio.file.Path
-
 import com.toscaruntime.cli.command.DeploymentsCommand
 import com.toscaruntime.it.Context
 import com.toscaruntime.it.TestConstant._
@@ -15,9 +13,18 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
     csarsPath.resolve(provider).resolve(config).resolve(name)
   }
 
-  def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone, inputsPath: Option[Path] = None, bootstrap: Boolean = false) = {
+  def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone) = {
     val topologyPath = getTopologyPath(name, provider, config)
-    DeploymentsCommand.createDeploymentImage(topologyPath, inputsPath, repositoryPath, assemblyPath, name, Context.client, Context.dockerConfigPath, bootstrap)
+    DeploymentsCommand.createDeploymentImage(
+      topologyPath,
+      Context.providerInputPaths.get(provider),
+      repositoryPath,
+      assemblyPath,
+      name,
+      Context.client,
+      Context.providerConfigPaths(provider),
+      config == standalone
+    )
   }
 
   def listDeploymentImages() = {

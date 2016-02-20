@@ -283,7 +283,7 @@ public class Container extends Compute {
                                 envVars.put(matcher.group(1), matcher.group(2));
                             }
                         } else {
-                            log.info("[{}][{}][{}] {}", getId(), operationName, line.getStreamType().toString().toLowerCase(), line.getData());
+                            log.info("[{}][{}][{}] {}", nodeId, operationName, line.getStreamType().toString().toLowerCase(), line.getData());
                         }
                     }
                 }

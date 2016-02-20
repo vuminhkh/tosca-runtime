@@ -16,15 +16,15 @@ import scala.language.postfixOps
 object AgentsSteps extends MustMatchers {
 
   def scale(deploymentId: String, nodeName: String, newInstancesCount: Int) = {
-    Await.result(AgentsCommand.scale(Context.client, deploymentId, nodeName, newInstancesCount), 5 minutes)
+    Await.result(AgentsCommand.scale(Context.client, deploymentId, nodeName, newInstancesCount), 10 minutes)
   }
 
   def launchDeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 5 minutes)
+    Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 10 minutes)
   }
 
   def launchUndeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.undeploy(Context.client, deploymentId), 5 minutes)
+    Await.result(AgentsCommand.undeploy(Context.client, deploymentId), 10 minutes)
   }
 
   def createAgent(deploymentId: String) = {
@@ -40,7 +40,7 @@ object AgentsSteps extends MustMatchers {
   }
 
   def launchInstallWorkflow(deploymentId: String) = {
-    Await.result(AgentsCommand.launchInstallWorkflow(Context.client, deploymentId), 5 minutes)
+    Await.result(AgentsCommand.launchInstallWorkflow(Context.client, deploymentId), 10 minutes)
   }
 
   def assertDeploymentHasNode(deploymentId: String, nodeName: String, instanceCount: Int) = {
@@ -68,7 +68,7 @@ object AgentsSteps extends MustMatchers {
   }
 
   def launchUninstallWorkflow(deploymentId: String) = {
-    Await.result(AgentsCommand.launchUninstallWorkflow(Context.client, deploymentId), 5 minutes)
+    Await.result(AgentsCommand.launchUninstallWorkflow(Context.client, deploymentId), 10 minutes)
   }
 
   def stopAgent(deploymentId: String) = {

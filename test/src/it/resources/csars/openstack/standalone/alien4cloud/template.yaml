@@ -1,0 +1,109 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Alien4Cloud partial topology for docker
+template_name: alien4cloud-template-docker-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - Alien4Cloud with ELS cluster:0.1.0-SNAPSHOT
+  - openstack-provider-types:*
+
+topology_template:
+
+  outputs:
+    alien_url:
+      description: The Alien URL here with exposed port mapped
+      value: { concat: ["http://", get_attribute: [AlienFront, public_ip_address], ":8088/"] }
+
+  inputs:
+    os_arch:
+      type: string
+      required: false
+    os_type:
+      type: string
+      required: false
+    image:
+      type: string
+    flavor:
+      type: string
+    key_path:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: list
+      entry_schema:
+        type: string
+    external_network_name:
+      type: string
+
+  node_templates:
+
+    AlienFront:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: Internet
+        - network: Network
+
+    Persistence0:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: Internet
+        - network: Network
+
+    Persistence1:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: Internet
+        - network: Network
+
+    Internet:
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
+      properties:
+        network_name: { get_input: external_network_name}
+
+    Network:
+      type: com.toscaruntime.openstack.nodes.Network
+      properties:
+        network_name: alien4CloudStandAlone
+        cidr: "192.168.1.0/24"

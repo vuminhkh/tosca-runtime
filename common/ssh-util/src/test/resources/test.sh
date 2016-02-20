@@ -1,3 +1,3 @@
 #!/bin/bash -e
 
-ls -la
+more myData/toto/test.sh | grep bash

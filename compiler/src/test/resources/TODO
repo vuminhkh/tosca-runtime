@@ -20,6 +20,7 @@
   - Review class loading model
   - CLI handle correctly errors in rest call
   - Refactoring
+  - Ability to cancel running execution
 
 4.Provider:
   - Openstack:

@@ -1,5 +1,6 @@
 package com.toscaruntime.openstack.nodes;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -180,16 +181,19 @@ public class Compute extends tosca.nodes.Compute {
         if (StringUtils.isBlank(ipForSSSHSession)) {
             throw new OperationExecutionException("Compute [" + getId() + "] : IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
         }
-
         String user = getMandatoryPropertyAsString("login");
         String keyPath = getMandatoryPropertyAsString("key_path");
-        String absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
+        String absoluteKeyPath;
+        if (Paths.get(keyPath).isAbsolute()) {
+            absoluteKeyPath = keyPath;
+        } else {
+            absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
+        }
         String port = getPropertyAsString("ssh_port", "22");
         String operationName = "create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath;
         int connectRetry = getConnectRetry();
         long waitBetweenConnectRetry = getWaitBetweenConnectRetry();
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
-
         try {
             // Create the executor
             this.artifactExecutor = new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath);
