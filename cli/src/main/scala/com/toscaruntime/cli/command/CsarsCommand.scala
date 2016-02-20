@@ -57,9 +57,9 @@ object CsarsCommand {
       case (csar, version) => List(csar.getFileName.toString, version.getFileName.toString, Files.getLastModifiedTime(version).toString)
     }.toList
     if (allCsarsData.nonEmpty) {
-      TabulatorUtil.format(headers :: allCsarsData)
+      println(TabulatorUtil.format(headers :: allCsarsData))
     } else {
-      "No csar found"
+      println("No csar found")
     }
   }
 

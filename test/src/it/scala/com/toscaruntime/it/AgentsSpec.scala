@@ -17,7 +17,7 @@ class AgentsSpec extends AbstractSpec with MustMatchers {
       Given("I download and install all necessary types for a simple single compute deployment")
       downloadZipFileAndExtract("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("tosca-normative-types-master")))
-      installProvider(docker)
+      installProvider(dockerProvider)
 
       And("I create deployment image for the docker single compute topology")
       createDeploymentImage("single-compute") must be(true)

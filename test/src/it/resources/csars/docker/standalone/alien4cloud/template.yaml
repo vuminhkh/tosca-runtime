@@ -5,24 +5,46 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 imports:
-  - Alien4Cloud:0.1.0-SNAPSHOT
+  - Alien4Cloud with ELS cluster:0.1.0-SNAPSHOT
   - docker-provider-types:*
 
 topology_template:
 
   outputs:
-    load_balancer_url:
-      description: The Load Balancer URL here with exposed port mapped
-      value: { concat: ["http://", get_attribute: [Server, public_ip_address], ":", get_property: [Server, "port_mappings[0].to"]] }
+    alien_url:
+      description: The Alien URL here with exposed port mapped
+      value: { concat: ["http://", get_attribute: [AlienFront, public_ip_address], ":", get_property: [AlienFront, "port_mappings[0].to"]] }
 
   node_templates:
 
-    Server:
+    AlienFront:
       type: com.toscaruntime.docker.nodes.Container
       properties:
         image_id: toscaruntime/ubuntu-trusty
         exposed_ports:
-          - port: 8080
+          - port: 8088
         port_mappings:
-          - from: 8080
+          - from: 8088
             to: 50001
+      requirements:
+        - network: Network
+
+    Persistence0:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+      requirements:
+        - network: Network
+
+    Persistence1:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+      requirements:
+        - network: Network
+
+    Network:
+      type: com.toscaruntime.docker.nodes.Network
+      properties:
+        network_name: alienNet
+        cidr: 10.67.79.0/24

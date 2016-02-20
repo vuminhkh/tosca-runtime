@@ -5,11 +5,12 @@
 
 2.Tosca support:
   - Semantic analyzer completion
+    + Function validation for operation
+    + Function validation for output
+    + Validate all types non abstract before deployment
     + Validate scaling policy
     + Requirement satisfaction validation
-    + Function validation
     + Node filter
-    + Validate all types non abstract before deployment
   - Requirement properties
   - Relationship properties - Test
   - Function in node type properties declaration

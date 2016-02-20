@@ -6,6 +6,8 @@ import com.toscaruntime.rest.client.ToscaRuntimeClient
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.io.StdIn
 import scala.language.postfixOps
 
@@ -80,7 +82,7 @@ object AgentsCommand {
       (token(undeployOpt) ~ (Space ~> token(StringBasic))) |
       (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
 
-  private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent, execute 'help $commandName' for more details"),
+  private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent asynchronously, execute 'help $commandName' for more details"),
     s"""
        |$commandName [$listOpt| [$createOpt|$startOpt|$stopOpt|$deleteOpt|$deployOpt|$undeployOpt|$scaleOpt|$infoOpt|$logOpt] <deployment id> [other options]
        |$listOpt     : list all agents
@@ -108,6 +110,26 @@ object AgentsCommand {
     val containerId = client.createDeploymentAgent(deploymentId).getId
     AgentUtil.waitForDeploymentAgent(client, deploymentId)
     containerId
+  }
+
+  def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    val containerId = createAgent(client, deploymentId)
+    (containerId, launchInstallWorkflow(client, deploymentId))
+  }
+
+  def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
+    client.getDeploymentAgentInfo(deploymentId).flatMap { details =>
+      if (AgentUtil.hasLivingNodes(details)) {
+        launchUninstallWorkflow(client, deploymentId).map {
+          case _ =>
+            delete(client, deploymentId)
+            details
+        }
+      } else {
+        delete(client, deploymentId)
+        Future.successful(details)
+      }
+    }
   }
 
   def launchInstallWorkflow(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -157,9 +179,8 @@ object AgentsCommand {
     var fail = false
     args.head match {
       case ("create", deploymentId: String) =>
-        val containerId = createAgent(client, deploymentId)
-        println(s"Agent with docker id [$containerId] has been created to manage deployment [$deploymentId], will start to launch install workflow")
-        launchInstallWorkflow(client, deploymentId)
+        val deployResult = deploy(client, deploymentId)
+        println(s"Agent with docker id [${deployResult._1}] has been created to manage deployment [$deploymentId]")
         println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
       case "list" =>
         AgentUtil.printDeploymentAgentsList(listAgents(client))
@@ -210,7 +231,7 @@ object AgentsCommand {
         stop(client, deploymentId)
         println(s"Stopped $deploymentId")
       case ("delete", deploymentId: String) =>
-        delete(client, deploymentId)
+        undeploy(client, deploymentId)
         println(s"Deleted $deploymentId")
     }
     if (fail) state.fail else state

@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.exception.DeploymentException;
 import com.toscaruntime.exception.InvalidWorkflowException;
-import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.MockTask;
@@ -212,9 +211,11 @@ public class WorkflowEngine {
                         InstallLifeCycleTasks dependencyLifeCycle = allTasks.get(dependency);
                         if (dependencyLifeCycle != null) {
                             // A depends on B then A is configured only if B is started
+                            instanceLifeCycle.getPreConfigureSourceTask().dependsOn(dependencyLifeCycle.getStartTask());
                             instanceLifeCycle.getPreConfigureTargetTask().dependsOn(dependencyLifeCycle.getStartTask());
                             // A depends on B then B is configured only if A is created
                             dependencyLifeCycle.getPreConfigureSourceTask().dependsOn(instanceLifeCycle.getCreateTask());
+                            dependencyLifeCycle.getPreConfigureTargetTask().dependsOn(instanceLifeCycle.getCreateTask());
                             // A depends on B then B add source is executed only if A is started
                             dependencyLifeCycle.getAddSourceTask().dependsOn(instanceLifeCycle.getStartTask());
                         }

@@ -19,17 +19,12 @@ class DeploymentsSpec extends AbstractSpec with MustMatchers {
     scenario("Wordpress") {
 
       Given("I download and install all necessary types for wordpress deployment")
-      downloadZipFileAndExtract("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip", tempPath)
-      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("tosca-normative-types-master")))
-      downloadZipFileAndExtract("https://github.com/alien4cloud/alien4cloud-extended-types/archive/master.zip", tempPath)
-      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types-1.0-SNAPSHOT")))
-      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types-1.0-SNAPSHOT")))
+      installNormativeTypesAndProviders()
       downloadZipFileAndExtract("https://github.com/alien4cloud/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("mysql")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("php")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("wordpress")))
-      installProvider(docker)
 
       And("I install the abstract wordpress topology")
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("topology-wordpress")))

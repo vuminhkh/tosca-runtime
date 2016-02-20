@@ -77,4 +77,8 @@ object CompilerUtil {
   def serializePropertyValueToJson(obj: PropertyValue[_]) = {
     convertObject(obj).toString
   }
+
+  def normalizeCSARName(csarName: String) = {
+    csarName.replaceAll("[\\s:]", "_")
+  }
 }

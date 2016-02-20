@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.{BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
+import com.toscaruntime.exception.{AgentDownException, BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.JsObject
@@ -24,7 +24,7 @@ import scala.language.postfixOps
   */
 class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
-  private val system = akka.actor.ActorSystem("system")
+  val system = akka.actor.ActorSystem("system")
 
   private val daemonClient: DockerDaemonClient = new DockerDaemonClient(url, certPath)
 
@@ -39,7 +39,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     logger.info(s"New proxy url detected [${proxyURLOpt.getOrElse("none")}]")
   }
 
-  private val wsClient = {
+  val wsClient = {
     val config = new NingAsyncHttpClientConfigBuilder().build
     val builder = new AsyncHttpClientConfig.Builder(config)
       .setReadTimeout(Integer.MAX_VALUE)
@@ -60,7 +60,9 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def getDeploymentAgentInfo(deploymentId: String) = {
     val url = getDeploymentAgentURL(deploymentId)
     wsClient.url(url).get().map { response =>
-      response.json.as[RestResponse[DeploymentDetails]].data.get
+      if (response.status == 200) {
+        response.json.as[RestResponse[DeploymentDetails]].data.get
+      } else throw new AgentDownException(s"Agent is down and respond with status ${response.status} and body ${response.body}")
     }
   }
 

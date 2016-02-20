@@ -32,16 +32,16 @@ class CsarsSpec extends AbstractSpec {
       val listNormativeCsarResult = listCsarWithName("tosca-normative-types")
 
       Then("I should have normative types CSAR available in the repository")
-      assertCsarFound(listNormativeCsarResult, "tosca-normative-types", "1.0.0-ALIEN11")
+      assertCsarFound(listNormativeCsarResult, "tosca-normative-types", "1.0.0-SNAPSHOT")
 
-      When("I delete normative types csar 'csar delete tosca-normative-types:1.0.0-ALIEN11'")
-      deleteCsar("tosca-normative-types", "1.0.0-ALIEN11")
+      When("I delete normative types csar 'csar delete tosca-normative-types:1.0.0-SNAPSHOT'")
+      deleteCsar("tosca-normative-types", "1.0.0-SNAPSHOT")
 
       And("I list available CSARS with 'csars list tosca-normative-types'")
       val listNormativeCsarWithNoResult = listCsarWithName("tosca-normative-types")
 
       Then("I should not have normative types CSAR available in the repository")
-      assertCsarNotFound(listNormativeCsarWithNoResult, "tosca-normative-types", "1.0.0-ALIEN11")
+      assertCsarNotFound(listNormativeCsarWithNoResult, "tosca-normative-types", "1.0.0-SNAPSHOT")
     }
 
     scenario("Install csars with dependencies") {
@@ -50,7 +50,7 @@ class CsarsSpec extends AbstractSpec {
       downloadZipFileAndExtract("https://github.com/alien4cloud/alien4cloud-extended-types/archive/master.zip", tempPath)
 
       When("I install alien base types to the repository with 'csars install /path/to/alien-base-types'")
-      val errorResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types-1.0-SNAPSHOT"))
+      val errorResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types"))
 
       Then("I should have compilation errors as alien base types need normative types")
       assertCompilationErrorsDetected(errorResult)
@@ -62,7 +62,7 @@ class CsarsSpec extends AbstractSpec {
       installCsar(tempPath.resolve("tosca-normative-types-master"))
 
       And("I install alien base types to the repository with 'csars install /path/to/alien-base-types'")
-      val successfulResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types-1.0-SNAPSHOT"))
+      val successfulResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types"))
 
       Then("I should not have any compilation errors as normative types were installed")
       assertNoCompilationErrorsDetected(successfulResult)

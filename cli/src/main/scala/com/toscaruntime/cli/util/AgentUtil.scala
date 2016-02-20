@@ -90,6 +90,16 @@ object AgentUtil extends LazyLogging {
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 
+  def hasLivingNodes(details: DeploymentDetails): Boolean = {
+    details.nodes.foreach { node =>
+      if (node.instances.nonEmpty) return true
+    }
+    details.relationships.foreach(relationship =>
+      if (relationship.relationshipInstances.nonEmpty) return true
+    )
+    false
+  }
+
   def getNodesDetails(details: DeploymentDetails) = {
     details.nodes.map { node =>
       val initialInstancesCount = countInstances(node.instances, InstanceState.INITIAL)

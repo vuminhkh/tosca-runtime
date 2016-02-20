@@ -1,6 +1,7 @@
 @import com.toscaruntime.compiler.runtime.{Deployment, Node, Value}
 @import com.toscaruntime.compiler.util.CompilerUtil.escapeJavaIdentifier
 
+@import com.toscaruntime.compiler.util.CompilerUtil
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
@@ -68,7 +69,7 @@ public void initializeNodes@Html("() {")
   @Html("}")
 
 public void postInitializeConfig@Html("() {")
-  @Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + deployment.topologyCsarName + "\"));")
+  @Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + CompilerUtil.normalizeCSARName(deployment.topologyCsarName) + "\"));")
 @Html("}")
 
   public void initializeRelationships@Html("() {")

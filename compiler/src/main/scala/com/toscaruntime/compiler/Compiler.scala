@@ -5,6 +5,7 @@ import java.util.Comparator
 import java.util.regex.Pattern
 
 import com.toscaruntime.compiler.tosca._
+import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.exception.{DependencyNotFoundException, EmptyArchiveException, InvalidTopologyException}
 import com.toscaruntime.tosca.ToscaVersion
@@ -21,11 +22,13 @@ import scala.collection.mutable
   */
 object Compiler extends LazyLogging {
 
-  val repositoryDependencyPattern = """([^\s:]*):([^\s]*)""".r
+  val repositoryDependencyPattern = """([^:]*):([^:]*)""".r
 
   private def resolveToscaRecipe(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
     doResolve(repositoryDependencyPattern.pattern, dependencyDefinition, repository).map {
-      case (dependencyName, dependencyVersion, resolvedDependency) => (dependencyName + ":" + dependencyVersion, resolvedDependency.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(dependencyName))
+      case (dependencyName, dependencyVersion, resolvedDependency) =>
+        (dependencyName + ":" + dependencyVersion,
+          resolvedDependency.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(dependencyName)))
     }
   }
 
@@ -37,12 +40,13 @@ object Compiler extends LazyLogging {
     val matcher = pattern.matcher(dependencyDefinition)
     if (matcher.matches()) {
       val dependencyName = matcher.group(1)
-      if (!Files.exists(repository.resolve(dependencyName))) {
+      val dependencyPath = repository.resolve(CompilerUtil.normalizeCSARName(dependencyName))
+      if (!Files.exists(dependencyPath)) {
         None
       } else {
         val dependencyVersion = matcher.group(2)
         if ("*" == dependencyVersion) {
-          val maxVersionFound = Files.list(repository.resolve(dependencyName)).max(new Comparator[Path] {
+          val maxVersionFound = Files.list(dependencyPath).max(new Comparator[Path] {
             override def compare(o1: Path, o2: Path): Int = ToscaVersion(o1.getFileName.toString).compare(ToscaVersion(o2.getFileName.toString))
           })
           if (maxVersionFound.isPresent) {
@@ -50,7 +54,7 @@ object Compiler extends LazyLogging {
             Some((dependencyName, maxVersionFound.get().getFileName.toString, maxVersionFound.get()))
           } else None
         } else {
-          val resolvedDependency = repository.resolve(dependencyName).resolve(dependencyVersion)
+          val resolvedDependency = dependencyPath.resolve(dependencyVersion)
           if (!Files.exists(resolvedDependency)) {
             None
           } else Some((dependencyName, dependencyVersion, resolvedDependency))
@@ -104,7 +108,7 @@ object Compiler extends LazyLogging {
         if (compilationResult.isSuccessful) {
           logger.info("Build successful for path {}", path.toString)
           logger.info("Installing {} to {}", compilationResult.csar.csarName + ":" + compilationResult.csar.csarVersion, repository.toString)
-          val compilationOutput = repository.resolve(compilationResult.csar.csarName).resolve(compilationResult.csar.csarVersion)
+          val compilationOutput = repository.resolve(CompilerUtil.normalizeCSARName(compilationResult.csar.csarName)).resolve(compilationResult.csar.csarVersion)
           if (Files.exists(compilationOutput)) {
             FileUtil.delete(compilationOutput)
           }

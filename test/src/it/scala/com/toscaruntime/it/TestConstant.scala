@@ -18,9 +18,9 @@ object TestConstant {
 
   val assemblyPath = testDataPath.resolve("assembly")
 
-  val docker = "docker"
+  val dockerProvider = "docker"
 
-  val openstack = "openstack"
+  val openstackProvider = "openstack"
 
   val standalone = "standalone"
 

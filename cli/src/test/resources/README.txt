@@ -37,8 +37,8 @@ agents info wordpress
 
 8/ Apache load balancer samples:
 
-csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-base-types-1.0-SNAPSHOT/
-csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-extended-storage-types-1.0-SNAPSHOT/
+csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-base-types/
+csars install /Users/vuminhkh/Projects/alien4cloud-extended-types/alien-extended-storage-types/
 csars install /Users/vuminhkh/Projects/samples/apache-load-balancer/
 csars install /Users/vuminhkh/Projects/samples/tomcat-war/
 csars install /Users/vuminhkh/Projects/samples/topology-load-balancer-tomcat/

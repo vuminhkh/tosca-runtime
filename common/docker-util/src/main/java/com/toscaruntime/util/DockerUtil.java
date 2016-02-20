@@ -144,6 +144,6 @@ public class DockerUtil {
     }
 
     public static String normalizeResourceName(String name) {
-        return name.replaceAll("[^\\p{L}\\p{Nd}]+", "_");
+        return name.replaceAll("[^\\p{L}\\p{Nd}]+", "");
     }
 }

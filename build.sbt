@@ -300,5 +300,6 @@ lazy val itTest = project.in(file("test"))
       IO.copyDirectory((stage in docker).value, dockerProviderTarget)
       IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
     },
-    test in IntegrationTest <<= (test in IntegrationTest).dependsOn(copyProviders, stage in deployer, stage in proxy)
+    test in IntegrationTest <<= (test in IntegrationTest).dependsOn(copyProviders, stage in deployer, stage in proxy),
+    testOnly in IntegrationTest <<= (testOnly in IntegrationTest).dependsOn(copyProviders, stage in deployer, stage in proxy)
   ).dependsOn(cli).enablePlugins(UniversalPlugin)

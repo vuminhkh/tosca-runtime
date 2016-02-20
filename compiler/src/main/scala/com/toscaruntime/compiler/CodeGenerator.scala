@@ -212,7 +212,7 @@ object CodeGenerator extends LazyLogging {
     val compilationPath = csarPath :+ csar
     try {
       // Copy original archive to the compiled output
-      FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(csar.csarName), StandardCopyOption.REPLACE_EXISTING)
+      FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
       // Generate Java classes for types
       generateTypesForCsar(csar, recipeOutputPath.resolve(CompilerConstant.TYPES_FOLDER))
       val definitionsWithTopology = csar.definitions.filter(_._2.topologyTemplate.isDefined)

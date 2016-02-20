@@ -58,8 +58,8 @@ class DeployerSpec extends AbstractSpec {
 
       val alienExtendedTypes = gitPath.resolve("alien-extended-types")
       GitClient.clone("https://github.com/alien4cloud/alien4cloud-extended-types.git", alienExtendedTypes)
-      Compiler.install(alienExtendedTypes.resolve("alien-base-types-1.0-SNAPSHOT"), csarsPath)
-      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types-1.0-SNAPSHOT"), csarsPath)
+      Compiler.install(alienExtendedTypes.resolve("alien-base-types"), csarsPath)
+      Compiler.install(alienExtendedTypes.resolve("alien-extended-storage-types"), csarsPath)
 
       val sampleTypesOutput = gitPath.resolve("samples")
       GitClient.clone("https://github.com/alien4cloud/samples.git", sampleTypesOutput)

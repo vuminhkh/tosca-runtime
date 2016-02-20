@@ -76,4 +76,14 @@ object CsarsSteps extends MustMatchers with LazyLogging {
     Files.exists(providerPackagePath) must be(true)
     IO.copyDirectory(prepareTestDataPath.resolve(s"$provider-provider-types").toFile, repositoryPath.resolve(s"$provider-provider-types").toFile)
   }
+
+  def installNormativeTypesAndProviders() = {
+    downloadZipFileAndExtract("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip", tempPath)
+    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("tosca-normative-types-master")))
+    downloadZipFileAndExtract("https://github.com/alien4cloud/alien4cloud-extended-types/archive/master.zip", tempPath)
+    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types")))
+    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types")))
+    installProvider(dockerProvider)
+    installProvider(openstackProvider)
+  }
 }

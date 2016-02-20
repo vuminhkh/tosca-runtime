@@ -15,6 +15,18 @@ import scala.language.postfixOps
   */
 object AgentsSteps extends MustMatchers {
 
+  def scale(deploymentId: String, nodeName: String, newInstancesCount: Int) = {
+    Await.result(AgentsCommand.scale(Context.client, deploymentId, nodeName, newInstancesCount), 5 minutes)
+  }
+
+  def launchDeployment(deploymentId: String) = {
+    Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 5 minutes)
+  }
+
+  def launchUndeployment(deploymentId: String) = {
+    Await.result(AgentsCommand.undeploy(Context.client, deploymentId), 5 minutes)
+  }
+
   def createAgent(deploymentId: String) = {
     AgentsCommand.createAgent(Context.client, deploymentId)
   }
@@ -49,7 +61,10 @@ object AgentsSteps extends MustMatchers {
   }
 
   def assertDeploymentHasOutput(deploymentId: String, key: String) = {
-    AgentsCommand.getOutputsDetails(Context.client, deploymentId).filter(outputEntry => outputEntry.head == key && outputEntry.last.nonEmpty) must have size 1
+    val found = AgentsCommand.getOutputsDetails(Context.client, deploymentId).filter(outputEntry => outputEntry.head == key && outputEntry.last.nonEmpty)
+    found must have size 1
+    // Return the value for the output
+    found.head.last
   }
 
   def launchUninstallWorkflow(deploymentId: String) = {
