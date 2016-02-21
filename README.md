@@ -12,7 +12,7 @@ Advantage of Tosca Runtime:
 * Each deployment is self-contained, a deployment in failure will never impact others, possibility to stop, move the deployment manager agents to other machine, 
 restart in all transparency without the deployed applications even know about it.
 
-Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java. It focus on the aspects simplicity, light weight, rapidity to develop Tosca recipe, to test and to deploy.
+Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java.
 
 Getting Started
 ============================
@@ -34,7 +34,7 @@ Getting Started
     # Verify that you have the good version
     docker info
     # configure docker to expose http end point (For ex: in /etc/default/docker or /etc/systemd/system/docker.service.d/docker.conf)
-    DOCKER_OPTS="-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock"
+    echo "DOCKER_OPTS=\"-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock\"" | sudo tee /etc/default/docker
     # restart docker
     sudo service docker restart
     ```
