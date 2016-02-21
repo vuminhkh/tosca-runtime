@@ -45,6 +45,7 @@ public class DockerUtil {
             switch (parsedUrl.getProtocol()) {
                 case "http":
                     properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
+                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
                     break;
                 case "https":
                     properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
@@ -53,10 +54,12 @@ public class DockerUtil {
                     break;
                 default:
                     properties.put(DockerClientConfig.DOCKER_HOST, url);
+                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
                     break;
             }
         } catch (MalformedURLException e) {
             properties.put(DockerClientConfig.DOCKER_HOST, url);
+            properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
         }
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
         DockerCmdExecFactoryImpl execFactory = new DockerCmdExecFactoryImpl();
