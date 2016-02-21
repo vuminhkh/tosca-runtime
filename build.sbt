@@ -5,7 +5,7 @@ emojiLogs
 
 val commonSettings: Seq[Setting[_]] = Seq(
   organization := "com.toscaruntime",
-  version := "0.0.1-SNAPSHOT",
+  version := "0.0.1-M1",
   crossPaths := false,
   scalaVersion := "2.11.7",
   javacOptions ++= Seq(
