@@ -3,9 +3,9 @@ package controllers
 import javax.inject.Inject
 
 import com.github.dockerjava.api.model.NetworkSettings
+import com.toscaruntime.exception.BadClientConfigurationException
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfo, RestResponse}
-import com.toscaruntime.util.DockerUtil
 import play.api.cache._
 import play.api.libs.json.{JsObject, JsString, Json}
 import play.api.libs.ws.WSClient
@@ -24,7 +24,7 @@ class Application @Inject()(ws: WSClient, cache: CacheApi) extends Controller {
     if (url != null && url.nonEmpty) {
       new DockerDaemonClient(url, null)
     } else {
-      new DockerDaemonClient(DockerUtil.DEFAULT_DOCKER_URL_FOR_LINUX, null)
+      throw new BadClientConfigurationException("Need docker url to initialize toscaruntime proxy")
     }
   }
 

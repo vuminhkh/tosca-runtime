@@ -11,7 +11,7 @@ object Context {
 
   val client = new ToscaRuntimeClient(dockerConfig.getUrl, dockerConfig.getCertPath)
 
-  private val dockerConfigPath = UseCommand.getDockerConfigPath(testDataPath)
+  private val dockerConfigPath = UseCommand.getDaemonConfigPath(testDataPath)
 
   private val openstackConfigPath = ClassLoaderUtil.getPathForResource("conf/providers/openstack/")
 

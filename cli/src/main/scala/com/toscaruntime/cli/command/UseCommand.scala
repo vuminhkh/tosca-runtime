@@ -46,9 +46,7 @@ object UseCommand {
     s"""Use the default docker daemon configuration, this order will be respected to detect the configuration:
         |1. Read from DOCKER_HOST, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH
         |2. If not found, read from system properties ${DockerUtil.DOCKER_URL_KEY} and ${DockerUtil.DOCKER_CERT_PATH_KEY}
-        |3. If not found, assign default values based on OS:
-        |    - Mac, Windows => ${DockerUtil.DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS}
-        |    - Others => ${DockerUtil.DEFAULT_DOCKER_URL_FOR_LINUX}
+        |3. If not found, assign default values based on OS ${DockerUtil.getDefaultDockerDaemonConfig.getUrl}
      """.stripMargin
   )
 
@@ -80,12 +78,12 @@ object UseCommand {
     if (fail) state.fail else state
   }
 
-  def getDockerConfigPath(basedir: Path) = {
-    basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
+  def getDaemonConfigPath(basedir: Path) = {
+    basedir.resolve("conf").resolve("daemon")
   }
 
   def switchConfiguration(url: String, cert: String, basedir: Path) = {
-    val dockerConfigPath = getDockerConfigPath(basedir)
+    val dockerConfigPath = getDaemonConfigPath(basedir)
     val dockerCertPath = dockerConfigPath.resolve("cert")
     if (Files.exists(dockerCertPath)) {
       FileUtil.delete(dockerCertPath)
@@ -110,11 +108,16 @@ object UseCommand {
            |docker.io.dockerCertPath=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
+    // Try to auto-generate docker provider config
+    val defaultDockerProviderConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
+    if (!Files.exists(defaultDockerProviderConfigPath.resolve("provider.conf"))) {
+      FileUtil.copy(dockerConfigPath.resolve("provider.conf"), defaultDockerProviderConfigPath.resolve("auto_generated_provider.conf"))
+    }
     dockerConfigPath
   }
 
   def getConfiguration(basedir: Path) = {
-    val dockerConfigPath = getDockerConfigPath(basedir)
+    val dockerConfigPath = getDaemonConfigPath(basedir)
     val dockerConfigFilePath = dockerConfigPath.resolve("provider.conf")
     if (Files.exists(dockerConfigFilePath)) {
       println(s"Found existing configuration at [$dockerConfigPath]")

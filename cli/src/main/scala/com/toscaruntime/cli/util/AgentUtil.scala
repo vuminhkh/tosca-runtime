@@ -231,12 +231,16 @@ object AgentUtil extends LazyLogging {
   }
 
   def waitForDeploymentAgent(client: ToscaRuntimeClient, deploymentId: String) = {
+    // Avoid that it freezes on some systems
+    Thread.sleep(2000L)
     FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
     }, "Wait for deployment " + deploymentId, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])
   }
 
   def waitForBootstrapAgent(client: ToscaRuntimeClient, provider: String, target: String) = {
+    // Avoid that it freezes on some systems
+    Thread.sleep(2000L)
     FailSafeUtil.doActionWithRetry(new Action[Any] {
       override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), waitForEver)
     }, "Wait for bootstrap " + provider, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])

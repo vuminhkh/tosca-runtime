@@ -1,10 +1,14 @@
 package com.toscaruntime.util;
 
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.file.Paths;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -20,11 +24,12 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.jaxrs.DockerCmdExecFactoryImpl;
 import com.google.common.collect.Maps;
+import com.toscaruntime.exception.BadClientConfigurationException;
 import com.toscaruntime.exception.OperationExecutionException;
 
 public class DockerUtil {
 
-    public static final String DEFAULT_DOCKER_URL_FOR_LINUX = "unix:///var/run/docker.sock";
+    public static final String DEFAULT_DOCKER_URL = "unix:///var/run/docker.sock";
 
     public static final String DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS = "https://192.168.99.100:2376";
 
@@ -32,12 +37,36 @@ public class DockerUtil {
 
     public static final String DOCKER_CERT_PATH_KEY = "docker.io.dockerCertPath";
 
+    public static String getDefaultDockerUrlForLinux() {
+        String defaultValueForLinux = DEFAULT_DOCKER_URL;
+        try {
+            if (!NetworkInterface.getNetworkInterfaces().hasMoreElements()) {
+                return defaultValueForLinux;
+            }
+            NetworkInterface networkInterface = NetworkInterface.getByName("eth0");
+            if (networkInterface == null) {
+                // eth0 not configured then take the first one
+                networkInterface = NetworkInterface.getNetworkInterfaces().nextElement();
+            }
+            Enumeration<InetAddress> address = networkInterface.getInetAddresses();
+            while (address.hasMoreElements()) {
+                InetAddress currentAddress = address.nextElement();
+                if (currentAddress instanceof Inet4Address && !currentAddress.isLoopbackAddress()) {
+                    return "http://" + currentAddress.getHostAddress() + ":2376";
+                }
+            }
+            return defaultValueForLinux;
+        } catch (SocketException ignored) {
+            return defaultValueForLinux;
+        }
+    }
+
     public static DockerClient buildDockerClient(Map<String, String> providerProperties) {
         Properties properties = new Properties();
         properties.putAll(providerProperties);
         String url = (String) properties.remove(DOCKER_URL_KEY);
         if (StringUtils.isBlank(url)) {
-            url = DEFAULT_DOCKER_URL_FOR_LINUX;
+            throw new BadClientConfigurationException("Docker url is not defined " + DOCKER_URL_KEY);
         }
         String certPath = (String) properties.remove(DOCKER_CERT_PATH_KEY);
         try {
@@ -68,10 +97,6 @@ public class DockerUtil {
         return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(execFactory).build();
     }
 
-    private static String getDockerURL(Map<String, String> providerProperties) {
-        return providerProperties.getOrDefault(DOCKER_URL_KEY, DEFAULT_DOCKER_URL_FOR_LINUX);
-    }
-
     public static DockerDaemonConfig getDefaultDockerDaemonConfig() throws MalformedURLException {
         String dockerHostFromEnv = System.getenv("DOCKER_HOST");
         String dockerURLFromProperty = System.getProperty(DOCKER_URL_KEY);
@@ -91,14 +116,18 @@ public class DockerUtil {
                 String certPath = Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString();
                 return new DockerDaemonConfig(url, certPath);
             } else {
-                return new DockerDaemonConfig(DEFAULT_DOCKER_URL_FOR_LINUX, null);
+                return new DockerDaemonConfig(getDefaultDockerUrlForLinux(), null);
             }
         }
     }
 
     public static String getDockerHostIP(Map<String, String> providerProperties) throws UnknownHostException {
-        String dockerURL = getDockerURL(providerProperties);
-        return InetAddress.getByName(getDockerHost(dockerURL)).getHostAddress();
+        String dockerURL = providerProperties.get(DOCKER_URL_KEY);
+        if (StringUtils.isBlank(dockerURL)) {
+            return "127.0.0.1";
+        } else {
+            return InetAddress.getByName(getDockerHost(dockerURL)).getHostAddress();
+        }
     }
 
     public static DockerClient buildDockerClient(String url, String certPath) {

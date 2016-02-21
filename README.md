@@ -14,6 +14,89 @@ restart in all transparency without the deployed applications even know about it
 
 Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java. It focus on the aspects simplicity, light weight, rapidity to develop Tosca recipe, to test and to deploy.
 
+Getting Started
+============================
+
+### Pre-requisite
+
+* Install docker (at least 1.10.1, as tosca runtime uses new docker functionality as network, volume API etc ...)
+
+  - For Linux user:
+  
+    ```bash
+    # Uninstall old version if necessary
+    # Install latest version
+    curl -sSL https://get.docker.com/ | sudo sh
+    # Add your user to docker group, not necessary but convenient, or else only root can use docker
+    sudo usermod -aG docker your-user
+    # log out and back in for this to take effect, perform a little test to make sure that you can connect to the daemon with your user
+    docker ps -a
+    # Verify that you have the good version
+    docker info
+    # configure docker to expose http end point (For ex: in /etc/default/docker or /etc/systemd/system/docker.service.d/docker.conf)
+    DOCKER_OPTS="-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock"
+    # restart docker
+    sudo service docker restart
+    ```
+  
+  - For Mac OS user: https://docs.docker.com/engine/installation/mac/
+  
+  - For Windows user: https://docs.docker.com/engine/installation/windows/
+  
+  Note that for Mac OS and Windows, if you already had the docker toolbox installed but with older version, you can just upgrade your daemon's version
+  
+  ```bash
+  docker-machine upgrade default
+  ```
+
+* Download [tosca-runtime](https://github.com/vuminhkh/tosca-runtime/releases), uncompress
+
+### Play with Tosca Runtime in local with docker
+
+  ```bash
+  # get some Alien samples
+  git clone https://github.com/alien4cloud/alien4cloud-extended-types.git
+  git clone https://github.com/alien4cloud/samples.git
+  # launch tosca runtime
+  cd path_to_toscaruntime
+  ./tosca-runtime.sh
+  # From here inside tosca runtime shell
+  # show pre-installed csars
+  csars list
+  # Install some types necessary to deploy a topology apache load balancer
+  csars install /home/vuminhkh/Projects/alien4cloud-extended-types/alien-base-types/
+  csars install /home/vuminhkh/Projects/samples/apache-load-balancer/
+  csars install /home/vuminhkh/Projects/samples/tomcat-war/
+  csars install /home/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
+  csars install /home/vuminhkh/Projects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
+  # First deployment may take some minutes as it pulls base image from toscaruntime docker hub, next deployments will be much more rapid
+  # Create a deployment image
+  deployments create apache-lb -c apache-load-balancer-template-docker-sa:*
+  # Create agent to deploy
+  agents create apache-lb
+  
+  ```
+
+### Build Tosca Runtime
+
+* Install [Maven](https://maven.apache.org/install.html), [SBT](http://www.scala-sbt.org/0.13/docs/Setup.html)
+* Clone and build docker-java (temporary for the moment as some modifications are not yet merged in the official release):
+  
+  ```bash
+    git clone https://github.com/vuminhkh/docker-java.git
+    cd docker-java/
+    mvn clean install -DskipTests
+  ```
+* Clone and build tosca-runtime
+
+  ```bash
+    git clone https://github.com/vuminhkh/tosca-runtime.git
+    cd tosca-runtime/
+    sbt
+    # Inside sbt CLI, build and package
+    > dist
+  ```
+
 Architecture
 ============================
 Basically, Tosca Runtime is a set of command line tools that make development/deployment of Tosca recipe quicker.
@@ -102,4 +185,4 @@ After the bootstrap operation, you can point the CLI to the new daemon by doing:
   # To reset to the default local docker daemon configuration
   use-default
   ```
-* After that you can begin to work with this bootstrapped daemon in tout transparency as if you are working in local configuration.
+* After that you can begin to work with this bootstrapped daemon in all transparency as if you are working in local configuration.
