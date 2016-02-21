@@ -26,11 +26,7 @@ public class PostConfigureTargetTask extends AbstractTask {
                 relationshipInstance.getTarget().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())
         ).forEach(relationshipInstance -> {
             relationshipInstance.postConfigureTarget();
-            if (relationshipInstance.getState().equals(RelationshipInstanceState.POST_CONFIGURED_SOURCE)) {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.POST_CONFIGURED, true);
-            } else {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.POST_CONFIGURED_TARGET, true);
-            }
+            WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.POST_CONFIGURING, RelationshipInstanceState.POST_CONFIGURED);
         });
     }
 

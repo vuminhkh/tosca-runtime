@@ -1,14 +1,13 @@
 package com.toscaruntime.compiler
 
-import java.nio.file.{Files, Path, StandardCopyOption}
+import java.nio.file.{Path, StandardCopyOption}
 
 import _root_.tosca.relationships.{AttachTo, HostedOn}
-import com.google.common.io.Closeables
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.exception.{InvalidTopologyException, NotSupportedGenerationException}
-import com.toscaruntime.util.{ClassLoaderUtil, CodeGeneratorUtil, FileUtil}
+import com.toscaruntime.util.{ClassLoaderUtil, CodeGeneratorUtil, FileUtil, PathUtil}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -204,13 +203,8 @@ object CodeGenerator extends LazyLogging {
   }
 
   def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {
-    var recipeOutputPath = outputPath
-    val createZip = !Files.isDirectory(outputPath)
-    if (createZip) {
-      recipeOutputPath = FileUtil.createZipFileSystem(outputPath)
-    }
-    val compilationPath = csarPath :+ csar
-    try {
+    PathUtil.openAsDirectory(outputPath, recipeOutputPath => {
+      val compilationPath = csarPath :+ csar
       // Copy original archive to the compiled output
       FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
       // Generate Java classes for types
@@ -224,10 +218,6 @@ object CodeGenerator extends LazyLogging {
         // Generate Deployment for the topology
         FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(CompilerConstant.DEPLOYMENT_FILE))
       }
-    } finally {
-      if (createZip) {
-        Closeables.close(recipeOutputPath.getFileSystem, true)
-      }
-    }
+    }, createIfNotExist = true)
   }
 }

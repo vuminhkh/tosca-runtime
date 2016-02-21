@@ -32,6 +32,8 @@ object AgentsCommand {
 
   private val deleteOpt = "delete"
 
+  private val forceOpt = "-f"
+
   private val deployOpt = "deploy"
 
   private val undeployOpt = "undeploy"
@@ -76,7 +78,7 @@ object AgentsCommand {
       (token(startOpt) ~ (Space ~> token(StringBasic))) |
       (token(logOpt) ~ (Space ~> token(StringBasic))) |
       (token(stopOpt) ~ (Space ~> token(StringBasic))) |
-      (token(deleteOpt) ~ (Space ~> token(StringBasic))) |
+      (token(deleteOpt) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))) |
       (token(deployOpt) ~ (Space ~> token(StringBasic))) |
       (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
       (token(undeployOpt) ~ (Space ~> token(StringBasic))) |
@@ -103,6 +105,7 @@ object AgentsCommand {
        |$scaleOpt    : launch default scale workflow on the given node
        |              $scaleOpt <deployment id> $nodeNameOpt <node name> $instancesCountOpt <instances count>
        |$deleteOpt   : delete agent
+       |              $deleteOpt $forceOpt : force the delete of the agent without undeploying application first
     """.stripMargin
   )
 
@@ -230,8 +233,9 @@ object AgentsCommand {
       case ("stop", deploymentId: String) =>
         stop(client, deploymentId)
         println(s"Stopped $deploymentId")
-      case ("delete", deploymentId: String) =>
-        undeploy(client, deploymentId)
+      case (("delete", force: Option[String]), deploymentId: String) =>
+        if (force.nonEmpty) delete(client, deploymentId)
+        else undeploy(client, deploymentId)
         println(s"Deleted $deploymentId")
     }
     if (fail) state.fail else state

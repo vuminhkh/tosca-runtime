@@ -1,6 +1,6 @@
 tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
 description: Alien4Cloud partial topology for docker
-template_name: alien4cloud-template-docker-sa
+template_name: alien4cloud-template-openstack-sa
 template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
@@ -25,8 +25,6 @@ topology_template:
     image:
       type: string
     flavor:
-      type: string
-    key_path:
       type: string
     key_pair_name:
       type: string

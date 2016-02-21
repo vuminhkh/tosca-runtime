@@ -8,7 +8,7 @@ import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.constant.{ProviderConstant, RuntimeConstant}
 import com.toscaruntime.rest.client.ToscaRuntimeClient
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{FileUtil, PathUtil}
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -167,12 +167,7 @@ object DeploymentsCommand {
             FileUtil.delete(deploymentWorkDir)
           }
           Files.createDirectories(deploymentWorkDir)
-          val topologyIsZipped = Files.isRegularFile(topologyPath)
-          var realTopologyPath = topologyPath
-          if (topologyIsZipped) {
-            realTopologyPath = FileUtil.createZipFileSystem(topologyPath)
-          }
-          try {
+          PathUtil.openAsDirectory(topologyPath, realTopologyPath => {
             val inputsPath = createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String]))
             val providerName = createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String]
             val providerTarget = createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String]
@@ -195,11 +190,7 @@ object DeploymentsCommand {
               println(s"No configuration found for [$providerName], target [$providerTarget] at [$providerConf]")
               fail = true
             }
-          } finally {
-            if (topologyIsZipped) {
-              realTopologyPath.getFileSystem.close()
-            }
-          }
+          })
         }
       case "cleanDangling" =>
         client.cleanDanglingImages()

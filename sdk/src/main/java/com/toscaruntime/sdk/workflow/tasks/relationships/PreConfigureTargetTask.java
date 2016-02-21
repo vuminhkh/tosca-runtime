@@ -25,11 +25,7 @@ public class PreConfigureTargetTask extends AbstractTask {
                 relationshipInstance.getTarget().getPreConfiguredRelationshipNodes().add(relationshipInstance.getNode())
         ).forEach(relationshipInstance -> {
             relationshipInstance.preConfigureTarget();
-            if (relationshipInstance.getState().equals(RelationshipInstanceState.PRE_CONFIGURED_SOURCE)) {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.PRE_CONFIGURED, true);
-            } else {
-                WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.PRE_CONFIGURED_TARGET, true);
-            }
+            WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.PRE_CONFIGURING, RelationshipInstanceState.PRE_CONFIGURED);
         });
     }
 

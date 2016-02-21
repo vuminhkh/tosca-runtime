@@ -57,7 +57,7 @@ object AgentsSteps extends MustMatchers {
     }
     relationsFound must have size 1
     relationsFound.head(2) must be(instanceCount.toString)
-    relationsFound.head.last must be(instanceCount.toString)
+    relationsFound.head(9) must be(instanceCount.toString)
   }
 
   def assertDeploymentHasOutput(deploymentId: String, key: String) = {

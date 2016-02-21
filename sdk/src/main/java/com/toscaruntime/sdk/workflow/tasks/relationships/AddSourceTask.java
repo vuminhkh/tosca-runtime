@@ -25,11 +25,7 @@ public class AddSourceTask extends AbstractTask {
             synchronized (relationshipInstance.getTarget()) {
                 // Do not add source on the same target instance in concurrence
                 relationshipInstance.addSource();
-                if (relationshipInstance.getState().equals(RelationshipInstanceState.ADDED_TARGET)) {
-                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.ESTABLISHED, true);
-                } else {
-                    WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.ADDED_SOURCE, true);
-                }
+                WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.ESTABLISHING, RelationshipInstanceState.ESTABLISHED);
             }
         });
     }

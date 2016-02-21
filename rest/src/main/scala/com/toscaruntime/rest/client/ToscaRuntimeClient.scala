@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.{AgentDownException, BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
+import com.toscaruntime.exception.{AgentNotRunningException, BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
 import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.libs.json.JsObject
@@ -62,7 +62,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     wsClient.url(url).get().map { response =>
       if (response.status == 200) {
         response.json.as[RestResponse[DeploymentDetails]].data.get
-      } else throw new AgentDownException(s"Agent is down and respond with status ${response.status} and body ${response.body}")
+      } else throw new AgentNotRunningException(s"Agent is down and respond with status ${response.status} and body ${response.body}")
     }
   }
 

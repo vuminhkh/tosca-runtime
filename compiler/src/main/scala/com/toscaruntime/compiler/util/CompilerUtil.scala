@@ -1,10 +1,9 @@
 package com.toscaruntime.compiler.util
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 import com.google.common.base.CaseFormat
 import com.toscaruntime.compiler.tosca._
-import com.toscaruntime.util.FileUtil
 
 import scala.util.parsing.json._
 
@@ -36,21 +35,6 @@ object CompilerUtil {
 
   def toCamelCase(text: String) = {
     CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
-  }
-
-  /**
-    * Try to create file system if the path is a zip file
-    *
-    * @param paths the path list to create file systems
-    * @return map of path --> file system
-    */
-  def createZipFileSystems(paths: List[Path]) = {
-    paths.map { path =>
-      if (!Files.isDirectory(path)) {
-        val zipPath = FileUtil.createZipFileSystem(path)
-        (zipPath, Some(zipPath.getFileSystem))
-      } else (path, None)
-    }
   }
 
   private def convertObject(item: Any): Any = {

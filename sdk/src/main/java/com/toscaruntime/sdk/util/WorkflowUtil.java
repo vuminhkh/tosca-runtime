@@ -75,4 +75,17 @@ public class WorkflowUtil {
     public static MockTask mockTask(String taskName, AbstractTask copyFrom) {
         return new MockTask(taskName, copyFrom.getNodeInstances(), copyFrom.getRelationshipInstances(), copyFrom.getNodeInstance(), copyFrom.getTaskExecutor(), copyFrom.getWorkflowExecution());
     }
+
+    public static void changeRelationshipState(
+            tosca.relationships.Root relationshipInstance,
+            Map<String, Root> nodeInstances,
+            Set<tosca.relationships.Root> relationshipInstances,
+            String fromState,
+            String toState) {
+        if (relationshipInstance.getState().equals(fromState)) {
+            refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, toState, true);
+        } else {
+            refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, fromState, true);
+        }
+    }
 }

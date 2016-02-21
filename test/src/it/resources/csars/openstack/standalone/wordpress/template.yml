@@ -1,6 +1,6 @@
 tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
 description: Wordpress partial topology for openstack
-template_name: wordpress-template-openstack-standalone
+template_name: wordpress-template-openstack-sa
 template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 

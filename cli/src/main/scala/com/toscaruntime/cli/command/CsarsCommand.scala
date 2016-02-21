@@ -6,7 +6,7 @@ import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
 import com.toscaruntime.cli.util.{CompilationUtil, TabulatorUtil}
 import com.toscaruntime.compiler.Compiler
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{FileUtil, PathUtil}
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -73,14 +73,14 @@ object CsarsCommand {
     args.head match {
       case ("list", filter: Option[String]) => printCsarsList(repository, filter)
       case ("compile", csarPath: String) =>
-        val result = Compiler.compile(Paths.get(csarPath), repository)
+        val result = PathUtil.openAsDirectory(Paths.get(csarPath), realPath => Compiler.compile(realPath, repository))
         if (result.isSuccessful) {
           println(s"[$csarPath] compiled successfully")
         } else {
           CompilationUtil.showErrors(result)
         }
       case ("install", csarPath: String) =>
-        val result = Compiler.install(Paths.get(csarPath), repository)
+        val result = PathUtil.openAsDirectory(Paths.get(csarPath), realPath => Compiler.install(realPath, repository))
         if (result.isSuccessful) {
           println(s"[$csarPath] installed successfully to [$repository]")
         } else {
@@ -131,7 +131,7 @@ object CsarsCommand {
               println(s"    + Policy types: [${policyTypes.size}]")
             }
             definitionEntry._2.topologyTemplate.foreach { topologyTemplate =>
-              println(s"    + Topology with [${topologyTemplate.nodeTemplates.size}] nodes")
+              println(s"    + Topology with [${topologyTemplate.nodeTemplates.map(_.size).getOrElse(0)}] nodes")
             }
           }
         } else {

@@ -30,11 +30,7 @@ public class RemoveSourceTask extends AbstractTask {
             try {
                 synchronized (relationshipInstance.getTarget()) {
                     relationshipInstance.removeSource();
-                    if (relationshipInstance.getState().equals(RelationshipInstanceState.REMOVED_TARGET)) {
-                        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.CONFIGURED, true);
-                    } else {
-                        WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, relationshipInstance, RelationshipInstanceState.REMOVED_SOURCE, true);
-                    }
+                    WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.UNLINKING, RelationshipInstanceState.POST_CONFIGURED);
                 }
             } catch (Exception e) {
                 log.warn(relationshipInstance + " removedSource failed", e);

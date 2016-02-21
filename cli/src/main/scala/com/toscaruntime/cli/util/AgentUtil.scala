@@ -77,16 +77,32 @@ object AgentUtil extends LazyLogging {
   def getRelationshipsDetails(details: DeploymentDetails) = {
     details.relationships.map { relationship =>
       val initialInstancesCount = countInstances(relationship.relationshipInstances, InstanceState.INITIAL)
+      val preConfiguringInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.PRE_CONFIGURING)
       val preConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.PRE_CONFIGURED)
+      val postConfiguringInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.POST_CONFIGURING)
       val postConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.POST_CONFIGURED)
-      val establishedConfiguredInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.ESTABLISHED)
-      List(relationship.sourceNodeId, relationship.targetNodeId, relationship.relationshipInstances.length.toString, initialInstancesCount, preConfiguredInstancesCount, postConfiguredInstancesCount, establishedConfiguredInstancesCount)
+      val establishingInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.ESTABLISHING)
+      val establishedInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.ESTABLISHED)
+      val unlinkingInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.UNLINKING)
+      List(
+        relationship.sourceNodeId,
+        relationship.targetNodeId,
+        relationship.relationshipInstances.length.toString,
+        initialInstancesCount,
+        preConfiguringInstancesCount,
+        preConfiguredInstancesCount,
+        postConfiguringInstancesCount,
+        postConfiguredInstancesCount,
+        establishingInstancesCount,
+        establishedInstancesCount,
+        unlinkingInstancesCount
+      )
     }
   }
 
   def printRelationshipsDetails(name: String, relationshipsData: List[List[String]]): Unit = {
     println(name + " has " + relationshipsData.length + " relationships :")
-    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configured", "Post-Configured", "Established")
+    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configuring", "Pre-Configured", "Post-Configured", "Post-Configuring", "Establishing", "Established", "Unlinking")
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 

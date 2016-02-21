@@ -124,7 +124,7 @@ object Compiler extends LazyLogging {
               dependencyResolver: (String, Option[Path]) => Option[(String, Path)],
               compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
               postCompilation: (CompilationResult) => Unit = { _ => }): CompilationResult = {
-    logger.info("Compile {}", path.getFileName.toString)
+    logger.info("Compile {}", path)
     val absPath = path.toAbsolutePath
     val yamlFiles = FileUtil.listFiles(absPath, ".yml", ".yaml").asScala.toList
     if (yamlFiles.isEmpty) {
@@ -164,11 +164,11 @@ object Compiler extends LazyLogging {
         val dependenciesCompilationResult = dependencies.map {
           case ((defFile, ParsedValue(dependency)), Some((dependencyId, dependencyPath))) =>
             if (compilationCache.contains(dependencyId)) {
-              logger.debug("Compile {}, hit cache for dependency {}", path.getFileName.toString, dependency)
+              logger.debug("Compile {}, hit cache for dependency {}", path, dependency)
               val dependencyCompilationResult = compilationCache.get(dependencyId).get
               (dependencyId, dependencyCompilationResult)
             } else {
-              logger.debug("Compile {}, compiling transitive dependency {}", path.getFileName.toString, dependency)
+              logger.debug("Compile {}, compiling transitive dependency {}", path, dependency)
               val dependencyCompilationResult = compile(dependencyPath, dependencyResolver, compilationCache)
               compilationCache.put(dependencyId, dependencyCompilationResult)
               (dependencyId, dependencyCompilationResult)

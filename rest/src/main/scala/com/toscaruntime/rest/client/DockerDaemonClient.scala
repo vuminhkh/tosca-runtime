@@ -10,9 +10,9 @@ import com.github.dockerjava.api.model._
 import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContainerResultCallback}
 import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
-import com.toscaruntime.exception.DaemonResourcesNotFoundException
+import com.toscaruntime.exception.{AgentNotRunningException, DaemonResourcesNotFoundException}
 import com.toscaruntime.rest.model.DeploymentInfo
-import com.toscaruntime.util.{DockerUtil, FileUtil, JavaScalaConversionUtil}
+import com.toscaruntime.util.{DockerUtil, FileUtil, JavaScalaConversionUtil, PathUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.yaml.snakeyaml.Yaml
@@ -104,18 +104,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrapContext: Map[String, Any]) = {
     val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
     val tempRecipePath = tempDockerImageBuildDir.resolve("deployment").resolve("recipe")
-    val recipeIsZipped = Files.isRegularFile(recipePath)
-    var realRecipePath = recipePath
-    if (recipeIsZipped) {
-      realRecipePath = FileUtil.createZipFileSystem(recipePath)
-    }
-    try {
-      FileUtil.copy(realRecipePath, tempRecipePath)
-    } finally {
-      if (recipeIsZipped) {
-        realRecipePath.getFileSystem.close()
-      }
-    }
+    PathUtil.openAsDirectory(recipePath, FileUtil.copy(_, tempRecipePath))
     copyDockerFile(tempDockerImageBuildDir.resolve("Dockerfile"), deploymentId)
     val deploymentConfig = ConfigFactory.empty()
       .withValue(DeployerConstant.DEPLOYMENT_NAME_KEY, ConfigValueFactory.fromAnyRef(deploymentId))
@@ -201,15 +190,15 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def start(deploymentId: String) = {
-    dockerClient.startContainerCmd(getAgent(deploymentId).get.getId).exec()
+    dockerClient.startContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).exec()
   }
 
   def stop(deploymentId: String) = {
-    dockerClient.stopContainerCmd(getAgent(deploymentId).get.getId).exec()
+    dockerClient.stopContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).exec()
   }
 
   def delete(deploymentId: String) = {
-    dockerClient.removeContainerCmd(getAgent(deploymentId).get.getId).withForce(true).exec()
+    dockerClient.removeContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).withForce(true).exec()
   }
 
   def tailContainerLog(containerId: String, output: PrintStream) = {
@@ -223,7 +212,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def tailLog(deploymentId: String, output: PrintStream) = {
-    val containerId = getAgent(deploymentId).getOrElse(throw new DaemonResourcesNotFoundException(s"Deployment $deploymentId not found")).getId
+    val containerId = getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId
     tailContainerLog(containerId, output)
   }
 

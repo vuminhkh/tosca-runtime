@@ -4,6 +4,8 @@
   - Docker provider
 
 2.Tosca support:
+  - Authorize space in yaml key
+  - Authorize null yaml key ?
   - Semantic analyzer completion
     + Function validation for operation
     + Function validation for output

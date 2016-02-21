@@ -100,6 +100,9 @@ public class Volume extends BlockStorage {
         if (owner != null) {
             volumeAttachmentApi.attachVolumeToServerAsDevice(volume.getId(), owner.getAttributeAsString("provider_resource_id"), getPropertyAsString("device"));
             waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.IN_USE);
+            if (!volume.getAttachments().isEmpty()) {
+                setAttribute("device", volume.getAttachments().iterator().next().getDevice());
+            }
         }
     }
 
@@ -124,6 +127,7 @@ public class Volume extends BlockStorage {
                 throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not attach volume " + volume.getId() + " to server " + serverId);
             }
             volumeAttachmentApi.detachVolumeFromServer(volume.getId(), owner.getAttributeAsString("provider_resource_id"));
+            removeAttribute("device");
             waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         }
     }
