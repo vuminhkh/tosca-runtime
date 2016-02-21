@@ -1,6 +1,6 @@
 package com.toscaruntime.cli.command
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
@@ -84,20 +84,11 @@ object UseCommand {
 
   def switchConfiguration(url: String, cert: String, basedir: Path) = {
     val dockerConfigPath = getDaemonConfigPath(basedir)
-    val dockerCertPath = dockerConfigPath.resolve("cert")
-    if (Files.exists(dockerCertPath)) {
-      FileUtil.delete(dockerCertPath)
-    }
     if (!Files.exists(dockerConfigPath)) {
       Files.createDirectories(dockerConfigPath)
     }
     if (StringUtils.isNotBlank(cert)) {
-      Files.createDirectories(dockerCertPath)
-      val certPath = Paths.get(cert)
-      println(s"Copy certificates from [$certPath] to [$dockerCertPath]")
-      Files.copy(certPath.resolve("key.pem"), dockerCertPath.resolve("key.pem"))
-      Files.copy(certPath.resolve("cert.pem"), dockerCertPath.resolve("cert.pem"))
-      Files.copy(certPath.resolve("ca.pem"), dockerCertPath.resolve("ca.pem"))
+      copyCertificates(Paths.get(cert), dockerConfigPath.resolve("cert"))
     }
     var config =
       s"""# Attention this file is auto-generated and might be overwritten when configuration changes
@@ -108,12 +99,25 @@ object UseCommand {
            |docker.io.dockerCertPath=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
+
     // Try to auto-generate docker provider config
     val defaultDockerProviderConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
     if (!Files.exists(defaultDockerProviderConfigPath.resolve("provider.conf"))) {
-      FileUtil.copy(dockerConfigPath.resolve("provider.conf"), defaultDockerProviderConfigPath.resolve("auto_generated_provider.conf"))
+      FileUtil.copy(dockerConfigPath.resolve("provider.conf"), defaultDockerProviderConfigPath.resolve("auto_generated_provider.conf"), StandardCopyOption.REPLACE_EXISTING)
+      if (StringUtils.isNotBlank(cert)) copyCertificates(Paths.get(cert), defaultDockerProviderConfigPath.resolve("cert"))
     }
     dockerConfigPath
+  }
+
+  private def copyCertificates(certPath: Path, output: Path): Unit = {
+    println(s"Copy certificates from [$certPath] to [$output]")
+    if (Files.exists(output)) {
+      FileUtil.delete(output)
+    }
+    Files.createDirectories(output)
+    Files.copy(certPath.resolve("key.pem"), output.resolve("key.pem"))
+    Files.copy(certPath.resolve("cert.pem"), output.resolve("cert.pem"))
+    Files.copy(certPath.resolve("ca.pem"), output.resolve("ca.pem"))
   }
 
   def getConfiguration(basedir: Path) = {
