@@ -42,7 +42,7 @@ val commonSettings: Seq[Setting[_]] = Seq(
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
-    name := "tosca-runtime-parent"
+    name := "toscaruntime-parent"
   ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
@@ -70,7 +70,7 @@ lazy val common = project.in(file("common"))
 lazy val sharedContracts = project.in(file("common/shared-contracts"))
   .settings(commonSettings: _*)
   .settings(
-    name := "shared-contracts"
+    name := "toscaruntime-shared-contracts"
   ).enablePlugins(UniversalPlugin)
 
 lazy val miscUtil = project.in(file("common/misc-util"))
