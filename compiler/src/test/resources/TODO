@@ -7,6 +7,7 @@
   - Authorize space in yaml key
   - Authorize null yaml key ?
   - Semantic analyzer completion
+    + Input should be compatible with property that perform get_input
     + Function validation for operation
     + Function validation for output
     + Validate all types non abstract before deployment
@@ -26,8 +27,12 @@
 
 4.Provider:
   - Openstack:
+    + Test exit with error
     + Manage public_ip for docker on swarm
     + Windows support
+  - Docker:
+    + Review status code and outputs detection
+    + Test exit with error
 
 5.Runtime:
   - Agent State Persistence

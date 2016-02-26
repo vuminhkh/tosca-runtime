@@ -2,6 +2,6 @@
 
 echo "Test execute script with args ${HELLO_ARGS}"
 
-ls -la ./.toscaruntime/recipe
+ls -la
 
 export OUTPUT_TEST="Hello ${HELLO_ARGS}"

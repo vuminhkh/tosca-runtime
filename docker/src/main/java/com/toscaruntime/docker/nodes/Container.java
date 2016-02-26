@@ -251,7 +251,6 @@ public class Container extends Compute {
         try {
             Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
             final String endOfOutputToken = UUID.randomUUID().toString();
-            Files.createDirectories(localGeneratedScriptPath.getParent());
             localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
             localGeneratedScriptWriter.write("#!/bin/bash\n");
             Map<String, String> allInputs = ArtifactExecutionUtil.processInputs(environmentVariables, deploymentArtifacts, RECIPE_LOCATION, "/");

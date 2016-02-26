@@ -1,6 +1,7 @@
 package com.toscaruntime.sdk.model;
 
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -23,7 +24,7 @@ public class DeploymentConfig {
     /**
      * Inputs of the deployment
      */
-    private Map<String, Object> inputs;
+    private Map<String, Object> inputs = new HashMap<>();
 
     /**
      * The bootstrap context hold information about the context of the daemon application server (id of network on openstack etc ...)

@@ -5,7 +5,7 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 imports:
-  - demo-lifecycle:1.0.0-SNAPSHOT
+  - demo-lifecycle:*
   - docker-provider-types:*
 
 topology_template:

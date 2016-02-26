@@ -153,7 +153,6 @@ public abstract class Deployment {
                                  boolean bootstrap) {
         this.config = new DeploymentConfig();
         this.config.setDeploymentName(deploymentName);
-        this.config.setInputs(inputs);
         this.config.setRecipePath(recipePath);
         this.config.setBootstrap(bootstrap);
         this.config.setBootstrapContext(bootstrapContext);
@@ -161,6 +160,7 @@ public abstract class Deployment {
         this.config.setProviderProperties(providerProperties);
         this.deploymentPostConstructors = postConstructors;
         postInitializeConfig();
+        this.config.getInputs().putAll(inputs);
         initializeNodes();
         initializeRelationships();
     }

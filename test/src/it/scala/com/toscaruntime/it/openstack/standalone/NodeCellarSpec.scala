@@ -34,7 +34,7 @@ class NodeCellarSpec extends AbstractSpec with MustMatchers {
       val url = assertDeploymentHasOutput("node-cellar", "Nodecellar_nodecellar_url")
 
       And("A request on the application's url should return a response 200 OK")
-      checkURL(url, 200, Set.empty, None, 5 minutes)
+      checkURL(url, 200, Set.empty, 5 minutes)
 
       And("I should be able to undeploy it without error")
       launchUndeployment("node-cellar")

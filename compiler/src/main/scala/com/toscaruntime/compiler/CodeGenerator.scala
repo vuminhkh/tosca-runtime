@@ -178,14 +178,15 @@ object CodeGenerator extends LazyLogging {
     val topologyOutputs = topology.outputs.getOrElse(Map.empty).map {
       case (outputName: ParsedValue[String], output: Output) => (outputName.value, parseValue(output.value.get))
     }
-
+    val defaultInputs = parseProperties(None, topology.inputs)
     val topologyRoots = topologyNodes.values.filter(node => node.parent.isEmpty)
     runtime.Deployment(
       topologyNodes.values.toSeq,
       topologyRelationships.toSeq,
       topologyRoots.toSeq,
       topologyOutputs,
-      topologyCsarName)
+      topologyCsarName,
+      defaultInputs)
   }
 
   def parseValue(fieldValue: EvaluableFieldValue): runtime.Value = {

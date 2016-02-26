@@ -51,6 +51,9 @@ public class PropertyUtil {
     }
 
     public static Object getProperty(Map<String, ?> properties, String path) {
+        if (properties == null) {
+            return null;
+        }
         Object propertyValue = properties.get(path);
         if (propertyValue != null) {
             return propertyValue;

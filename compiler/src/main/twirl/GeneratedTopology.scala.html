@@ -1,7 +1,6 @@
 @import com.toscaruntime.compiler.runtime.{Deployment, Node, Value}
-@import com.toscaruntime.compiler.util.CompilerUtil.escapeJavaIdentifier
-
 @import com.toscaruntime.compiler.util.CompilerUtil
+@import com.toscaruntime.compiler.util.CompilerUtil.escapeJavaIdentifier
 @(deployment: Deployment)
 
 @instantiateInstance(node: Node) = {
@@ -46,7 +45,7 @@
 
   @instantiateInstances(node: Node) = {
   @Html("int " + node.javaIdentifier + "InstancesCount = " + "this.nodes.get(\"" + node.name + "\").getInstancesCount();")
-  @Html("for (int ")@node.javaIdentifier@Html("Index = 1; ")@node.javaIdentifier@Html("Index <= " + node.javaIdentifier + "InstancesCount; ")@node.javaIdentifier@Html("Index++) {")
+  @Html("for (int ") @node.javaIdentifier@Html("Index = 1; ") @node.javaIdentifier@Html("Index <= " + node.javaIdentifier + "InstancesCount; ") @node.javaIdentifier@Html("Index++) {")
   @instantiateInstance(node)
   @Html("}")
 }
@@ -70,6 +69,9 @@ public void initializeNodes@Html("() {")
 
 public void postInitializeConfig@Html("() {")
   @Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + CompilerUtil.normalizeCSARName(deployment.topologyCsarName) + "\"));")
+@deployment.defaultInputs.map { defaultInput =>
+  @Html("this.config.getInputs().put(\"" + defaultInput._1 + "\", " + base.html.evaluateValue(defaultInput._2) + ");")
+}
 @Html("}")
 
   public void initializeRelationships@Html("() {")

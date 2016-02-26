@@ -32,6 +32,18 @@ class CompilerSpec extends AbstractSpec {
   }
 
   "Compiler" must {
+    "be able to show error when function declaration not correct" in {
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
+      GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
+      installAndAssertCompilationResult(normativeTypesOutput)
+      val compilationResult = Compiler.compile(ClassLoaderUtil.getPathForResource("csars/invalidFunction/"), csarsPath)
+      showCompilationErrors(compilationResult)
+      compilationResult.isSuccessful must be(false)
+      compilationResult.errors.head._2.size must be(8)
+    }
+  }
+
+  "Compiler" must {
     "be able to compile alien extended types" in {
       val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)

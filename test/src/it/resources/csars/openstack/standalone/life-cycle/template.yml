@@ -5,10 +5,27 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 imports:
-  - demo-lifecycle:1.0.0-SNAPSHOT
+  - demo-lifecycle:*
   - openstack-provider-types:*
 
 topology_template:
+  inputs:
+    image:
+      type: string
+    flavor:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: list
+      entry_schema:
+        type: string
+    external_network_name:
+      type: string
 
   node_templates:
 

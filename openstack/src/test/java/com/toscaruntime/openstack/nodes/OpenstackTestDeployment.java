@@ -51,10 +51,12 @@ public class OpenstackTestDeployment extends Deployment {
         Map<String, Object> propertiesVolume = new HashMap<>();
         propertiesVolume.put("size", "1 GIB");
         propertiesVolume.put("openstack_fail_safe", openstackFailSafeConfig);
+        propertiesVolume.put("device", "/dev/vdc");
         initializeNode("Volume", DeletableVolume.class, "Compute", null, propertiesVolume, new HashMap<>());
 
         setDependencies("Compute", "Network");
         setDependencies("Compute", "ExternalNetwork");
+        setDependencies("Volume", "Compute");
     }
 
     @Override
@@ -63,6 +65,10 @@ public class OpenstackTestDeployment extends Deployment {
         for (int computeIndex = 1; computeIndex <= 1; computeIndex++) {
             Compute compute = new Compute();
             initializeInstance(compute, "Compute", computeIndex, null, null);
+            for (int volumeIndex = 1; volumeIndex <= 1; volumeIndex++) {
+                DeletableVolume volume = new DeletableVolume();
+                initializeInstance(volume, "Volume", volumeIndex, compute, null);
+            }
         }
 
         for (int networkIndex = 1; networkIndex <= 1; networkIndex++) {
@@ -74,17 +80,13 @@ public class OpenstackTestDeployment extends Deployment {
             ExternalNetwork externalNetwork = new ExternalNetwork();
             initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
         }
-
-        for (int volumeIndex = 1; volumeIndex <= 1; volumeIndex++) {
-            DeletableVolume volume = new DeletableVolume();
-            initializeInstance(volume, "Volume", volumeIndex, null, null);
-        }
     }
 
     @Override
     protected void initializeRelationshipInstances() {
         generateRelationshipInstances("Compute", "Network", tosca.relationships.Network.class);
         generateRelationshipInstances("Compute", "ExternalNetwork", tosca.relationships.Network.class);
+        generateRelationshipInstances("Volume", "Compute", tosca.relationships.AttachTo.class);
     }
 
     @Override
@@ -96,6 +98,7 @@ public class OpenstackTestDeployment extends Deployment {
     public void initializeRelationships() {
         generateRelationships("Compute", "Network", new HashMap<>(), tosca.relationships.Network.class);
         generateRelationships("Compute", "ExternalNetwork", new HashMap<>(), tosca.relationships.Network.class);
+        generateRelationships("Volume", "Compute", new HashMap<>(), tosca.relationships.AttachTo.class);
     }
 
     public java.util.Map<String, Object> getOutputs() {

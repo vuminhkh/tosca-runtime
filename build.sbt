@@ -132,7 +132,7 @@ lazy val restModel = project.in(file("common/rest-model"))
 lazy val rest = project.in(file("rest"))
   .settings(commonSettings: _*)
   .settings(
-    name := "rest",
+    name := "toscaruntime-rest",
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
   ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)

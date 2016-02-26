@@ -123,7 +123,8 @@ object Compiler extends LazyLogging {
   def compile(path: Path,
               dependencyResolver: (String, Option[Path]) => Option[(String, Path)],
               compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
-              postCompilation: (CompilationResult) => Unit = { _ => }): CompilationResult = {
+              postCompilation: (CompilationResult) => Unit = { _ => },
+              switchOnAnalyzeSemantic: Boolean = true): CompilationResult = {
     logger.info("Compile {}", path)
     val absPath = path.toAbsolutePath
     val yamlFiles = FileUtil.listFiles(absPath, ".yml", ".yaml").asScala.toList
@@ -169,7 +170,8 @@ object Compiler extends LazyLogging {
               (dependencyId, dependencyCompilationResult)
             } else {
               logger.debug("Compile {}, compiling transitive dependency {}", path, dependency)
-              val dependencyCompilationResult = compile(dependencyPath, dependencyResolver, compilationCache)
+              // Don't perform semantic analyze on dependency as it's already been done when the dependencies were installed
+              val dependencyCompilationResult = compile(dependencyPath, dependencyResolver, compilationCache, _ => {}, switchOnAnalyzeSemantic = false)
               compilationCache.put(dependencyId, dependencyCompilationResult)
               (dependencyId, dependencyCompilationResult)
             }
@@ -180,10 +182,16 @@ object Compiler extends LazyLogging {
         val dependenciesErrors = dependenciesCompilationResult.flatMap {
           case (_, depRes) => depRes.errors
         }
-        val semanticErrors = SemanticAnalyzer.analyze(csar, absPath, dependenciesCsars.values.toList)
-        val result = CompilationResult(absPath, csar, dependenciesCsars, semanticErrors ++ dependenciesErrors)
-        postCompilation(result)
-        result
+        if (switchOnAnalyzeSemantic) {
+          val semanticErrors = SemanticAnalyzer.analyze(csar, absPath, dependenciesCsars.values.toList)
+          val result = CompilationResult(absPath, csar, dependenciesCsars, semanticErrors ++ dependenciesErrors)
+          postCompilation(result)
+          result
+        } else {
+          val result = CompilationResult(absPath, csar, dependenciesCsars, dependenciesErrors)
+          postCompilation(result)
+          result
+        }
       }
     } else {
       val result = CompilationResult(path = absPath, csar = csar, errors = errors)
@@ -204,7 +212,7 @@ object Compiler extends LazyLogging {
                repositoryPath: Path,
                inputs: Option[Path],
                assemblyDependenciesResolver: (String, Option[Path]) => Option[(String, String, Path)]): CompilationResult = {
-    val topologyCompilationResult = compile(topologyPath, repositoryPath)
+    val topologyCompilationResult = compile(topologyPath, resolveToscaRecipe(repositoryPath), mutable.Map.empty, _ => {}, switchOnAnalyzeSemantic = false)
     val inputsParseResult = inputs.map { inputsPath =>
       SyntaxAnalyzer.parse(SyntaxAnalyzer.topologyExternalInputs, FileUtil.readTextFile(inputsPath))
     }
@@ -233,11 +241,18 @@ object Compiler extends LazyLogging {
       }
       val inputErrors = mergedTopology.inputs.getOrElse(Map.empty).flatMap {
         case (inputName, inputDefinition) =>
-          if (inputDefinition.required.value && !inputsValues.contains(inputName)) {
-            List(CompilationError(s"Input [${inputName.value}] required but not defined", inputName.pos, Some(inputName.value)))
+          if (inputDefinition.default.isEmpty && inputDefinition.required.value) {
+            if (!inputsValues.contains(inputName)) {
+              List(CompilationError(s"Input [${inputName.value}] required but not defined", inputName.pos, Some(inputName.value)))
+            } else if (!inputsValues(inputName).isInstanceOf[PropertyValue[_]]) {
+              List(CompilationError(s"Input [${inputName.value}] do not support function in input value", inputName.pos, Some(inputName.value)))
+            } else List.empty
           } else List.empty
       }.toList
-      if (inputErrors.isEmpty) {
+      val definitionWithMergedTopology = definitionWithTopology.copy(topologyTemplate = Some(mergedTopology))
+      val definitionsWithMergedTopology = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithMergedTopology)
+      val semanticErrors = SemanticAnalyzer.analyze(topologyCompilationResult.csar.copy(definitions = definitionsWithMergedTopology), topologyPath, topologyCompilationResult.dependencies.values.toList)
+      if (inputErrors.isEmpty && semanticErrors.isEmpty) {
         val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
         val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
         CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
@@ -249,9 +264,9 @@ object Compiler extends LazyLogging {
         CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
         topologyCompilationResult.copy(csar = mergedCsar)
       } else {
-        val errorKeyForTopology = topologyPath.toAbsolutePath.toString
-        val allErrors = inputErrors ++ topologyCompilationResult.errors.getOrElse(errorKeyForTopology, List.empty)
-        topologyCompilationResult.copy(errors = topologyCompilationResult.errors + (errorKeyForTopology -> allErrors))
+        val errorsWithInput = inputErrors ++ topologyCompilationResult.errors.getOrElse(definitionWithTopologyEntry.get._1, List.empty)
+        val errorsWithInputAndSemantic = semanticErrors + (definitionWithTopologyEntry.get._1 -> (semanticErrors.getOrElse(definitionWithTopologyEntry.get._1, List.empty) ++ errorsWithInput))
+        topologyCompilationResult.copy(errors = errorsWithInputAndSemantic)
       }
     } else {
       logger.info(s"Topology ${topologyPath.toString} has compilation errors")

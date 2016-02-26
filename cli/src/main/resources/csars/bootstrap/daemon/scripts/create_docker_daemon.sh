@@ -14,4 +14,3 @@ if hash systemctl 2>/dev/null; then
 else
   sudo service docker stop
 fi
-

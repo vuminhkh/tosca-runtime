@@ -79,6 +79,9 @@ node_types:
       ssh_port:
         type: integer
         default: 22
+      elevate_privilege:
+        type: boolean
+        default: false
       networks:
         type: list
         entry_schema:
@@ -136,6 +139,9 @@ node_types:
       availability_zone:
         type: string
         required: false
+      device:
+        type: string
+        required: false
       volume_description:
         type: string
         required: false
@@ -150,3 +156,11 @@ node_types:
         required: false
         entry_schema:
           type: string
+      openstack_fail_safe:
+        type: com.toscaruntime.openstack.OpenstackFailSafeConfiguration
+        default:
+          operation_retry: 720
+          wait_between_operation_retry: 10 s
+
+  com.toscaruntime.openstack.nodes.DeletableVolume:
+    derived_from: com.toscaruntime.openstack.nodes.Volume

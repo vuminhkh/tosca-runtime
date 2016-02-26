@@ -46,6 +46,10 @@ public class ExternalNetwork extends tosca.nodes.Network {
     }
 
     public String getNetworkId() {
-        return network.getId();
+        if (network != null) {
+            return network.getId();
+        } else {
+            return getPropertyAsString("network_id");
+        }
     }
 }

@@ -1,3 +1,14 @@
-#!/bin/bash -e
+#!/bin/bash
+set -e
 
-wget -S -q http://a4c_registry/log_node_operation.php?node=GenericA&instance=GenericA_1_1_1&operation=stop --post-file=/tmp/1656.env
+log_file_path="/tmp/hss/log/mapr_zk_start.log"
+exec > >(tee ${log_file_path}) 2>&1
+
+echo "**** START ZOOKEEPER"
+
+service mapr-zookeeper start
+
+echo "END ZOOKEEPER"
+
+
+exit 1

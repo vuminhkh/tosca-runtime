@@ -6,6 +6,7 @@ import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 
 import scala.collection.mutable.ListBuffer
+import scala.util.parsing.input.Positional
 
 object SemanticAnalyzer {
 
@@ -44,7 +45,7 @@ object SemanticAnalyzer {
 
   def analyzeMapValue(mapValue: ComplexValue, valueType: FieldDefinition, csarPath: List[Csar]): List[CompilationError] = {
     valueType.entrySchema.map { entryDefinition =>
-      mapValue.value.flatMap(analyzeValue(_, entryDefinition, csarPath))
+      mapValue.value.values.flatMap(analyzeValue(_, entryDefinition, csarPath))
     }.getOrElse(List.empty).toList
   }
 
@@ -52,7 +53,7 @@ object SemanticAnalyzer {
     val compilationErrors = ListBuffer[CompilationError]()
     val propertiesDefinitions = propertiesDefinitionsOpt.getOrElse(Map.empty)
     complex.value.foreach {
-      case (propertyName: ParsedValue[String], propertyValue: Any) =>
+      case (propertyName: ParsedValue[String], propertyValue: FieldValue) =>
         if (propertiesDefinitions.isEmpty) {
           compilationErrors += CompilationError(s"Property with name ${propertyName.value} is not expected, not any property has been defined for this type", propertyName.pos, Some(propertyName.value))
         } else {
@@ -79,7 +80,7 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
-  def analyzeValue(value: Any, valueType: FieldDefinition, csarPath: List[Csar]): List[CompilationError] = {
+  def analyzeValue(value: FieldValue, valueType: FieldDefinition, csarPath: List[Csar]): List[CompilationError] = {
     val compilationErrors = ListBuffer[CompilationError]()
     value match {
       case scalar: ScalarValue =>
@@ -162,15 +163,32 @@ object SemanticAnalyzer {
   }
 
   def analyzePropertyDefinitions(toscaType: Type, csarPath: List[Csar]) = {
-    toscaType.properties.map(_.values.filter(_.isInstanceOf[PropertyDefinition]).flatMap { definition =>
-      analyzePropertyDefinition(definition.asInstanceOf[PropertyDefinition], csarPath)
+    toscaType.properties.map(_.values.flatMap {
+      case propertyDefinition: PropertyDefinition => analyzePropertyDefinition(propertyDefinition, csarPath)
+      case function: Function =>
+        toscaType match {
+          case runtimeType: RuntimeType =>
+            analyzeFunction(runtimeType, function)
+          case _ =>
+            List(CompilationError(s"Function is only supported on node type or relationship type", function.pos, Some(function.function.value)))
+        }
+      case compositeFunction: CompositeFunction =>
+        toscaType match {
+          case runtimeType: RuntimeType =>
+            analyzeCompositeFunction(runtimeType, compositeFunction)
+          case _ =>
+            List(CompilationError(s"Composite function is only supported on node type or relationship type", compositeFunction.pos, Some(compositeFunction.function.value)))
+        }
+      case _ => List.empty
     }.toList).getOrElse(List.empty)
   }
 
   def analyzeAttributeDefinitions(nodeType: NodeType, csarPath: List[Csar]) = {
     nodeType.attributes.map(_.values.flatMap {
       case definition: AttributeDefinition => analyzeFieldDefinition(definition, csarPath)
-      case _ => None
+      case function: Function => analyzeFunction(nodeType, function)
+      case compositeFunction: CompositeFunction => analyzeCompositeFunction(nodeType, compositeFunction)
+      case _ => List.empty
     }.toList).getOrElse(List.empty)
   }
 
@@ -238,21 +256,72 @@ object SemanticAnalyzer {
     }.getOrElse(List.empty).toList
   }
 
-  def analyzeOperation(operationId: ParsedValue[String], operation: Operation, recipePath: Path) = {
-    operation.implementation.flatMap { implementation =>
+  def validateNumberOfArguments(function: Function) = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    // Validate number of arguments
+    function.function.value match {
+      case Tokens.get_input_token =>
+        if (function.paths.size != 1) {
+          CompilationError(s"Function [${function.function.value}] expects one and only one argument for the input name", function.pos, Some(function.function.value))
+        }
+      case Tokens.get_property_token | Tokens.get_attribute_token =>
+        if (function.paths.size != 2) {
+          CompilationError(s"Function [${function.function.value}] expects two arguments for the entity and the property / attribute name", function.pos, Some(function.function.value))
+        }
+      case Tokens.get_operation_output_token =>
+        if (function.paths.size != 4) {
+          CompilationError(s"Function [${function.function.value}] expects four arguments for the entity, the interface name, the operation name and the output name", function.pos, Some(function.function.value))
+        }
+      case _ =>
+    }
+    compilationErrors.toList
+  }
+
+  def analyzeFunction(runtimeType: RuntimeType, function: Function) = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    compilationErrors ++= validateNumberOfArguments(function)
+    // Validate entity
+    function.function.value match {
+      case Tokens.get_property_token | Tokens.get_attribute_token | Tokens.get_operation_output_token =>
+        if (runtimeType.isInstanceOf[NodeType] && function.paths.head.value != "SELF" && function.paths.head.value != "HOST") {
+          compilationErrors += CompilationError(s"Function [${function.function.value}] expect (SELF, HOST) as entity in a node context", function.paths.head.pos, Some(function.paths.head.value))
+        }
+        if (runtimeType.isInstanceOf[RelationshipType] && function.paths.head.value != "SOURCE" && function.paths.head.value != "TARGET" && function.paths.head.value != "SELF") {
+          compilationErrors += CompilationError(s"Function [${function.function.value}] expect (SELF, SOURCE, TARGET) as entity in a relationship context", function.paths.head.pos, Some(function.paths.head.value))
+        }
+      case _ =>
+    }
+    compilationErrors.toList
+  }
+
+  def analyzeCompositeFunction(runtimeType: RuntimeType, function: CompositeFunction): List[CompilationError] = {
+    function.members.flatMap {
+      case f: Function => analyzeFunction(runtimeType, f)
+      case c: CompositeFunction => analyzeCompositeFunction(runtimeType, c)
+      case _ => List.empty
+    }.toList
+  }
+
+  def analyzeOperation(runtimeType: RuntimeType, operationId: ParsedValue[String], operation: Operation, recipePath: Path): List[CompilationError] = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    operation.implementation.map { implementation =>
       if (!Files.isRegularFile(recipePath.resolve(implementation.value))) {
-        Some(CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.value)))
-      } else {
-        None
+        compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.value))
       }
     }
+    operation.inputs.getOrElse(Map.empty).values.map {
+      case function: Function => compilationErrors ++= analyzeFunction(runtimeType, function)
+      case compositeFunction: CompositeFunction => compilationErrors ++= analyzeCompositeFunction(runtimeType, compositeFunction)
+      case _ =>
+    }
+    compilationErrors.toList
   }
 
   def analyzeInterfaces(runtimeType: RuntimeType, recipePath: Path) = {
     runtimeType.interfaces.map { interfaces =>
       interfaces.values.flatMap { interface =>
         interface.operations.flatMap {
-          case (operationId: ParsedValue[String], operation: Operation) => analyzeOperation(operationId, operation, recipePath)
+          case (operationId: ParsedValue[String], operation: Operation) => analyzeOperation(runtimeType, operationId, operation, recipePath)
         }
       }
     }.getOrElse(List.empty).toList
@@ -288,7 +357,7 @@ object SemanticAnalyzer {
     analyzeDerivedFrom(artifactType.name, artifactType.derivedFrom, csarPath, TypeLoader.loadArtifactType).map(List(_)).getOrElse(List.empty)
   }
 
-  def analyzeRequirement(nodeTemplates: Map[ParsedValue[String], NodeTemplate],
+  def analyzeRequirement(topologyTemplate: TopologyTemplate,
                          sourceNodeName: String,
                          sourceNodeType: NodeType,
                          requirementsDefinitionsOpt: Option[Map[ParsedValue[String], RequirementDefinition]],
@@ -305,6 +374,7 @@ object SemanticAnalyzer {
         val requirementDefinition = requirementsDefinitions(requirement.name.value)
         if (requirement.targetNode.isDefined) {
           val targetNodeName = requirement.targetNode.get
+          val nodeTemplates = topologyTemplate.nodeTemplates.getOrElse(Map.empty)
           if (!nodeTemplates.contains(targetNodeName)) {
             compilationErrors += CompilationError(s"Requirement [${requirement.name.value}] refer to a non existing node [${targetNodeName.value}]", targetNodeName.pos, Some(targetNodeName.value))
           } else {
@@ -319,11 +389,7 @@ object SemanticAnalyzer {
                   if (relationshipType.isEmpty) {
                     compilationErrors += CompilationError(s"Requirement [${requirement.name.value}] cannot be satisfied, no relationship can be created from node [$sourceNodeName] to node [${targetNodeName.value}]", requirement.pos, Some(requirement.name.value))
                   } else {
-                    compilationErrors ++= requirement.properties.map { relationshipProperties =>
-                      val relationshipPropertiesAsComplex = ComplexValue(relationshipProperties)
-                      relationshipPropertiesAsComplex.setPos(requirement.name.pos)
-                      analyzeDataTypeValue(ComplexValue(relationshipProperties), relationshipType.get.properties, csarPath)
-                    }.getOrElse(List.empty)
+                    compilationErrors ++= analyzeProperties(topologyTemplate, requirement.name, requirement.properties, relationshipType.get.properties, csarPath)
                   }
                 }
               }
@@ -337,7 +403,32 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
-  def analyzeCapability(capabilitiesDefinitionsOpt: Option[Map[ParsedValue[String], CapabilityDefinition]], capability: Capability, csarPath: List[Csar]) = {
+  def analyzeProperties(topologyTemplate: TopologyTemplate,
+                        pos: Positional,
+                        properties: Option[Map[ParsedValue[String], EvaluableFieldValue]],
+                        propertiesDefinitions: Option[Map[ParsedValue[String], FieldValue]],
+                        csarPath: List[Csar]) = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    compilationErrors ++= properties.map { properties =>
+      val propertiesAsComplex = ComplexValue(properties)
+      propertiesAsComplex.setPos(pos.pos)
+      analyzeDataTypeValue(propertiesAsComplex, propertiesDefinitions, csarPath)
+    }.getOrElse(List.empty)
+
+    compilationErrors ++= properties.map {
+      _.values.filter(prop => prop.isInstanceOf[Function] || prop.isInstanceOf[CompositeFunction]).flatMap {
+        case function: Function => analyzeFunction(topologyTemplate, function)
+        case compositeFunction: CompositeFunction => analyzeCompositeFunction(topologyTemplate, compositeFunction)
+        case _ => List.empty
+      }
+    }.getOrElse(List.empty)
+    compilationErrors.toList
+  }
+
+  def analyzeCapability(topologyTemplate: TopologyTemplate,
+                        capabilitiesDefinitionsOpt: Option[Map[ParsedValue[String], CapabilityDefinition]],
+                        capability: Capability,
+                        csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     if (capabilitiesDefinitionsOpt.isEmpty) {
       compilationErrors += CompilationError(s"Capability ${capability.name.value} is not expected as not any is defined for this type", capability.name.pos, Some(capability.name.value))
@@ -352,9 +443,7 @@ object SemanticAnalyzer {
         if (capabilityTypeNameOpt.nonEmpty) {
           val capabilityTypeOpt = TypeLoader.loadCapabilityTypeWithHierarchy(capabilityTypeNameOpt.get.value, csarPath)
           if (capabilityTypeOpt.nonEmpty) {
-            val capabilityPropertiesAsComplex = ComplexValue(capability.properties)
-            capabilityPropertiesAsComplex.setPos(capability.name.pos)
-            compilationErrors ++= analyzeDataTypeValue(capabilityPropertiesAsComplex, capabilityTypeOpt.get.properties, csarPath)
+            compilationErrors ++= analyzeProperties(topologyTemplate, capability.name, Some(capability.properties), capabilityTypeOpt.get.properties, csarPath)
           }
         }
       }
@@ -362,7 +451,7 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
-  def analyzeNodeTemplate(nodeTemplates: Map[ParsedValue[String], NodeTemplate], nodeTemplate: NodeTemplate, csarPath: List[Csar]) = {
+  def analyzeNodeTemplate(topologyTemplate: TopologyTemplate, nodeTemplate: NodeTemplate, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     if (nodeTemplate.typeName.isDefined) {
       val typeName = nodeTemplate.typeName.get
@@ -370,21 +459,15 @@ object SemanticAnalyzer {
       if (typeFound.isEmpty) {
         compilationErrors += CompilationError(s"Node template [${nodeTemplate.name.value}] is of unknown type [${typeName.value}]", typeName.pos, Some(typeName.value))
       } else {
-        compilationErrors ++= nodeTemplate.properties.map { properties =>
-          val propertiesAsComplex = ComplexValue(properties)
-          propertiesAsComplex.setPos(nodeTemplate.name.pos)
-          analyzeDataTypeValue(propertiesAsComplex, typeFound.get.properties, csarPath)
-        }.getOrElse(List.empty)
-
+        compilationErrors ++= analyzeProperties(topologyTemplate, nodeTemplate.name, nodeTemplate.properties, typeFound.get.properties, csarPath)
         compilationErrors ++= nodeTemplate.capabilities.map { capabilities =>
           capabilities.flatMap {
-            case (name, capability) => analyzeCapability(typeFound.get.capabilities, capability, csarPath)
+            case (name, capability) => analyzeCapability(topologyTemplate, typeFound.get.capabilities, capability, csarPath)
           }
         }.getOrElse(List.empty)
-
         nodeTemplate.requirements.foreach { requirements =>
           requirements.foreach {
-            case requirement => compilationErrors ++= analyzeRequirement(nodeTemplates, nodeTemplate.name.value, typeFound.get, typeFound.get.requirements, requirement, csarPath)
+            case requirement => compilationErrors ++= analyzeRequirement(topologyTemplate, nodeTemplate.name.value, typeFound.get, typeFound.get.requirements, requirement, csarPath)
           }
         }
       }
@@ -394,10 +477,43 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
+  def analyzeFunction(topologyTemplate: TopologyTemplate, function: Function) = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    compilationErrors ++= validateNumberOfArguments(function)
+    function.function.value match {
+      case Tokens.get_input_token =>
+        if (!topologyTemplate.inputs.getOrElse(Map.empty).contains(function.paths.head)) {
+          compilationErrors += CompilationError(s"Input [${function.paths.head.value}] is not defined for the topology", function.paths.head.pos, Some(function.paths.head.value))
+        }
+      case Tokens.get_property_token | Tokens.get_attribute_token | Tokens.get_operation_output_token =>
+        if (!topologyTemplate.nodeTemplates.getOrElse(Map.empty).contains(function.paths.head)) {
+          compilationErrors += CompilationError(s"Node [${function.paths.head.value}] is not defined for the topology", function.paths.head.pos, Some(function.paths.head.value))
+        }
+    }
+    compilationErrors.toList
+  }
+
+  def analyzeCompositeFunction(topologyTemplate: TopologyTemplate, function: CompositeFunction): List[CompilationError] = {
+    function.members.flatMap {
+      case f: Function => analyzeFunction(topologyTemplate, f)
+      case c: CompositeFunction => analyzeCompositeFunction(topologyTemplate, c)
+      case _ => List.empty
+    }.toList
+  }
+
+  def analyzeOutput(topologyTemplate: TopologyTemplate, output: Output) = {
+    output.value.map {
+      case function: Function => analyzeFunction(topologyTemplate, function)
+      case compositeFunction: CompositeFunction => analyzeCompositeFunction(topologyTemplate, compositeFunction)
+      case _ => List.empty
+    }.getOrElse(List.empty)
+  }
+
   def analyzeTopology(topologyTemplate: TopologyTemplate, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
-    compilationErrors ++= topologyTemplate.inputs.map(_.values.map(analyzePropertyDefinition(_, csarPath)).toList).getOrElse(List.empty).flatten
-    compilationErrors ++= topologyTemplate.nodeTemplates.map(nodeTemplates => nodeTemplates.values.map(analyzeNodeTemplate(nodeTemplates, _, csarPath)).toList).getOrElse(List.empty).flatten
+    compilationErrors ++= topologyTemplate.inputs.map(_.values.flatMap(analyzePropertyDefinition(_, csarPath)).toList).getOrElse(List.empty)
+    compilationErrors ++= topologyTemplate.outputs.map(_.values.flatMap(analyzeOutput(topologyTemplate, _)).toList).getOrElse(List.empty)
+    compilationErrors ++= topologyTemplate.nodeTemplates.map(nodeTemplates => nodeTemplates.values.flatMap(analyzeNodeTemplate(topologyTemplate, _, csarPath)).toList).getOrElse(List.empty)
     compilationErrors.toList
   }
 

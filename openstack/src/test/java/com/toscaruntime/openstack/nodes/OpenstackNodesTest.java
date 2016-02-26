@@ -52,6 +52,9 @@ public class OpenstackNodesTest {
             Assert.assertEquals("ExternalNetwork_1", externalNetwork.getAttributeAsString("tosca_id"));
             Assert.assertEquals("ExternalNetwork", externalNetwork.getAttributeAsString("tosca_name"));
 
+            DeletableVolume volume = testDeployment.getNodeInstancesByType(DeletableVolume.class).iterator().next();
+            Assert.assertNotNull(volume.getAttributeAsString("device"));
+
             Map<String, String> outputs = compute.execute("testOutput", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build(), new HashMap<>());
             Assert.assertEquals("Hello I'm John", outputs.get("OUTPUT_TEST"));
 

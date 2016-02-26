@@ -5,7 +5,7 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 imports:
-  - Alien4Cloud with ELS cluster:0.1.0-SNAPSHOT
+  - Alien4Cloud with ELS cluster:*
   - docker-provider-types:*
 
 topology_template:

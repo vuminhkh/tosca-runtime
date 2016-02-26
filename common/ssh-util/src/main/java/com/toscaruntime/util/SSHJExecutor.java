@@ -1,20 +1,28 @@
 package com.toscaruntime.util;
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Security;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,7 +32,6 @@ import com.toscaruntime.exception.ArtifactAuthenticationFailureException;
 import com.toscaruntime.exception.ArtifactConnectException;
 import com.toscaruntime.exception.ArtifactException;
 import com.toscaruntime.exception.ArtifactExecutionException;
-import com.toscaruntime.exception.ArtifactInterruptedException;
 import com.toscaruntime.exception.ArtifactUploadException;
 
 import net.schmizz.sshj.SSHClient;
@@ -40,6 +47,8 @@ import net.schmizz.sshj.xfer.scp.SCPFileTransfer;
 public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUploader {
 
     private static final Logger log = LoggerFactory.getLogger(SSHJExecutor.class);
+
+    private static final String REMOTE_TEMP_DIR = "/tmp/";
 
     static {
         Security.removeProvider(SecurityUtils.BOUNCY_CASTLE);
@@ -64,7 +73,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
         }
     });
 
-    private final SSHClient sshClient = new SSHClient();
+    private SSHClient sshClient;
 
     private String user;
 
@@ -74,85 +83,192 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
 
     private String pemPath;
 
-    public SSHJExecutor(String user, String ip, int port, String pemPath) {
+    private boolean elevatePrivilege;
+
+    public SSHJExecutor(String user, String ip, int port, String pemPath, boolean elevatePrivilege) {
         this.user = user;
         this.ip = ip;
         this.port = port;
         this.pemPath = pemPath;
-        this.sshClient.addHostKeyVerifier((h, p, k) -> true);
+        this.elevatePrivilege = elevatePrivilege;
     }
 
     @Override
     public void initialize() throws ArtifactException {
+        close();
         // Trust every host
         try {
+            sshClient = new SSHClient();
+            sshClient.addHostKeyVerifier((h, p, k) -> true);
             sshClient.connect(ip, port);
             sshClient.authPublickey(user, pemPath);
         } catch (UserAuthException e) {
-            throw new ArtifactAuthenticationFailureException("Authentication failure, must be bad key file", e);
+            throw new ArtifactAuthenticationFailureException("Authentication failure, must be bad key file or bad user name", e);
         } catch (IOException e) {
             throw new ArtifactConnectException("Cannot connect to the host", e);
         }
     }
 
     private synchronized void checkConnection() throws ArtifactException {
-        if (!sshClient.isConnected() || !sshClient.isAuthenticated()) {
+        if (sshClient == null || !sshClient.isConnected() || !sshClient.isAuthenticated()) {
             log.info("Reconnecting the session for " + user + "@" + ip);
             initialize();
             log.info("Reconnected the session for " + user + "@" + ip);
         }
     }
 
-    @Override
-    public Map<String, String> executeArtifact(String operationName, String artifactPath, Map<String, String> env) throws ArtifactException {
-        checkConnection();
-        String artifactName = Paths.get(artifactPath).getFileName().toString();
-        try (Session session = sshClient.startSession();
-             SessionChannel shell = (SessionChannel) session.startShell();
-             PrintWriter commandWriter = new PrintWriter(shell.getOutputStream())) {
-            String endOfOutputToken = UUID.randomUUID().toString();
-            SSHJStdOutLogger stdOutLogger = new SSHJStdOutLogger(operationName, artifactName, log, endOfOutputToken, shell.getInputStream());
-            Future<?> endStdOut = executorService.submit(stdOutLogger);
-            Future<?> endStdErr = executorService.submit(new SSHJStdErrLogger(operationName, artifactName, log, shell.getErrorStream()));
-            // Set envs
-            if (env != null) {
-                env.entrySet().stream().filter(envEntry -> envEntry.getValue() != null).forEach(
-                        envEntry -> commandWriter.println("export " + envEntry.getKey() + "='" + envEntry.getValue() + "'")
-                );
-            }
-            // Make executable
-            commandWriter.println("chmod +x " + artifactPath);
-            commandWriter.println(". " + artifactPath);
-            commandWriter.println("_toscaruntime_rc=$?; if [[ $_toscaruntime_rc != 0 ]]; then echo \"Script exit with status $_toscaruntime_rc\"; exit $_toscaruntime_rc; fi");
-            commandWriter.println("echo " + endOfOutputToken);
-            commandWriter.println("printenv");
-            commandWriter.println("exit");
-            commandWriter.flush();
-            session.join();
-            endStdOut.get();
-            endStdErr.get();
-            if (shell.getExitStatus() != 0) {
-                throw new ArtifactExecutionException("[" + operationName + "][" + artifactPath + "] failed to executed with exit status " + shell.getExitStatus());
-            } else {
-                log.info("[{}][{}] execution finished normally", operationName, artifactName);
-            }
-            return stdOutLogger.getCapturedEnvVars();
-        } catch (ConnectionException | TransportException e) {
-            throw new ArtifactConnectException("[" + operationName + "][" + artifactPath + "] execution connection error", e);
-        } catch (ExecutionException e) {
-            throw new ArtifactExecutionException("[" + operationName + "][" + artifactPath + "] Error happened while trying to read script's output", e);
-        } catch (InterruptedException e) {
-            throw new ArtifactInterruptedException("[" + operationName + "][" + artifactPath + "] Interrupted", e);
+    private static List<String> getSetEnvCommands(Map<String, String> env) {
+        // Set envs
+        if (env != null) {
+            return env.entrySet().stream().filter(envEntry -> envEntry.getValue() != null).map(
+                    envEntry -> "export " + envEntry.getKey() + "='" + envEntry.getValue() + "'"
+            ).collect(Collectors.toList());
+        } else {
+            return new ArrayList<>();
         }
     }
 
-    private void runCommand(Session session, String command) {
+    private static void sendCommands(PrintWriter commandWriter, String... commands) {
+        for (String command : commands) {
+            commandWriter.println(command);
+        }
+    }
+
+    private static String readSheBang(Path script) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(script), "UTF-8"));
+        String line = reader.readLine();
+        while (line != null) {
+            if (!StringUtils.isBlank(line)) {
+                line = line.trim();
+                if (line.startsWith("#!")) {
+                    return line;
+                } else {
+                    // Not found return a default value
+                    return "#!/bin/sh";
+                }
+            }
+            line = reader.readLine();
+        }
+        // Not found return a default value
+        return "#!/bin/sh";
+    }
+
+    private static void captureExitStatusAndEnvironmentVariables(PrintWriter commandWriter, String statusCodeToken, String environmentVariablesToken) {
+        // Check exit code
+        commandWriter.println("_toscaruntime_rc=$?");
+        // Mark the beginning of environment variables
+        commandWriter.println("echo " + environmentVariablesToken + "`printenv | sed -e ':a' -e 'N' -e '$!ba' -e 's/\\n/" + environmentVariablesToken + "/g'`");
+        // Print env in order to be able to capture environment variables
+        // Mark the beginning of status code
+        commandWriter.println("echo " + statusCodeToken + "$_toscaruntime_rc");
+    }
+
+    private static Path createArtifactWrapper(String artifactPath, Map<String, String> env, String statusCodeToken, String environmentVariablesToken, String sheBang, boolean elevatePrivilege) throws IOException {
+        Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
+        try (PrintWriter commandWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)))) {
+            commandWriter.println(sheBang);
+            if (elevatePrivilege) {
+                commandWriter.println("sudo -s");
+            }
+            // Set env
+            List<String> setEnvCommands = getSetEnvCommands(env);
+            sendCommands(commandWriter, setEnvCommands.toArray(new String[setEnvCommands.size()]));
+            // Make executable
+            commandWriter.println("chmod +x " + artifactPath);
+            // Launch the script
+            commandWriter.println(". " + artifactPath);
+            // Try to execute commands to capture exit status and environment variables
+            captureExitStatusAndEnvironmentVariables(commandWriter, statusCodeToken, environmentVariablesToken);
+            // Exit the ssh session
+            if (elevatePrivilege) {
+                commandWriter.println("exit");
+            }
+            commandWriter.println("exit");
+            // If elevatePrivilege is enabled then perform sudo -s
+            commandWriter.flush();
+        }
+        return localGeneratedScriptPath;
+    }
+
+    @Override
+    public Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env) throws ArtifactException {
+        log.info("Begin to execute [{}][{}] with env [{}]", operationName, remoteArtifactPath, env);
+        checkConnection();
+        String artifactName = Paths.get(remoteArtifactPath).getFileName().toString();
+        String statusCodeToken = UUID.randomUUID().toString();
+        String environmentVariablesToken = UUID.randomUUID().toString();
+        String remotePath;
+        String sheBang;
+        String shellPath;
+
+        try {
+            sheBang = readSheBang(localArtifactPath);
+            // Remove #! from the shebang to get the path to shell binary
+            shellPath = sheBang.substring(2);
+            Path artifactWrapper = createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
+            SCPFileTransfer scpFileTransfer = sshClient.newSCPFileTransfer();
+            remotePath = REMOTE_TEMP_DIR + artifactWrapper.getFileName().toString();
+            scpFileTransfer.upload(artifactWrapper.toString(), remotePath);
+        } catch (IOException e) {
+            throw new ArtifactExecutionException("[" + operationName + "][" + remoteArtifactPath + "] Error happened while trying to generate wrapper script", e);
+        }
+        Future<?> stdOutFuture;
+        Future<?> stdErrFuture;
+        Map<String, String> capturedEnvs;
+        try (Session session = sshClient.startSession();
+             SessionChannel shell = (SessionChannel) session.startShell();
+             PrintWriter commandWriter = new PrintWriter(shell.getOutputStream())) {
+            SSHJStdOutLogger stdOutLogger = new SSHJStdOutLogger(operationName, artifactName, log, statusCodeToken, environmentVariablesToken, shell.getInputStream());
+            stdOutFuture = executorService.submit(stdOutLogger);
+            stdErrFuture = executorService.submit(new SSHJStdErrLogger(operationName, artifactName, log, shell.getErrorStream()));
+            commandWriter.println("chmod +x " + remotePath);
+            commandWriter.println(shellPath + " < " + remotePath);
+            // Try to execute commands to capture exit status and environment variables
+            captureExitStatusAndEnvironmentVariables(commandWriter, statusCodeToken, environmentVariablesToken);
+            commandWriter.println("exit");
+            commandWriter.flush();
+            while (true) {
+                try {
+                    session.join(5, TimeUnit.SECONDS);
+                } catch (ConnectionException ignored) {
+                }
+                if (stdOutLogger.getStatusCode() != null) {
+                    break;
+                }
+            }
+            Integer statusCode = shell.getExitStatus();
+            if (stdOutLogger.getStatusCode() != null) {
+                statusCode = stdOutLogger.getStatusCode();
+            }
+            if (statusCode != 0) {
+                throw new ArtifactExecutionException("[" + operationName + "][" + remoteArtifactPath + "] failed to executed with exit status " + statusCode);
+            } else {
+                log.info("[{}][{}] execution finished normally", operationName, artifactName);
+            }
+            capturedEnvs = stdOutLogger.getCapturedEnvVars();
+        } catch (ConnectionException | TransportException e) {
+            throw new ArtifactConnectException("[" + operationName + "][" + remoteArtifactPath + "] execution connection error", e);
+        }
+        try {
+            stdOutFuture.get();
+        } catch (Exception ignored) {
+            log.error("Could not read artifact output", ignored);
+        }
+        try {
+            stdErrFuture.get();
+        } catch (Exception ignored) {
+            log.error("Could not read artifact output", ignored);
+        }
+        return capturedEnvs;
+    }
+
+    private void prepareUpload(Session session, String command) {
         try (Session.Command sshCommand = session.exec(command)) {
             sshCommand.join();
             if (sshCommand.getExitStatus() != 0) {
                 throw new ArtifactExecutionException("Command " + command + " failed with exit status " + sshCommand.getExitStatus());
             } else {
-                log.info("Command [{}] finished normally with standard output [{}] and error output [{}]",
+                log.info("Prepare upload finished normally with standard output [{}] and error output [{}]",
                         command,
                         new String(IOUtils.readFully(sshCommand.getInputStream()).toByteArray()),
                         new String(IOUtils.readFully(sshCommand.getErrorStream()).toByteArray()));
@@ -170,13 +286,13 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
             String prepareCommand;
             if (parentPath != null) {
                 // Delete if already exists and create the parent if given remote path has parent
-                prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path " + remotePath + "already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; else mkdir -p \"" + parentPath.toString() + "\"; fi";
+                prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; else mkdir -p \"" + parentPath.toString() + "\"; fi";
             } else {
                 // Delete if already exists
                 prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; fi";
             }
             try (Session session = sshClient.startSession()) {
-                runCommand(session, prepareCommand);
+                prepareUpload(session, prepareCommand);
             }
             SCPFileTransfer scpFileTransfer = sshClient.newSCPFileTransfer();
             scpFileTransfer.upload(localPath, remotePath);
@@ -190,7 +306,10 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
     @Override
     public void close() {
         try {
-            sshClient.close();
+            if (sshClient != null) {
+                sshClient.close();
+                sshClient = null;
+            }
         } catch (IOException e) {
             log.warn("Could not close ssh executor", e);
         }

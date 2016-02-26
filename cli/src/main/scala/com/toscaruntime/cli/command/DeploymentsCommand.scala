@@ -69,10 +69,12 @@ object DeploymentsCommand {
       return None
     }
     if (createArgs.contains(topologyPathOpt)) {
-      val topologyPath = createArgs(topologyPathOpt).asInstanceOf[String]
-      if (!Files.exists(Paths.get(topologyPath))) {
-        println(s"Topology file $topologyPath do not exist")
+      val topologyPath = Paths.get(createArgs(topologyPathOpt).asInstanceOf[String])
+      if (!Files.exists(topologyPath)) {
+        println(s"Topology file ${topologyPath.toString} do not exist")
         return None
+      } else {
+        return Some(topologyPath)
       }
     }
     if (createArgs.contains(csarOpt)) {
@@ -185,7 +187,7 @@ object DeploymentsCommand {
                 providerConf,
                 bootstrapMode
               )
-              println(s"Deployment image [$deploymentId] has been created, 'agents create $deploymentId' to start an agent to deploy it")
+              if (!fail) println(s"Deployment image [$deploymentId] has been created, 'agents create $deploymentId' to start an agent to deploy it")
             } else {
               println(s"No configuration found for [$providerName], target [$providerTarget] at [$providerConf]")
               fail = true

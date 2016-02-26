@@ -61,8 +61,19 @@ public class Volume extends BlockStorage {
             if (metadata != null) {
                 options.metadata(metadata);
             }
-            log.info("Volume [{}] : Create new volume for [{}] with size in GIB [{}]", getId(), sizeInGIB);
-            volume = volumeApi.create(sizeInGIB, options);
+            log.info("Volume [{}] : Create new volume with size [{}] GIB", getId(), sizeInGIB);
+            try {
+                FailSafeUtil.doActionWithRetry(
+                        () -> volume = volumeApi.create(sizeInGIB, options),
+                        "Create volume",
+                        getOpenstackOperationRetry(),
+                        getOpenstackWaitBetweenOperationRetry(),
+                        TimeUnit.SECONDS,
+                        Exception.class
+                );
+            } catch (Throwable throwable) {
+                throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not create volume", throwable);
+            }
         } else {
             log.info("Volume [{}] : Reusing existing volume [{}]", volumeId);
             volume = volumeApi.get(volumeId);
@@ -98,7 +109,7 @@ public class Volume extends BlockStorage {
         }
         waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         if (owner != null) {
-            volumeAttachmentApi.attachVolumeToServerAsDevice(volume.getId(), owner.getAttributeAsString("provider_resource_id"), getPropertyAsString("device"));
+            volumeAttachmentApi.attachVolumeToServerAsDevice(volume.getId(), owner.getAttributeAsString("provider_resource_id"), getPropertyAsString("device", ""));
             waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.IN_USE);
             if (!volume.getAttachments().isEmpty()) {
                 setAttribute("device", volume.getAttachments().iterator().next().getDevice());
@@ -118,15 +129,14 @@ public class Volume extends BlockStorage {
             try {
                 FailSafeUtil.doActionWithRetry(
                         () -> volumeAttachmentApi.detachVolumeFromServer(volume.getId(), serverId),
-                        "Attach floating ip",
+                        "Detach volume",
                         getOpenstackOperationRetry(),
                         getOpenstackWaitBetweenOperationRetry(),
                         TimeUnit.SECONDS,
                         Exception.class);
             } catch (Throwable throwable) {
-                throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not attach volume " + volume.getId() + " to server " + serverId);
+                throw new ProviderResourceAllocationException("Volume [" + getId() + "] : Could not detach volume " + volume.getId() + " from server " + serverId);
             }
-            volumeAttachmentApi.detachVolumeFromServer(volume.getId(), owner.getAttributeAsString("provider_resource_id"));
             removeAttribute("device");
             waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         }

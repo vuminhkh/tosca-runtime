@@ -75,9 +75,8 @@ case class Deployment(nodes: Seq[Node],
                       roots: Seq[Node],
                       // One of StaticValue, Function or CompositeFunction
                       outputs: Map[String, Value],
-                      topologyCsarName: String)
-
-case class Input(name: String)
+                      topologyCsarName: String,
+                      defaultInputs: Map[String, Value])
 
 class Node(var name: String,
            var typeName: String,

@@ -1,0 +1,47 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+template_name: import-not-exist-type
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - tosca-normative-types:*
+
+node_types:
+
+  toscaruntime.test.nodes.BadFunction:
+    derived_from: tosca.nodes.Root
+    properties:
+      good_prop:
+        type: string
+      bad_prop:
+        type: string
+    attributes:
+      a_bad_one: { get_attribute: [ SOURCE, bad_prop ] }
+    interfaces:
+      Standard:
+        create:
+          inputs:
+            bad_input: { get_property: [TARGET, bad_prop] }
+            composite_bad_input: { concat: [ get_attribute: [SELF, a], get_attribute: [SOURCE, b], get_property: [HOST, c], get_property: [TARGET, d]] }
+
+topology_template:
+
+  inputs:
+    good_input:
+      type: string
+
+  outputs:
+    good_output:
+      value: { get_property: [ badFunction, good_prop ] }
+    bad_output:
+      value: { get_property: [ notExisting, good_prop ] }
+    composite_bad_output:
+      value: { concat: [ get_attribute: [notExisting, a], get_attribute: [badFunction, b], get_property: [badFunction, c], get_property: [notExisting, d]] }
+
+  node_templates:
+
+    badFunction:
+      type: toscaruntime.test.nodes.BadFunction
+      properties:
+        good_prop: { get_input: good_input }
+        bad_prop: { get_input: bad_input }

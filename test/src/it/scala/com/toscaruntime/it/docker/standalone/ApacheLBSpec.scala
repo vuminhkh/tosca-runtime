@@ -33,7 +33,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       val url = assertDeploymentHasOutput("apache-lb", "load_balancer_url")
 
       And("A request on the application's url should return a response 200 OK")
-      checkURL(url, 200, Set.empty, None, 5 minutes)
+      checkURL(url, 200, Set.empty, 5 minutes)
 
       When("I scale up the node WebServer of this deployment to 2 instances")
       scale("apache-lb", "WebServer", 2)

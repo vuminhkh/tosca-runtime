@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
+import com.toscaruntime.exception.ArtifactAuthenticationFailureException;
 import com.toscaruntime.exception.ArtifactConnectException;
 import com.toscaruntime.exception.ArtifactExecutionException;
 import com.toscaruntime.exception.OperationExecutionException;
@@ -84,8 +85,12 @@ public class Compute extends tosca.nodes.Compute {
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
             return FailSafeUtil.doActionWithRetry(
-                    () -> artifactExecutor.executeArtifact(nodeId, recipeLocation + "/" + operationArtifactPath
-                            , ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, recipeLocation, "/")),
+                    () -> artifactExecutor.executeArtifact(
+                            nodeId,
+                            config.getArtifactsPath().resolve(operationArtifactPath),
+                            recipeLocation + "/" + operationArtifactPath,
+                            ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, recipeLocation, "/")
+                    ),
                     operationArtifactPath,
                     getArtifactExecutionRetry(),
                     getWaitBetweenArtifactExecutionRetry(),
@@ -196,11 +201,11 @@ public class Compute extends tosca.nodes.Compute {
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
             // Create the executor
-            this.artifactExecutor = new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath);
+            this.artifactExecutor = new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
             // Wait before initializing the connection
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeConnection()));
             // Initialize the connection
-            FailSafeUtil.doActionWithRetry(() -> artifactExecutor.initialize(), operationName, connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
+            FailSafeUtil.doActionWithRetry(() -> artifactExecutor.initialize(), operationName, connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class, ArtifactAuthenticationFailureException.class);
             // Sometimes the created VM needs sometimes to initialize and to resolve DNS
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeArtifactExecution()));
             // Upload the recipe to the remote host
