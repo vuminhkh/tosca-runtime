@@ -17,10 +17,6 @@ public class DeploymentUtil {
         return (System.currentTimeMillis() - before) / 1000L;
     }
 
-    public static Set<Root> getRelationshipsBySourceAndTarget(Set<Root> relationshipInstances, tosca.nodes.Root source, tosca.nodes.Root target) {
-        return relationshipInstances.stream().filter(instance -> instance.getSource().equals(source) && instance.getTarget().equals(target)).collect(Collectors.toSet());
-    }
-
     public static DeploymentRelationshipNode getRelationshipNodeBySourceNameTargetName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName, String targetName, Class<? extends Root> relationshipType) {
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
             if (relationshipNode.getSourceNodeId().equals(sourceName) && relationshipNode.getTargetNodeId().equals(targetName) && relationshipNode.getRelationshipType() == relationshipType) {

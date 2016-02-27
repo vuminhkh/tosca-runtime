@@ -3,6 +3,7 @@ package com.toscaruntime.openstack.nodes;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Assert;
@@ -12,9 +13,13 @@ import org.junit.runners.JUnit4;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.toscaruntime.exception.OperationExecutionException;
 import com.toscaruntime.openstack.OpenstackDeploymentPostConstructor;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.ClassLoaderUtil;
+
+import tosca.constants.RelationshipInstanceState;
+import tosca.relationships.AttachTo;
 
 @RunWith(JUnit4.class)
 public class OpenstackNodesTest {
@@ -54,12 +59,18 @@ public class OpenstackNodesTest {
 
             DeletableVolume volume = testDeployment.getNodeInstancesByType(DeletableVolume.class).iterator().next();
             Assert.assertNotNull(volume.getAttributeAsString("device"));
+            Set<AttachTo> attachedTos = testDeployment.getRelationshipInstancesByNamesAndType("Volume", "Compute", AttachTo.class);
+            Assert.assertEquals(1, attachedTos.size());
+            Assert.assertEquals(RelationshipInstanceState.ESTABLISHED, attachedTos.iterator().next().getState());
 
             Map<String, String> outputs = compute.execute("testOutput", "testScript.sh", ImmutableMap.<String, Object>builder().put("HELLO_ARGS", "I'm John").build(), new HashMap<>());
             Assert.assertEquals("Hello I'm John", outputs.get("OUTPUT_TEST"));
-
-            outputs = compute.execute("testJava", "javaHelp.sh", Maps.newHashMap(), new HashMap<>());
-            Assert.assertNotNull(outputs.get("JAVA_HELP"));
+            try {
+                compute.execute("testError", "testErrorScript.sh", Maps.newHashMap(), new HashMap<>());
+                Assert.fail("testErrorScript.sh should trigger error");
+            } catch (OperationExecutionException ignored) {
+                // It's what's expected
+            }
         } finally {
             testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
         }

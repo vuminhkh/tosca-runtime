@@ -8,8 +8,6 @@
   - Authorize null yaml key ?
   - Semantic analyzer completion
     + Input should be compatible with property that perform get_input
-    + Function validation for operation
-    + Function validation for output
     + Validate all types non abstract before deployment
     + Validate scaling policy
     + Requirement satisfaction validation

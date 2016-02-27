@@ -25,7 +25,7 @@ public class OpenstackTestDeployment extends Deployment {
         Map<String, String> failSafeConfig = new HashMap<>();
         failSafeConfig.put("connect_retry", "20");
         failSafeConfig.put("wait_between_connect_retry", "5 s");
-        failSafeConfig.put("artifact_execution_retry", "5");
+        failSafeConfig.put("artifact_execution_retry", "1");
         failSafeConfig.put("wait_between_artifact_execution_retry", "10 s");
         failSafeConfig.put("wait_before_artifact_execution", "5 s");
         failSafeConfig.put("wait_before_connection", "5 s");
