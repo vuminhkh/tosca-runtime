@@ -7,7 +7,8 @@ import java.util.function.{Consumer, Predicate}
 import com.toscaruntime.cli.command._
 import com.toscaruntime.cli.util.CompilationUtil
 import com.toscaruntime.compiler.Compiler
-import com.toscaruntime.exception.BadClientConfigurationException
+import com.toscaruntime.exception.UnexpectedException
+import com.toscaruntime.exception.client.BadClientConfigurationException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.util.DockerUtil
 import sbt._
@@ -47,7 +48,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     val compilationResult = Compiler.install(path, repositoryDir)
     CompilationUtil.showErrors(compilationResult)
     if (!compilationResult.isSuccessful) {
-      throw new BadClientConfigurationException(s"Csar compilation failed for $path")
+      throw new UnexpectedException(s"Csar compilation failed for $path")
     } else {
       println(s"Installed csar ${path.getFileName} to repository $repositoryDir")
     }

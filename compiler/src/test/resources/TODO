@@ -12,6 +12,7 @@
     + Validate scaling policy
     + Requirement satisfaction validation
     + Node filter
+    + Component which is not hosted / Relationship whose source and target are not hosted, should not contains artifacts
   - Requirement properties
   - Relationship properties - Test
   - Function in node type properties declaration
@@ -47,3 +48,6 @@
 
 7.Security:
   - Https bootstrap for proxy and docker
+
+8. Performance optimization:
+  - Bulk set attribute

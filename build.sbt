@@ -12,10 +12,6 @@ val commonSettings: Seq[Setting[_]] = Seq(
     "-source", "1.8",
     "-target", "1.8"
   ),
-  parallelExecution in Test := false,
-  parallelExecution in IntegrationTest := false,
-  parallelExecution in ThisBuild := false,
-  fork in Test := false,
   javacOptions in doc := Seq("-source", "1.8"),
   scalacOptions ++= Seq(
     "-target:jvm-1.8",
@@ -35,6 +31,10 @@ val commonSettings: Seq[Setting[_]] = Seq(
     "Typesafe Repo" at "http://repo.typesafe.com/typesafe/releases/",
     "Typesafe Ivy repository" at "http://repo.typesafe.com/typesafe/ivy-releases/"
   ),
+  parallelExecution in Test := false,
+  parallelExecution in IntegrationTest := false,
+  parallelExecution in ThisBuild := false,
+  fork in Test := false,
   stage <<= stage dependsOn publishLocal,
   dist <<= dist dependsOn stage
 ) ++ net.virtualvoid.sbt.graph.Plugin.graphSettings
@@ -43,7 +43,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-parent"
-  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, mockProvider, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
@@ -125,7 +125,7 @@ lazy val restModel = project.in(file("common/rest-model"))
     name := "toscaruntime-rest-model",
     libraryDependencies ++= testDependencies,
     libraryDependencies ++= scalaTestDependencies,
-    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.2",
+    libraryDependencies += "com.typesafe.play" %% "play-json" % "2.4.6",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0"
   ).enablePlugins(UniversalPlugin)
 
@@ -133,7 +133,7 @@ lazy val rest = project.in(file("rest"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-rest",
-    libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.2",
+    libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.6",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
   ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)
 
@@ -146,7 +146,7 @@ lazy val compiler = project.in(file("compiler"))
     libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "com.typesafe" % "config" % "1.3.0"
-  ).dependsOn(sdk, fileUtil, dockerUtil, miscUtil, gitUtil % "test").enablePlugins(SbtTwirl, UniversalPlugin)
+  ).dependsOn(sdk, fileUtil, dockerUtil, miscUtil, gitUtil % "test", mockProvider % "test").enablePlugins(SbtTwirl, UniversalPlugin)
 
 lazy val runtime = project.in(file("runtime"))
   .settings(commonSettings: _*)
@@ -162,11 +162,16 @@ lazy val deployer = project.in(file("deployer"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-deployer",
+    routesGenerator := InjectedRoutesGenerator,
+    libraryDependencies += "com.h2database" % "h2" % "1.4.191",
+    libraryDependencies += "com.typesafe.play" %% "play-slick" % "1.1.1",
+    libraryDependencies += "com.typesafe.play" %% "play-slick-evolutions" % "1.1.1",
+    libraryDependencies += "org.scalatestplus" %% "play" % "1.4.0" % "test",
     packageName in Docker := "toscaruntime/deployer",
     version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
-  ).dependsOn(runtime, restModel).enablePlugins(PlayScala, DockerPlugin)
+  ).dependsOn(runtime, restModel, mockProvider, sdk).enablePlugins(PlayScala, DockerPlugin)
 
 lazy val proxy = project.in(file("proxy"))
   .settings(commonSettings: _*)
@@ -193,6 +198,17 @@ lazy val docker = project.in(file("docker"))
     name := "toscaruntime-docker",
     libraryDependencies ++= testDependencies
   ).dependsOn(sdk, dockerUtil).enablePlugins(JavaAppPackaging)
+
+lazy val mockProvider = project.in(file("mock-provider"))
+  .settings(providerSettings: _*)
+  .settings(
+    name := "toscaruntime-mock-provider",
+    libraryDependencies ++= testDependencies,
+    mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
+      val dir = base / "src" / "main"
+      dir.*** pair relativeTo(base)
+    }
+  ).dependsOn(sdk).enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.in(file("openstack"))
   .settings(providerSettings: _*)

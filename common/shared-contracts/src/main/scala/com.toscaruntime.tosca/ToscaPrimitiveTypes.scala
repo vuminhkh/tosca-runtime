@@ -3,7 +3,7 @@ package com.toscaruntime.tosca
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.toscaruntime.exception.InvalidValueForToscaTypeException
+import com.toscaruntime.exception.UnexpectedException
 
 import scala.annotation.tailrec
 import scala.util.Try
@@ -21,10 +21,12 @@ trait ToscaComparableType[T] extends ToscaPrimitiveType with Ordered[ToscaCompar
 
   def compare(that: ToscaComparableType[T]): Int = {
     if (value.isEmpty) {
-      throw new InvalidValueForToscaTypeException(s"Value $valueAsText is not valid for ${this.getClass.getSimpleName}")
+      // should check that the value is valid before performing compare
+      throw new UnexpectedException(s"Value $valueAsText is not valid for ${this.getClass.getSimpleName}")
     }
     if (that.value.isEmpty) {
-      throw new InvalidValueForToscaTypeException(s"Value ${that.valueAsText} is not valid for ${that.getClass.getSimpleName}")
+      // should check that the value is valid before performing compare
+      throw new UnexpectedException(s"Value ${that.valueAsText} is not valid for ${that.getClass.getSimpleName}")
     }
     compareParsedValue(value.get, that.value.get)
   }
@@ -137,7 +139,7 @@ abstract class ToscaUnitType(valueAsText: String, units: List[ToscaUnit]) extend
     val newBase = value.get / newUnit.multiplier
     unit = Some(newUnit)
     base = Some(newBase)
-    parsedValue = Some(newBase.toString, newUnit)
+    parsedValue = Some((newBase.toString, newUnit))
     this
   }
 

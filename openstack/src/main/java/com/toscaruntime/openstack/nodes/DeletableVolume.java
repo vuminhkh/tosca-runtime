@@ -29,5 +29,7 @@ public class DeletableVolume extends Volume {
             return isDeleted;
         }, getOpenstackOperationRetry(), getOpenstackWaitBetweenOperationRetry(), TimeUnit.SECONDS);
         log.info("Volume [{}] : Deleted volume [{}] and id [{}]", nameToDelete, idToDelete);
+        removeAttribute("provider_resource_id");
+        removeAttribute("provider_resource_name");
     }
 }

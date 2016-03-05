@@ -3,7 +3,7 @@ package com.toscaruntime.cli.util
 import java.util.concurrent.TimeUnit
 
 import com.toscaruntime.rest.client.ToscaRuntimeClient
-import com.toscaruntime.rest.model.{AbstractInstance, DeploymentDetails}
+import com.toscaruntime.rest.model.{AbstractInstanceDTO, DeploymentDTO}
 import com.toscaruntime.util.FailSafeUtil
 import com.toscaruntime.util.FailSafeUtil.Action
 import com.typesafe.scalalogging.LazyLogging
@@ -39,6 +39,10 @@ object AgentUtil extends LazyLogging {
     }
   }
 
+  def scale(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, newInstancesCount: Int) = {
+    Await.result(client.scale(deploymentId, nodeName, newInstancesCount), waitForEver)
+  }
+
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
     Await.result(client.deploy(deploymentId), waitForEver)
   }
@@ -64,17 +68,17 @@ object AgentUtil extends LazyLogging {
     printDetails("Deployment " + deploymentId, details)
   }
 
-  private def countInstances(instances: List[AbstractInstance], state: String) = {
+  private def countInstances(instances: List[AbstractInstanceDTO], state: String) = {
     instances.foldLeft(0)((instanceCount, instance) => if (instance.state == state) instanceCount + 1 else instanceCount).toString
   }
 
-  def printDetails(deploymentId: String, details: DeploymentDetails): Unit = {
+  def printDetails(deploymentId: String, details: DeploymentDTO): Unit = {
     printNodesDetails(deploymentId, getNodesDetails(details))
     printRelationshipsDetails(deploymentId, getRelationshipsDetails(details))
     printOutputsDetails(deploymentId, getOutputsDetails(details))
   }
 
-  def getRelationshipsDetails(details: DeploymentDetails) = {
+  def getRelationshipsDetails(details: DeploymentDTO) = {
     details.relationships.map { relationship =>
       val initialInstancesCount = countInstances(relationship.relationshipInstances, InstanceState.INITIAL)
       val preConfiguringInstancesCount = countInstances(relationship.relationshipInstances, RelationshipInstanceState.PRE_CONFIGURING)
@@ -106,7 +110,7 @@ object AgentUtil extends LazyLogging {
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 
-  def hasLivingNodes(details: DeploymentDetails): Boolean = {
+  def hasLivingNodes(details: DeploymentDTO): Boolean = {
     details.nodes.foreach { node =>
       if (node.instances.nonEmpty) return true
     }
@@ -116,7 +120,7 @@ object AgentUtil extends LazyLogging {
     false
   }
 
-  def getNodesDetails(details: DeploymentDetails) = {
+  def getNodesDetails(details: DeploymentDTO) = {
     details.nodes.map { node =>
       val initialInstancesCount = countInstances(node.instances, InstanceState.INITIAL)
       val startingInstancesCount = countInstances(node.instances, InstanceState.STARTING)
@@ -214,7 +218,7 @@ object AgentUtil extends LazyLogging {
     }
   }
 
-  def getOutputsDetails(details: DeploymentDetails) = {
+  def getOutputsDetails(details: DeploymentDTO) = {
     details.outputs.map { output =>
       List(output._1, output._2.toString)
     }.toList

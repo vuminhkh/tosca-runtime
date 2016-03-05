@@ -28,11 +28,10 @@ import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.artifact.ArtifactExecutor;
 import com.toscaruntime.artifact.ArtifactUploader;
-import com.toscaruntime.exception.ArtifactAuthenticationFailureException;
-import com.toscaruntime.exception.ArtifactConnectException;
-import com.toscaruntime.exception.ArtifactException;
-import com.toscaruntime.exception.ArtifactExecutionException;
-import com.toscaruntime.exception.ArtifactUploadException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactUploadException;
 
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.IOUtils;
@@ -94,7 +93,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
     }
 
     @Override
-    public void initialize() throws ArtifactException {
+    public void initialize() {
         close();
         // Trust every host
         try {
@@ -109,7 +108,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
         }
     }
 
-    private synchronized void checkConnection() throws ArtifactException {
+    private synchronized void checkConnection() {
         if (sshClient == null || !sshClient.isConnected() || !sshClient.isAuthenticated()) {
             log.info("Reconnecting the session for " + user + "@" + ip);
             initialize();
@@ -191,7 +190,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
     }
 
     @Override
-    public Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env) throws ArtifactException {
+    public Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env) {
         log.info("Begin to execute [{}][{}] with env [{}]", operationName, remoteArtifactPath, env);
         checkConnection();
         String artifactName = Paths.get(remoteArtifactPath).getFileName().toString();
@@ -230,7 +229,11 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
             while (true) {
                 try {
                     session.join(5, TimeUnit.SECONDS);
-                } catch (ConnectionException ignored) {
+                } catch (ConnectionException e) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        log.info("Interrupted while waiting for script execution to finish");
+                        throw e;
+                    }
                 }
                 if (stdOutLogger.getStatusCode() != null) {
                     break;
@@ -279,7 +282,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
     }
 
     @Override
-    public void upload(String localPath, String remotePath) throws ArtifactException {
+    public void upload(String localPath, String remotePath) {
         checkConnection();
         try {
             Path parentPath = Paths.get(remotePath).getParent();

@@ -1,6 +1,7 @@
 package com.toscaruntime.compiler.runtime
 
 import com.toscaruntime.compiler.util.CompilerUtil
+import com.toscaruntime.util.CodeGeneratorUtil
 
 trait RuntimeType {
   val className: String
@@ -65,10 +66,13 @@ case class ListValue(value: String) extends StaticValue
 
 case class ComplexValue(value: String) extends StaticValue
 
-case class Method(name: String,
+case class Method(interface: String,
+                  operation: String,
                   // One of StaticValue, Function or CompositeFunction
                   inputs: Map[String, Value],
-                  implementation: Option[String])
+                  implementation: Option[String]) {
+  def name = CodeGeneratorUtil.getGeneratedMethodName(interface, operation)
+}
 
 case class Deployment(nodes: Seq[Node],
                       relationships: Seq[Relationship],

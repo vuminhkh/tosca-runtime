@@ -4,8 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.exception.ToscaRuntimeException;
-import com.toscaruntime.exception.WorkflowExecutionException;
+import com.toscaruntime.exception.deployment.creation.InvalidDeploymentStateException;
 import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentNode;
@@ -30,10 +29,10 @@ public class DeploymentImpacter {
             if (newInstanceParent != null && node.getHost() != null && newInstanceParent.getName().equals(node.getHost())) {
                 newInstanceHost = newInstanceParent;
             }
-            deploymentInitializer.initializeInstance(newInstance, deployment, node.getId(), index, newInstanceParent, newInstanceHost, null);
+            deploymentInitializer.initializeInstance(newInstance, deployment, node.getId(), index, newInstanceParent, newInstanceHost);
             return newInstance;
         } catch (Exception e) {
-            throw new ToscaRuntimeException("Could not create new instance of type " + node.getType(), e);
+            throw new InvalidDeploymentStateException("Could not create new instance of type " + node.getType(), e);
         }
     }
 
@@ -43,7 +42,7 @@ public class DeploymentImpacter {
                 return instance;
             }
         }
-        throw new WorkflowExecutionException("Unexpected situation, cannot find instance with name " + name + " and index " + index + " from " + instances);
+        throw new InvalidDeploymentStateException("Unexpected situation, cannot find instance with name " + name + " and index " + index + " from " + instances);
     }
 
     private DeploymentDeleteInstancesModification deleteInstanceTree(Root toBeDeleted, Deployment deployment) {
@@ -115,7 +114,7 @@ public class DeploymentImpacter {
             Set<tosca.relationships.Root> newRelationshipInstances = deploymentInitializer.generateRelationshipsInstances(
                     DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getSourceNodeId()),
                     DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getTargetNodeId()),
-                    relationshipNode);
+                    relationshipNode, deployment);
             // Sometime a relationship has already existed in the deployment, in this case must not add it to the scaling operation
             newRelationshipInstances.removeAll(deployment.getRelationshipInstances());
             deploymentModification.getRelationshipInstancesToAdd().addAll(newRelationshipInstances);

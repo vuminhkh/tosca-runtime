@@ -5,6 +5,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.toscaruntime.sdk.Deployment;
+
 import tosca.nodes.Root;
 
 public class DeploymentNode {
@@ -14,6 +16,8 @@ public class DeploymentNode {
     private String parent;
 
     private String host;
+
+    private Deployment deployment;
 
     private Class<? extends Root> type;
 
@@ -105,6 +109,10 @@ public class DeploymentNode {
         }
     }
 
+    public void initialLoad() {
+        this.instancesCount = deployment.getDeploymentPersister().syncGetNodeInstancesCount(getId());
+    }
+
     public int getInstancesCount() {
         return instancesCount;
     }
@@ -143,5 +151,9 @@ public class DeploymentNode {
 
     public void setDependedByNodes(Set<String> dependedByNodes) {
         this.dependedByNodes = dependedByNodes;
+    }
+
+    public void setDeployment(Deployment deployment) {
+        this.deployment = deployment;
     }
 }

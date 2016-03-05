@@ -1,15 +1,23 @@
 package tosca.relationships;
 
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.ToscaRuntimeException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.toscaruntime.exception.UnexpectedException;
+import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
+import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.model.OperationInputDefinition;
 import com.toscaruntime.sdk.util.OperationInputUtil;
+import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
+import com.toscaruntime.util.JSONUtil;
+
+import tosca.nodes.Compute;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -66,27 +74,32 @@ public abstract class Root extends AbstractRuntimeType {
                 } else if (operationName.endsWith("_target")) {
                     return executeTargetOperation(operationArtifactPath, inputs);
                 } else {
-                    throw new ToscaRuntimeException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
+                    // This is unexpected as this kind of error should be detected in compilation phase
+                    throw new UnexpectedException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
                 }
         }
     }
 
     protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, Object> inputs) {
-        if (source == null || source.getComputableHost() == null) {
-            throw new ToscaRuntimeException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
+        Compute sourceHost = source.getComputableHost();
+        if (sourceHost == null) {
+            // This is unexpected as this kind of error should be detected in compilation phase
+            throw new UnexpectedException("The relationship's source is not set or not hosted on a compute, operation cannot be executed");
         }
         Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
         operationDeploymentArtifacts.putAll(source.getDeploymentArtifacts());
-        return source.getComputableHost().execute(source.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
+        return sourceHost.execute(source.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
     }
 
     protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
-        if (target == null) {
-            throw new ToscaRuntimeException("The relationship's target is not hosted on a compute, operation cannot be executed");
+        Compute targetHost = target.getComputableHost();
+        if (targetHost == null) {
+            // This is unexpected as this kind of error should be detected in compilation phase
+            throw new UnexpectedException("The relationship's target is not hosted on a compute, operation cannot be executed");
         }
         Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
         operationDeploymentArtifacts.putAll(target.getDeploymentArtifacts());
-        return target.getComputableHost().execute(target.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
+        return targetHost.execute(target.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
     }
 
     public Object evaluateFunction(String functionName, String... paths) {
@@ -151,18 +164,64 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     @Override
-    public void setAttribute(String key, Object value) {
-        super.setAttribute(key, value);
-        // Attribute of the relationship is copied to the node
-        getSource().setAttribute(key, value);
-        getTarget().setAttribute(key, value);
+    public void initialLoad() {
+        Map<String, String> rawAttributes = deployment.getDeploymentPersister().syncGetRelationshipAttributes(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+        for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
+            try {
+                getAttributes().put(rawAttributeEntry.getKey(), JSONUtil.toObject(rawAttributeEntry.getValue()));
+            } catch (IOException e) {
+                throw new DeploymentPersistenceException("Cannot read as json from persistence attribute " + rawAttributeEntry.getKey() + " of relationship instance " + this, e);
+            }
+        }
+        List<String> outputInterfaces = deployment.getDeploymentPersister().syncGetRelationshipOutputInterfaces(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+        for (String interfaceName : outputInterfaces) {
+            List<String> operationNames = deployment.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), interfaceName);
+            for (String operationName : operationNames) {
+                Map<String, String> outputs = deployment.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), interfaceName, operationName);
+                operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
+            }
+        }
+        this.state = deployment.getDeploymentPersister().syncGetRelationshipInstanceState(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+    }
+
+    @Override
+    public void setState(String state) {
+        if (!state.equals(this.state)) {
+            deployment.getDeploymentPersister().syncSaveRelationshipState(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), state);
+            this.state = state;
+        }
+    }
+
+    @Override
+    public void setAttribute(String key, Object newValue) {
+        Object oldValue = getAttributes().get(key);
+        if (newValue == null) {
+            removeAttribute(key);
+        } else if (!newValue.equals(oldValue)) {
+            try {
+                deployment.getDeploymentPersister().syncSaveRelationshipAttribute(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), key, JSONUtil.toString(newValue));
+            } catch (JsonProcessingException e) {
+                throw new DeploymentPersistenceException("Cannot persist attribute " + key + " with value " + newValue + " of relationship instance from " + getSource().getId() + " to " + getTarget().getId() + " of type " + node.getRelationshipType().getName(), e);
+            }
+            getAttributes().put(key, newValue);
+            // Attribute of the relationship is copied to the node
+            getSource().setAttribute(key, newValue);
+            getTarget().setAttribute(key, newValue);
+        }
+    }
+
+    @Override
+    public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
+        deployment.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipType().getName(), interfaceName, operationName, outputs);
+        operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
     }
 
     @Override
     public void removeAttribute(String key) {
-        super.removeAttribute(key);
         getSource().removeAttribute(key);
         getTarget().removeAttribute(key);
+        deployment.getDeploymentPersister().syncDeleteRelationshipAttribute(source.getId(), target.getId(), node.getRelationshipType().getName(), key);
+        getAttributes().remove(key);
     }
 
     @Override
@@ -189,9 +248,10 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public String toString() {
-        return "Relationship{" +
+        return "Root{" +
                 "source=" + source +
                 ", target=" + target +
+                ", type=" + node.getRelationshipType().getName() +
                 '}';
     }
 }

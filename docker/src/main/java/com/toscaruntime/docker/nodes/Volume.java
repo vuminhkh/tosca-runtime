@@ -30,6 +30,15 @@ public class Volume extends tosca.nodes.BlockStorage {
     protected Container container;
 
     @Override
+    public void initialLoad() {
+        super.initialLoad();
+        volumeId = getAttributeAsString("provider_resource_id");
+        mountPoint = getAttributeAsString("mount_point");
+        driver = getAttributeAsString("driver");
+        location = getMandatoryPropertyAsString("location");
+    }
+
+    @Override
     public void create() {
         super.create();
         location = getMandatoryPropertyAsString("location");

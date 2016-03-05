@@ -10,8 +10,8 @@ import org.slf4j.LoggerFactory;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateNetworkCmd;
 import com.github.dockerjava.api.command.ListNetworksCmd;
-import com.toscaruntime.exception.PropertyRequiredException;
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.deployment.configuration.PropertyRequiredException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 
 /**
  * Docker network implementation
@@ -28,6 +28,13 @@ public class Network extends tosca.nodes.Network {
     private String networkId;
 
     private String networkName;
+
+    @Override
+    public void initialLoad() {
+        super.initialLoad();
+        this.networkId = getAttributeAsString("provider_resource_id");
+        this.networkName = getAttributeAsString("provider_resource_name");
+    }
 
     private com.github.dockerjava.api.model.Network findNetwork(String id, String name) {
         if (id == null && name == null) {
@@ -90,6 +97,7 @@ public class Network extends tosca.nodes.Network {
         super.delete();
         if (networkId == null) {
             log.warn("Network [" + getId() + "] has not been created yet and so cannot be deleted");
+            return;
         }
         if (StringUtils.isEmpty(getPropertyAsString("network_id"))) {
             // Only delete if not using external resource

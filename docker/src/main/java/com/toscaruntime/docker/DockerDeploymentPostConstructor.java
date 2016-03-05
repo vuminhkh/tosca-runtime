@@ -12,7 +12,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.toscaruntime.docker.nodes.Container;
 import com.toscaruntime.docker.nodes.Network;
 import com.toscaruntime.docker.nodes.Volume;
-import com.toscaruntime.exception.ProviderInitializationException;
+import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.sdk.util.DeploymentUtil;

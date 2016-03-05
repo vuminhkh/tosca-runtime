@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.toscaruntime.exception.IllegalFunctionException;
+import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
@@ -14,7 +14,6 @@ import com.toscaruntime.util.PropertyUtil;
 import tosca.constants.InstanceState;
 
 public abstract class AbstractRuntimeType {
-
     /**
      * Hold operation inputs : operation name to key to value
      */
@@ -43,9 +42,15 @@ public abstract class AbstractRuntimeType {
         return state;
     }
 
-    public void setState(String state) {
-        this.state = state;
-    }
+    public abstract void setState(String state);
+
+    public abstract void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs);
+
+    public abstract void setAttribute(String key, Object value);
+
+    public abstract void removeAttribute(String key);
+
+    public abstract void initialLoad();
 
     public Map<String, Object> getProperties() {
         return properties;
@@ -55,12 +60,13 @@ public abstract class AbstractRuntimeType {
         this.properties = properties;
     }
 
+    /**
+     * Retrieve a copy of all instance attributes. Do not modify the returned map as it will not be persisted, instead using setAttribute or removeAttribute method.
+     *
+     * @return all instance attributes
+     */
     public Map<String, Object> getAttributes() {
         return attributes;
-    }
-
-    public void setAttributes(Map<String, Object> attributes) {
-        this.attributes = attributes;
     }
 
     public Object getProperty(String propertyName) {
@@ -118,14 +124,6 @@ public abstract class AbstractRuntimeType {
 
     public void setConfig(DeploymentConfig config) {
         this.config = config;
-    }
-
-    public void setAttribute(String key, Object value) {
-        getAttributes().put(key, value);
-    }
-
-    public void removeAttribute(String key) {
-        getAttributes().remove(key);
     }
 
     public String evaluateCompositeFunction(String functionName, Object... memberValue) {

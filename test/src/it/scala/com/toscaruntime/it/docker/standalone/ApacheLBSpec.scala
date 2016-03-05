@@ -9,6 +9,7 @@ import com.toscaruntime.it.util.URLChecker._
 import org.scalatest.MustMatchers
 
 import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 class ApacheLBSpec extends AbstractSpec with MustMatchers {
 
@@ -35,7 +36,13 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       And("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
 
-      When("I scale up the node WebServer of this deployment to 2 instances")
+      When("I stop the manager daemon to test container state persistence")
+      stopAgent("apache-lb")
+
+      And("I start the manager daemon")
+      startAgent("apache-lb")
+
+      And("I scale up the node WebServer of this deployment to 2 instances")
       scale("apache-lb", "WebServer", 2)
 
       Then("The deployment should contains 2 instances of node WebServer in state started")
@@ -44,27 +51,39 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       Then("The deployment should contains 2 instances of node Java in state started")
       assertDeploymentHasNode("apache-lb", "Java", 2)
 
-      Then("The deployment should contains 2 instances of node Tomcat in state started")
+      And("The deployment should contains 2 instances of node Tomcat in state started")
       assertDeploymentHasNode("apache-lb", "Tomcat", 2)
 
-      Then("The deployment should contains 2 instances of node War in state started")
+      And("The deployment should contains 2 instances of node War in state started")
       assertDeploymentHasNode("apache-lb", "War", 2)
 
-      When("I scale down the node WebServer of this deployment to 1 instances")
+      And("A request on the application's url should return a response 200 OK")
+      checkURL(url, 200, Set.empty, 5 minutes)
+
+      When("I stop the manager daemon to test container state persistence")
+      stopAgent("apache-lb")
+
+      And("I start the manager daemon")
+      startAgent("apache-lb")
+
+      And("I scale down the node WebServer of this deployment to 1 instances")
       scale("apache-lb", "WebServer", 1)
 
       Then("The deployment should contains 1 instances of node WebServer in state started")
       assertDeploymentHasNode("apache-lb", "WebServer", 1)
 
-      Then("The deployment should contains 1 instances of node Java in state started")
+      And("The deployment should contains 1 instances of node Java in state started")
       assertDeploymentHasNode("apache-lb", "Java", 1)
 
-      Then("The deployment should contains 1 instances of node Tomcat in state started")
+      And("The deployment should contains 1 instances of node Tomcat in state started")
       assertDeploymentHasNode("apache-lb", "Tomcat", 1)
 
-      Then("The deployment should contains 1 instances of node War in state started")
+      And("The deployment should contains 1 instances of node War in state started")
       assertDeploymentHasNode("apache-lb", "War", 1)
 
+      And("A request on the application's url should return a response 200 OK")
+      checkURL(url, 200, Set.empty, 5 minutes)
+      
       And("I should be able to undeploy it without error")
       launchUndeployment("apache-lb")
     }

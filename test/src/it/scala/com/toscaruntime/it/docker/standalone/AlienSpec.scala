@@ -9,6 +9,7 @@ import com.toscaruntime.it.util.URLChecker._
 import org.scalatest.MustMatchers
 
 import scala.concurrent.duration.DurationInt
+import scala.language.postfixOps
 
 class AlienSpec extends AbstractSpec with MustMatchers {
 

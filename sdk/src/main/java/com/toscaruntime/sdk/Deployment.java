@@ -7,13 +7,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.InvalidInstancesCountException;
-import com.toscaruntime.exception.NodeNotFoundException;
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
+import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound;
+import com.toscaruntime.exception.deployment.workflow.InvalidInstancesCountException;
+import com.toscaruntime.exception.deployment.workflow.NodeNotFoundException;
 import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
@@ -82,14 +85,15 @@ public abstract class Deployment {
      */
     private List<DeploymentPostConstructor> deploymentPostConstructors;
 
-    public void initialize() {
-        initializeInstances();
-        initializeRelationshipInstances();
-        attachCreatedInstancesToNode(nodeInstances, relationshipInstances);
-        for (DeploymentPostConstructor postConstructor : deploymentPostConstructors) {
-            postConstructor.postConstruct(this, this.config.getProviderProperties(), this.config.getBootstrapContext());
-        }
-    }
+    /**
+     * Deployment persister save deployment's state to database
+     */
+    private DeploymentPersister deploymentPersister;
+
+    /**
+     * Hold current running workflow execution
+     */
+    private AtomicReference<WorkflowExecution> runningWorkflowExecution = new AtomicReference<>();
 
     private void attachCreatedInstancesToNode(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
         for (DeploymentNode node : nodes.values()) {
@@ -97,17 +101,6 @@ public abstract class Deployment {
         }
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
             relationshipNode.getRelationshipInstances().addAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
-        }
-    }
-
-    public void destroy() {
-        this.nodeInstances.clear();
-        this.relationshipInstances.clear();
-        for (DeploymentNode node : nodes.values()) {
-            node.getInstances().clear();
-        }
-        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
-            relationshipNode.getRelationshipInstances().clear();
         }
     }
 
@@ -150,6 +143,7 @@ public abstract class Deployment {
                                  Map<String, String> providerProperties,
                                  Map<String, Object> bootstrapContext,
                                  List<DeploymentPostConstructor> postConstructors,
+                                 DeploymentPersister deploymentPersister,
                                  boolean bootstrap) {
         this.config = new DeploymentConfig();
         this.config.setDeploymentName(deploymentName);
@@ -158,11 +152,25 @@ public abstract class Deployment {
         this.config.setBootstrapContext(bootstrapContext);
         this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
         this.config.setProviderProperties(providerProperties);
+        this.deploymentPersister = deploymentPersister;
         this.deploymentPostConstructors = postConstructors;
         postInitializeConfig();
         this.config.getInputs().putAll(inputs);
         initializeNodes();
         initializeRelationships();
+        if (deploymentPersister.hasExistingData()) {
+            nodes.values().forEach(DeploymentNode::initialLoad);
+            createInstances();
+            nodeInstances.values().forEach(Root::initialLoad);
+            relationshipInstances.forEach(tosca.relationships.Root::initialLoad);
+        } else {
+            for (DeploymentNode node : nodes.values()) {
+                deploymentPersister.syncInsertNodeIfNotExist(node.getId(), node.getInstancesCount());
+            }
+            for (DeploymentRelationshipNode relationship : relationshipNodes) {
+                deploymentPersister.syncInsertRelationshipIfNotExist(relationship.getSourceNodeId(), relationship.getTargetNodeId(), relationship.getRelationshipType().getName());
+            }
+        }
     }
 
     /**
@@ -181,7 +189,7 @@ public abstract class Deployment {
                                   String hostName,
                                   Map<String, Object> properties,
                                   Map<String, Map<String, Object>> capabilitiesProperties) {
-        this.deploymentInitializer.initializeNode(nodeName, type, parentName, hostName, properties, capabilitiesProperties, this.nodes);
+        this.deploymentInitializer.initializeNode(nodeName, type, parentName, hostName, this, properties, capabilitiesProperties, this.nodes);
     }
 
     /**
@@ -198,7 +206,8 @@ public abstract class Deployment {
                                       int index,
                                       tosca.nodes.Root parent,
                                       tosca.nodes.Root host) {
-        this.deploymentInitializer.initializeInstance(instance, this, name, index, parent, host, this.nodeInstances);
+        this.deploymentInitializer.initializeInstance(instance, this, name, index, parent, host);
+        this.nodeInstances.put(instance.getId(), instance);
     }
 
     protected void setDependencies(String nodeName, String... dependencies) {
@@ -210,7 +219,7 @@ public abstract class Deployment {
     }
 
     protected void generateRelationshipInstances(String sourceName, String targetName, Class<? extends tosca.relationships.Root> relationshipType) {
-        this.deploymentInitializer.generateRelationshipsInstances(sourceName, targetName, nodes, relationshipNodes, relationshipType, relationshipInstances);
+        this.deploymentInitializer.generateRelationshipsInstances(sourceName, targetName, nodes, relationshipNodes, relationshipType, relationshipInstances, this);
     }
 
     /**
@@ -232,68 +241,141 @@ public abstract class Deployment {
             throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is greater than max instances count");
         }
         if (newInstancesCount == node.getInstancesCount()) {
-            log.warn("New instances count is equal to current number of instance, do nothing");
-            return new WorkflowExecution();
-        } else if (newInstancesCount > node.getInstancesCount()) {
+            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is the same as the current instances count [" + node.getInstancesCount() + "]");
+        }
+        final int oldInstanceCount = node.getInstancesCount();
+        if (newInstancesCount > node.getInstancesCount()) {
             log.info("Scaling up node " + nodeName + "from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
             DeploymentAddInstancesModification modification = deploymentImpacter.addNodeInstances(this, node, newInstancesCount - node.getInstancesCount());
+
+            saveInstancesToPersistence(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+            node.setInstancesCount(newInstancesCount);
+            deploymentPersister.syncSaveNodeInstancesCount(node.getId(), newInstancesCount);
+            nodeInstances.putAll(modification.getInstancesToAdd());
+            relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
+            attachCreatedInstancesToNode(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+
             WorkflowExecution execution = this.workflowEngine.install(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
             execution.addListener(new WorkflowExecutionListener() {
                 @Override
                 public void onFinish() {
-                    log.info("Finished to scale node [{}] from [{}] to [{}] after [{}] seconds", nodeName, node.getInstancesCount(), newInstancesCount, DeploymentUtil.getExecutionTime(before));
-                    node.setInstancesCount(newInstancesCount);
-                    nodeInstances.putAll(modification.getInstancesToAdd());
-                    relationshipInstances.addAll(modification.getRelationshipInstancesToAdd());
-                    attachCreatedInstancesToNode(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                    runningWorkflowExecution.set(null);
+                    log.info("Finished to scale up node [{}] from [{}] to [{}] after [{}] seconds", nodeName, oldInstanceCount, newInstancesCount, DeploymentUtil.getExecutionTime(before));
                 }
 
                 @Override
-                public void onFailure(Throwable e) {
-                    log.info("Scale workflow execution failed, rolling back", e);
-                    workflowEngine.uninstall(modification.getInstancesToAdd(), modification.getRelationshipInstancesToAdd());
+                public void onFailure(List<Throwable> errors) {
+                    errors.stream().forEach(e -> log.info("Scale workflow execution failed", e));
                 }
             });
+            runningWorkflowExecution.set(execution);
             return execution;
         } else {
             log.info("Scaling down node " + nodeName + " from [" + node.getInstancesCount() + "] to [" + newInstancesCount + "]");
             DeploymentDeleteInstancesModification modification = deploymentImpacter.deleteNodeInstances(this, node, node.getInstancesCount() - newInstancesCount);
+            node.setInstancesCount(newInstancesCount);
+            deploymentPersister.syncSaveNodeInstancesCount(node.getId(), newInstancesCount);
+
             WorkflowExecution execution = this.workflowEngine.uninstall(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
             execution.addListener(new WorkflowExecutionListener() {
                 @Override
                 public void onFinish() {
-                    log.info("Finished to scale node [{}] from [{}] to [{}] after [{}] seconds", nodeName, node.getInstancesCount(), newInstancesCount, DeploymentUtil.getExecutionTime(before));
-                    node.setInstancesCount(newInstancesCount);
                     nodeInstances.keySet().removeAll(modification.getInstancesToDelete().keySet());
                     relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
                     unlinkDeletedInstancesFromNode(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+                    deleteInstancesFromPersistence(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
+                    runningWorkflowExecution.set(null);
+                    log.info("Finished to scale down node [{}] from [{}] to [{}] after [{}] seconds", nodeName, oldInstanceCount, newInstancesCount, DeploymentUtil.getExecutionTime(before));
                 }
 
                 @Override
-                public void onFailure(Throwable e) {
-                    log.info("Scale down workflow execution failed", e);
+                public void onFailure(List<Throwable> errors) {
+                    errors.stream().forEach(e -> log.info("Scale down workflow execution failed", e));
                 }
             });
+            runningWorkflowExecution.set(execution);
             return execution;
+        }
+    }
+
+    public void createInstances() {
+        initializeInstances();
+        initializeRelationshipInstances();
+        attachCreatedInstancesToNode(nodeInstances, relationshipInstances);
+        for (DeploymentPostConstructor postConstructor : deploymentPostConstructors) {
+            postConstructor.postConstruct(this, this.config.getProviderProperties(), this.config.getBootstrapContext());
+        }
+    }
+
+    public void cancel() {
+        WorkflowExecution execution = runningWorkflowExecution.get();
+        if (execution == null) {
+            log.warn("No running execution is found to cancel");
+        } else {
+            execution.shutdown(false);
+            runningWorkflowExecution.set(null);
+        }
+    }
+
+    public void resume() {
+        WorkflowExecution execution = runningWorkflowExecution.get();
+        if (execution == null) {
+            throw new RunningExecutionNotFound("No running execution is found to resume");
+        } else {
+            execution.resume();
         }
     }
 
     public WorkflowExecution install() {
         final long before = System.currentTimeMillis();
-        initialize();
+        createInstances();
+        saveInstancesToPersistence(nodeInstances, relationshipInstances);
         WorkflowExecution execution = workflowEngine.install(nodeInstances, relationshipInstances);
         execution.addListener(new WorkflowExecutionListener() {
             @Override
             public void onFinish() {
                 log.info("Finished to install the deployment with [{}] instances and [{}] relationship instances after [{}] seconds", nodeInstances.size(), relationshipInstances.size(), DeploymentUtil.getExecutionTime(before));
+                runningWorkflowExecution.set(null);
             }
 
             @Override
-            public void onFailure(Throwable e) {
-                log.info("Error happened while trying to install the deployment", e);
+            public void onFailure(List<Throwable> errors) {
+                errors.stream().forEach(e -> log.info("Error happened while trying to install the deployment", e));
             }
         });
+        runningWorkflowExecution.set(execution);
         return execution;
+    }
+
+    public void deleteInstances() {
+        this.nodeInstances.clear();
+        this.relationshipInstances.clear();
+        for (DeploymentNode node : nodes.values()) {
+            node.getInstances().clear();
+        }
+        for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
+            relationshipNode.getRelationshipInstances().clear();
+        }
+    }
+
+    private void saveInstancesToPersistence(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
+        for (Root instance : nodeInstances.values()) {
+            deploymentPersister.syncInsertInstanceIfNotExist(instance.getId(), instance.getName(), instance.getState());
+            instance.setAttribute("tosca_id", instance.getId());
+            instance.setAttribute("tosca_name", instance.getName());
+        }
+        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
+            deploymentPersister.syncInsertRelationshipInstanceIfNotExist(relationshipInstance.getSource().getId(), relationshipInstance.getTarget().getId(), relationshipInstance.getSource().getName(), relationshipInstance.getTarget().getName(), relationshipInstance.getNode().getRelationshipType().getName(), relationshipInstance.getState());
+        }
+    }
+
+    private void deleteInstancesFromPersistence(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
+        for (Root instance : nodeInstances.values()) {
+            deploymentPersister.syncDeleteInstance(instance.getId());
+        }
+        for (tosca.relationships.Root relationshipInstance : relationshipInstances) {
+            deploymentPersister.syncDeleteRelationshipInstance(relationshipInstance.getSource().getId(), relationshipInstance.getTarget().getId(), relationshipInstance.getNode().getRelationshipType().toString());
+        }
     }
 
     public WorkflowExecution uninstall() {
@@ -303,15 +385,17 @@ public abstract class Deployment {
             @Override
             public void onFinish() {
                 log.info("Finished to uninstall the deployment with [{}] instances and [{}] relationship instances after [{}] seconds", nodeInstances.size(), relationshipInstances.size(), DeploymentUtil.getExecutionTime(before));
-                destroy();
+                deleteInstances();
+                deleteInstancesFromPersistence(nodeInstances, relationshipInstances);
+                runningWorkflowExecution.set(null);
             }
 
             @Override
-            public void onFailure(Throwable e) {
-                log.info("Error happened while trying to uninstall the deployment", e);
-                destroy();
+            public void onFailure(List<Throwable> errors) {
+                errors.stream().forEach(e -> log.info("Error happened while trying to uninstall the deployment", e));
             }
         });
+        runningWorkflowExecution.set(execution);
         return execution;
     }
 
@@ -353,10 +437,6 @@ public abstract class Deployment {
 
     public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
         return DeploymentUtil.getNodeInstancesByType(nodeInstances, type);
-    }
-
-    public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByType(String sourceId, Class<T> type) {
-        return DeploymentUtil.getRelationshipInstancesFromSource(relationshipInstances, sourceId, type);
     }
 
     public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getTargetInstancesOfRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
@@ -407,15 +487,15 @@ public abstract class Deployment {
         return deploymentPostConstructors;
     }
 
-    public void setDeploymentPostConstructors(List<DeploymentPostConstructor> deploymentPostConstructors) {
-        this.deploymentPostConstructors = deploymentPostConstructors;
-    }
-
     public Map<String, Root> getNodeInstances() {
         return nodeInstances;
     }
 
     public Set<tosca.relationships.Root> getRelationshipInstances() {
         return relationshipInstances;
+    }
+
+    public DeploymentPersister getDeploymentPersister() {
+        return deploymentPersister;
     }
 }

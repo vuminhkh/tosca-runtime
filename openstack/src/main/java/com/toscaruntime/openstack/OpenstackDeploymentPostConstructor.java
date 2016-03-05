@@ -23,7 +23,7 @@ import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Module;
-import com.toscaruntime.exception.ProviderInitializationException;
+import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
 import com.toscaruntime.openstack.nodes.Compute;
 import com.toscaruntime.openstack.nodes.ExternalNetwork;
 import com.toscaruntime.openstack.nodes.Network;

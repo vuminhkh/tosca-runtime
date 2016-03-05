@@ -110,9 +110,11 @@ class CompilerSpec extends AbstractSpec {
       installAndAssertCompilationResult(sampleTypesOutput.resolve("topology-wordpress"))
 
       installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
+      installAndAssertCompilationResult(Paths.get("mock-provider/src/main/resources/mock-provider-types"))
 
       assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/")
       assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/")
+      assemblyTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerMock/", classOf[_root_.com.toscaruntime.mock.nodes.MockCompute].getName)
       assemblyDockerTopologyAndAssertCompilationResult("csars/topologyNodeCellarDocker/")
     }
   }

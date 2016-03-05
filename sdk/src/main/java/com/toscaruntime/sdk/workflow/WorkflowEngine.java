@@ -1,7 +1,6 @@
 package com.toscaruntime.sdk.workflow;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -9,13 +8,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.exception.DeploymentException;
-import com.toscaruntime.exception.InvalidWorkflowException;
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.MockTask;
@@ -36,18 +33,20 @@ public class WorkflowEngine {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowEngine.class);
 
-    private ExecutorService executorService = Executors.newCachedThreadPool(new ThreadFactory() {
+    private static ExecutorService createWorkflowExecutorService() {
+        return Executors.newCachedThreadPool(new ThreadFactory() {
 
-        private AtomicInteger count = new AtomicInteger();
+            private AtomicInteger count = new AtomicInteger();
 
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r);
-            t.setDaemon(true);
-            t.setName("WorkflowThread_" + count.incrementAndGet());
-            return t;
-        }
-    });
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setDaemon(true);
+                t.setName("WorkflowThread_" + count.incrementAndGet());
+                return t;
+            }
+        });
+    }
 
     private InstallLifeCycleTasksFactory mockInstallLifeCycleTasksFactory = new InstallLifeCycleTasksFactory() {
         @Override
@@ -127,7 +126,7 @@ public class WorkflowEngine {
             } else {
                 log.info("Workflow dry run execution finished, begin real execution");
             }
-        } catch (DeploymentException e) {
+        } catch (InvalidWorkflowException e) {
             throw e;
         } catch (Throwable e) {
             throw new InvalidWorkflowException("Workflow is invalid and did not pass through dry run", e);
@@ -168,7 +167,8 @@ public class WorkflowEngine {
                                         Set<tosca.relationships.Root> relationshipInstances,
                                         InstallLifeCycleTasksFactory lifeCycleTasksFactory) {
         Map<Root, InstallLifeCycleTasks> allTasks = new HashMap<>();
-        WorkflowExecution workflowExecution = new WorkflowExecution();
+        ExecutorService executorService = createWorkflowExecutorService();
+        WorkflowExecution workflowExecution = new WorkflowExecution(executorService);
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
             InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
@@ -221,16 +221,7 @@ public class WorkflowEngine {
                         }
                     }));
         }
-        // Let start the install workflow by execute create task that do not have any dependencies
-        // The whole workflow will be executed in a cascading manner
-        List<InstallLifeCycleTasks> tasksCanBeRun = allTasks.values().stream().filter(installLifeCycle ->
-                installLifeCycle.getCreateTask().canRun()
-        ).collect(Collectors.toList());
-        if (tasksCanBeRun.isEmpty()) {
-            log.error("Cyclic dependencies detected: \n {}", workflowExecution.toString());
-            throw new InvalidWorkflowException("The workflow has cyclic dependencies and therefore cannot be executed");
-        }
-        tasksCanBeRun.forEach(installLifeCycle -> executorService.execute(installLifeCycle.getCreateTask()));
+        workflowExecution.launch();
         return workflowExecution;
     }
 
@@ -250,7 +241,8 @@ public class WorkflowEngine {
                                          Set<tosca.relationships.Root> relationshipInstances,
                                          UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory) {
         Map<Root, UninstallLifeCycleTasks> allTasks = new HashMap<>();
-        WorkflowExecution workflowExecution = new WorkflowExecution();
+        ExecutorService executorService = createWorkflowExecutorService();
+        WorkflowExecution workflowExecution = new WorkflowExecution(executorService);
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
             UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
@@ -299,18 +291,7 @@ public class WorkflowEngine {
                         }
                     }));
         }
-        // Let start the uninstall workflow by execute create task that do not have any dependencies
-        // The whole workflow will be executed in a cascading manner
-        allTasks.values().stream().filter(uninstallLifeCycleTask ->
-                uninstallLifeCycleTask.getRemoveSourceTask().canRun() || uninstallLifeCycleTask.getRemoveTargetTask().canRun()
-        ).forEach(uninstallLifeCycle -> {
-            if (uninstallLifeCycle.getRemoveSourceTask().canRun()) {
-                executorService.execute(uninstallLifeCycle.getRemoveSourceTask());
-            }
-            if (uninstallLifeCycle.getRemoveTargetTask().canRun()) {
-                executorService.execute(uninstallLifeCycle.getRemoveTargetTask());
-            }
-        });
+        workflowExecution.launch();
         return workflowExecution;
     }
 }

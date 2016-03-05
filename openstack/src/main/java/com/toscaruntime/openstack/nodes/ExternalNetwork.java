@@ -3,7 +3,7 @@ package com.toscaruntime.openstack.nodes;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.openstack.neutron.v2.features.NetworkApi;
 
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.openstack.util.NetworkUtil;
 
 /**
@@ -17,6 +17,12 @@ public class ExternalNetwork extends tosca.nodes.Network {
 
     public void setNetworkApi(NetworkApi networkApi) {
         this.networkApi = networkApi;
+    }
+
+    @Override
+    public void initialLoad() {
+        super.initialLoad();
+        this.network = networkApi.get(getAttributeAsString("provider_resource_id"));
     }
 
     @Override
@@ -43,6 +49,8 @@ public class ExternalNetwork extends tosca.nodes.Network {
     public void delete() {
         super.delete();
         network = null;
+        removeAttribute("provider_resource_id");
+        removeAttribute("provider_resource_name");
     }
 
     public String getNetworkId() {

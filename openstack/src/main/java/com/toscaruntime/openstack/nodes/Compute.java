@@ -1,6 +1,8 @@
 package com.toscaruntime.openstack.nodes;
 
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,11 +20,11 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
-import com.toscaruntime.exception.ArtifactAuthenticationFailureException;
-import com.toscaruntime.exception.ArtifactConnectException;
-import com.toscaruntime.exception.ArtifactExecutionException;
-import com.toscaruntime.exception.OperationExecutionException;
-import com.toscaruntime.exception.ProviderResourceAllocationException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
+import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourceAllocationException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.FailSafeUtil;
@@ -49,8 +51,6 @@ public class Compute extends tosca.nodes.Compute {
     private Set<ExternalNetwork> externalNetworks;
 
     private Set<Network> networks;
-
-    private Set<FloatingIP> createdFloatingIPs = Sets.newHashSet();
 
     private Server server;
 
@@ -81,6 +81,13 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
+    public void initialLoad() {
+        super.initialLoad();
+        this.server = serverApi.get(getAttributeAsString("provider_resource_id"));
+        this.ipAddress = getAttributeAsString("ip_address");
+    }
+
+    @Override
     public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
@@ -98,7 +105,7 @@ public class Compute extends tosca.nodes.Compute {
                     ArtifactConnectException.class,
                     ArtifactExecutionException.class);
         } catch (Throwable e) {
-            throw new OperationExecutionException("Compute [" + getId() + "] : Unable to execute operation " + operationArtifactPath, e);
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to execute operation " + operationArtifactPath, e);
         }
     }
 
@@ -184,7 +191,7 @@ public class Compute extends tosca.nodes.Compute {
 
     private void initSshExecutor(String ipForSSSHSession) {
         if (StringUtils.isBlank(ipForSSSHSession)) {
-            throw new OperationExecutionException("Compute [" + getId() + "] : IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
         }
         String user = getMandatoryPropertyAsString("login");
         String keyPath = getMandatoryPropertyAsString("key_path");
@@ -212,17 +219,17 @@ public class Compute extends tosca.nodes.Compute {
             FailSafeUtil.doActionWithRetry(() -> artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation), "Upload recipe", connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
         } catch (Throwable e) {
             log.error("Compute [" + getId() + "] : Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
-            throw new OperationExecutionException("Compute [" + getId() + "] : Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
         }
     }
 
-    private void attachFloatingIP(String externalNetworkId, int retryNumber, long coolDownPeriod) {
+    private FloatingIP attachFloatingIP(String externalNetworkId, int retryNumber, long coolDownPeriod) {
         FloatingIP floatingIP = FailSafeUtil.doActionWithRetry(() -> this.floatingIPApi.allocateFromPool(externalNetworkId),
                 "Allocation floating ip to compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS);
-        this.createdFloatingIPs.add(floatingIP);
         this.floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
         setAttribute("public_ip_address", floatingIP.getIp());
         log.info("Compute [{}] : Attached floating ip [{}]", getId(), floatingIP.getIp());
+        return floatingIP;
     }
 
     @Override
@@ -231,7 +238,7 @@ public class Compute extends tosca.nodes.Compute {
         int retryNumber = getOpenstackOperationRetry();
         long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         if (this.server == null) {
-            throw new OperationExecutionException("Compute [" + getId() + "] : Must create the server before starting it");
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Must create the server before starting it");
         }
         SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isUp = Server.Status.ACTIVE.equals(server.getStatus())
@@ -246,17 +253,19 @@ public class Compute extends tosca.nodes.Compute {
             }
         }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
+        Set<String> floatingIpIds = new HashSet<>();
         for (ExternalNetwork externalNetwork : this.externalNetworks) {
-            attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod);
+            floatingIpIds.add(attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod).getId());
         }
         if (this.config.isBootstrap() && this.externalNetworks.isEmpty() && StringUtils.isNotBlank(this.externalNetworkId)) {
             // In bootstrap mode and if external network id can be found in the context, we attach automatically a floating ip
             log.info("Compute [{}] : Bootstrap mode enabled automatically attach a floating IP from [{}] as no external network found for the compute [{}]", getId(), this.externalNetworkId);
-            attachFloatingIP(this.externalNetworkId, retryNumber, coolDownPeriod);
+            floatingIpIds.add(attachFloatingIP(this.externalNetworkId, retryNumber, coolDownPeriod).getId());
         }
         setAttribute("ip_address", this.ipAddress);
         setAttribute("provider_resource_id", server.getId());
         setAttribute("provider_resource_name", server.getName());
+        setAttribute("floating_ip_ids", new ArrayList<>(floatingIpIds));
         initSshExecutor(getIpAddressForSSHSession());
         log.info("Compute [{}] : Started server with info [{}]", getId(), server);
     }
@@ -309,10 +318,13 @@ public class Compute extends tosca.nodes.Compute {
         }
         int retryNumber = getOpenstackOperationRetry();
         long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
-        for (FloatingIP floatingIP : createdFloatingIPs) {
-            this.floatingIPApi.delete(floatingIP.getId());
+        List<String> createdFloatingIPs = (List<String>) getAttribute("floating_ip_ids");
+        if (createdFloatingIPs != null) {
+            for (String floatingIP : createdFloatingIPs) {
+                this.floatingIPApi.delete(floatingIP);
+            }
+            this.removeAttribute("floating_ip_ids");
         }
-        this.createdFloatingIPs.clear();
         String serverId = this.server.getId();
         this.serverApi.delete(this.server.getId());
         SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
@@ -328,6 +340,7 @@ public class Compute extends tosca.nodes.Compute {
         this.removeAttribute("provider_resource_id");
         this.removeAttribute("provider_resource_name");
         this.removeAttribute("public_ip_address");
+        this.removeAttribute("floating_ip_ids");
     }
 
     public int getOpenstackOperationRetry() {

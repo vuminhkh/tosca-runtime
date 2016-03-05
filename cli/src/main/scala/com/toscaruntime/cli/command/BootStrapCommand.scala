@@ -2,7 +2,7 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Files
 
-import com.toscaruntime.cli.util.{CompilationUtil, AgentUtil}
+import com.toscaruntime.cli.util.{AgentUtil, CompilationUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.constant.ProviderConstant

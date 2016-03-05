@@ -1,7 +1,7 @@
 # Routes
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
-GET           /deployment                                       controllers.Application.getDeploymentInformation()
-POST          /deployment                                       controllers.Application.deploy()
-DELETE        /deployment                                       controllers.Application.undeploy()
-PUT           /deployment/nodes/:nodeName/instancesCount        controllers.Application.scale(nodeName: String, newInstancesCount: Int)
+GET         /deployment                          controllers.DeployerController.getDeploymentInformation()
+POST        /deployment/executions               controllers.DeployerController.execute()
+POST        /deployment/executions/cancel        controllers.DeployerController.cancel()
+POST        /deployment/executions/resume        controllers.DeployerController.resume()

@@ -43,6 +43,10 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
   }
 
   def assemblyDockerTopologyAndAssertCompilationResult(dockerTopology: String) = {
+    assemblyTopologyAndAssertCompilationResult(dockerTopology, "com.toscaruntime.docker.nodes.Container")
+  }
+
+  def assemblyTopologyAndAssertCompilationResult(dockerTopology: String, expectedContain: String) = {
     val topologyPath = ClassLoaderUtil.getPathForResource(dockerTopology)
     val topologyName = topologyPath.getFileName.toString
     val inputsPath = topologyPath.getParent.getParent.resolve("inputs").resolve(topologyName).resolve("inputs.yml")
@@ -52,7 +56,7 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
     showCompilationErrors(topologyCompilationResult)
     topologyCompilationResult.isSuccessful must be(true)
     val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("deployment").resolve("Deployment.java"))
-    deploymentGenerated must include("com.toscaruntime.docker.nodes.Container")
+    deploymentGenerated must include(expectedContain)
     generatedAssemblyPath
   }
 }

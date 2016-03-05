@@ -47,7 +47,7 @@ public abstract class AbstractTask implements Runnable {
     }
 
     private void notifyTaskError(Throwable e) {
-        workflowExecution.onTaskFailure(e);
+        workflowExecution.onTaskFailure(this, e);
     }
 
     private synchronized void onDependencyCompletion(AbstractTask dependency) {

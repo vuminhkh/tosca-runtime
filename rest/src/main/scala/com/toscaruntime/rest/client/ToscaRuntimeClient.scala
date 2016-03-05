@@ -6,10 +6,13 @@ import java.nio.file.Path
 
 import akka.pattern._
 import com.ning.http.client.AsyncHttpClientConfig
-import com.toscaruntime.exception.{AgentNotRunningException, BadClientConfigurationException, DaemonResourcesNotFoundException, WorkflowExecutionException}
-import com.toscaruntime.rest.model.{DeploymentDetails, DeploymentInfo, JSONMapStringAnyFormat, RestResponse}
+import com.toscaruntime.exception.UnexpectedException
+import com.toscaruntime.exception.client._
+import com.toscaruntime.rest.model._
 import com.typesafe.scalalogging.LazyLogging
-import play.api.libs.json.JsObject
+import play.api.http.Status
+import play.api.libs.json.{JsObject, Json}
+import play.api.libs.ws.WSResponse
 import play.api.libs.ws.ning.{NingAsyncHttpClientConfigBuilder, NingWSClient}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -53,7 +56,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def listDeploymentAgents() = {
     proxyURLOpt.map { proxyURL =>
-      wsClient.url(proxyURL + "/deployments").get().map(_.json.as[RestResponse[List[DeploymentInfo]]].data.get)
+      wsClient.url(proxyURL + "/deployments").get().map(_.json.as[RestResponse[List[DeploymentInfoDTO]]].data.get)
     }.getOrElse(Future(daemonClient.listDeploymentAgents().values.toList))
   }
 
@@ -61,45 +64,61 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     val url = getDeploymentAgentURL(deploymentId)
     wsClient.url(url).get().map { response =>
       if (response.status == 200) {
-        response.json.as[RestResponse[DeploymentDetails]].data.get
+        response.json.as[RestResponse[DeploymentDTO]].data.get
       } else throw new AgentNotRunningException(s"Agent is down and respond with status ${response.status} and body ${response.body}")
     }
   }
 
-  def deploy(deploymentId: String) = {
-    val url = getDeploymentAgentURL(deploymentId)
-    val deployResponse = wsClient.url(url).post("").map { response =>
-      if (response.status == 200) {
-        response.json.as[RestResponse[DeploymentDetails]].data.get
-      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch install workflow : \n" + response.body)
+  private def handleWorkflowExecutionResponse(response: WSResponse): String = {
+    response.status match {
+      case Status.OK => response.body
+      case Status.BAD_REQUEST => throw new BadRequestException(s"Bad workflow execution request :\n ${response.body}")
+      case _ => throw new ServerFailureException(s"Encountered unexpected exception while trying to launch install workflow :\n ${response.body}")
     }
-    deployResponse
+  }
+
+  def deploy(deploymentId: String) = {
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("install", Map.empty)))
+      .map(handleWorkflowExecutionResponse)
   }
 
   def undeploy(deploymentId: String) = {
-    val url = getDeploymentAgentURL(deploymentId)
-    val undeployResponse = wsClient.url(url).delete().map { response =>
-      if (response.status == 200) {
-        response.json.as[RestResponse[DeploymentDetails]].data.get
-      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch uninstall workflow : \n" + response.body)
-    }
-    undeployResponse
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("uninstall", Map.empty)))
+      .map(handleWorkflowExecutionResponse)
   }
 
   def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
-    val url = getDeploymentAgentURL(deploymentId)
-    val scaleResponse = wsClient.url(s"$url/nodes/$nodeName/instancesCount").withQueryString(("newInstancesCount", instancesCount.toString)).put("").map { response =>
-      if (response.status == 200) {
-        response.json.as[RestResponse[DeploymentDetails]].data.get
-      } else throw new WorkflowExecutionException("Encountered unexpected exception while trying to launch scale workflow : \n" + response.body)
-    }
-    scaleResponse
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("scale", Map("nodeId" -> nodeName, "newInstancesCount" -> instancesCount))))
+      .map(handleWorkflowExecutionResponse)
   }
 
-  def bootstrap(provider: String, target: String) = {
+  def waitForRunningExecutionToFinish(deploymentId: String): Future[DeploymentDTO] = {
+    getDeploymentAgentInfo(deploymentId).flatMap { deploymentInfo =>
+      if (deploymentInfo.executions.head.error.nonEmpty) {
+        Future.failed(new WorkflowExecutionFailureException(s"Execution of workflow failed ${deploymentInfo.executions.head.error.get}"))
+      } else if (deploymentInfo.executions.head.endTime.isEmpty) {
+        after(2 seconds, system.scheduler)(waitForRunningExecutionToFinish(deploymentId))
+      } else {
+        Future(deploymentInfo)
+      }
+    }
+  }
+
+  def waitForBootstrapToFinish(provider: String, target: String) = waitForRunningExecutionToFinish(generateDeploymentIdForBootstrap(provider, target))
+
+  def bootstrap(provider: String, target: String): Future[DeploymentDTO] = {
     deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
-      val proxyUrl = response.outputs.get("public_proxy_url").get + "/context"
-      saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(response.outputs), response)
+      logger.info(s"Install workflow launched for bootstrap $response")
+      waitForBootstrapToFinish(provider, target).flatMap { bootstrapInfo =>
+        val proxyUrl = bootstrapInfo.outputs.get("public_proxy_url").get + "/context"
+        saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(bootstrapInfo.outputs), bootstrapInfo)
+      }
     }
   }
 
@@ -116,7 +135,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   def updateBootstrapContext(context: Map[String, String]) = {
-    val proxyUrl = proxyURLOpt.getOrElse(throw new BadClientConfigurationException("Try to update bootstrap context but proxy url not configured"))
+    val proxyUrl = proxyURLOpt.getOrElse(throw new UnexpectedException("Try to update bootstrap context but proxy url not configured"))
     wsClient.url(proxyUrl + "/context").post(JSONMapStringAnyFormat.convertMapToJsValue(context))
   }
 
@@ -129,7 +148,10 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   def teardown(provider: String, target: String) = {
-    undeploy(generateDeploymentIdForBootstrap(provider, target))
+    undeploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
+      logger.info(s"Install workflow launched for bootstrap $response")
+      waitForBootstrapToFinish(provider, target)
+    }
   }
 
   def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrap: Boolean = false) = {

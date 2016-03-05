@@ -24,8 +24,8 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.jaxrs.DockerCmdExecFactoryImpl;
 import com.google.common.collect.Maps;
-import com.toscaruntime.exception.BadClientConfigurationException;
-import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.exception.client.BadClientConfigurationException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 
 public class DockerUtil {
 
@@ -170,12 +170,12 @@ public class DockerUtil {
             DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder(log);
             dockerClient.execStartCmd(containerId).withExecId(execCreateCmdResponse.getId()).exec(dockerStreamDecoder).awaitCompletion();
         } catch (Exception e) {
-            throw new OperationExecutionException("Script " + commands + " exec encountered error while reading for output ", e);
+            throw new ArtifactExecutionException("Script " + commands + " exec encountered error while reading for output ", e);
         }
         InspectExecResponse response = dockerClient.inspectExecCmd(execCreateCmdResponse.getId()).exec();
         int exitStatus = response.getExitCode();
         if (exitStatus != 0) {
-            throw new OperationExecutionException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
+            throw new ArtifactExecutionException("Script " + commands + " exec has exited with error status " + exitStatus + " for container " + containerId);
         }
     }
 

@@ -23,6 +23,11 @@ public class JSONUtil {
         return OBJECT_MAPPER.readValue(json, type);
     }
 
+    public static Object toObject(String json) throws IOException {
+        JavaType type = OBJECT_MAPPER.getTypeFactory().constructType(Object.class);
+        return OBJECT_MAPPER.readValue(json, type);
+    }
+
     public static String toString(Object object) throws JsonProcessingException {
         return OBJECT_MAPPER.writeValueAsString(object);
     }

@@ -7,7 +7,7 @@ import java.util.regex.Pattern
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{DependencyNotFoundException, EmptyArchiveException, InvalidTopologyException}
+import com.toscaruntime.exception.compilation.{InvalidTopologyException, DependencyNotFoundException, EmptyArchiveException}
 import com.toscaruntime.tosca.ToscaVersion
 import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging

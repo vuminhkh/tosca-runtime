@@ -33,8 +33,8 @@ import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.toscaruntime.exception.OperationExecutionException;
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.DockerStreamDecoder;
 import com.toscaruntime.util.DockerUtil;
@@ -78,6 +78,14 @@ public class Container extends Compute {
     private Set<Volume> volumes;
 
     private String dockerHostIP;
+
+    @Override
+    public void initialLoad() {
+        super.initialLoad();
+        this.containerId = getAttributeAsString("provider_resource_id");
+        this.ipAddress = getAttributeAsString("ip_address");
+        this.dockerHostIP = getAttributeAsString("public_ip_address");
+    }
 
     public String getImageId() {
         return getMandatoryPropertyAsString("image_id");
@@ -149,7 +157,7 @@ public class Container extends Compute {
         try {
             dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitCompletion();
         } catch (InterruptedException e) {
-            throw new OperationExecutionException("Pull interrupted", e);
+            throw new InvalidOperationExecutionException("Pull interrupted", e);
         }
         log.info("Container [" + getId() + "] : Pulled image " + imageId);
         CreateContainerCmd createContainerCmd = dockerClient.createContainerCmd(imageId + ":" + tag)
@@ -289,7 +297,7 @@ public class Container extends Compute {
             });
             return envVars;
         } catch (IOException e) {
-            throw new OperationExecutionException("Unable to create generated script for " + operationArtifactPath, e);
+            throw new InvalidOperationExecutionException("Unable to create generated script for " + operationArtifactPath, e);
         } finally {
             IOUtils.closeQuietly(localGeneratedScriptWriter);
         }

@@ -7,7 +7,6 @@ import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.io.StdIn
 import scala.language.postfixOps
 
@@ -123,24 +122,21 @@ object AgentsCommand {
   def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
     client.getDeploymentAgentInfo(deploymentId).flatMap { details =>
       if (AgentUtil.hasLivingNodes(details)) {
-        launchUninstallWorkflow(client, deploymentId).map {
-          case _ =>
-            delete(client, deploymentId)
-            details
-        }
-      } else {
+        launchUninstallWorkflow(client, deploymentId)
+      }
+      client.waitForRunningExecutionToFinish(deploymentId).map { deletedDetails =>
         delete(client, deploymentId)
-        Future.successful(details)
+        deletedDetails
       }
     }
   }
 
   def launchInstallWorkflow(client: ToscaRuntimeClient, deploymentId: String) = {
-    client.deploy(deploymentId)
+    AgentUtil.deploy(client, deploymentId)
   }
 
   def launchUninstallWorkflow(client: ToscaRuntimeClient, deploymentId: String) = {
-    client.undeploy(deploymentId)
+    AgentUtil.undeploy(client, deploymentId)
   }
 
   def listAgents(client: ToscaRuntimeClient) = {
@@ -148,7 +144,7 @@ object AgentsCommand {
   }
 
   def scale(client: ToscaRuntimeClient, deploymentId: String, nodeToScale: String, newInstancesCount: Int) = {
-    client.scale(deploymentId, nodeToScale, newInstancesCount)
+    AgentUtil.scale(client, deploymentId, nodeToScale, newInstancesCount)
   }
 
   def start(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -183,6 +179,7 @@ object AgentsCommand {
     args.head match {
       case ("create", deploymentId: String) =>
         val deployResult = deploy(client, deploymentId)
+        println(deployResult._2)
         println(s"Agent with docker id [${deployResult._1}] has been created to manage deployment [$deploymentId]")
         println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
       case "list" =>

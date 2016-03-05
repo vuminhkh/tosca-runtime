@@ -8,9 +8,9 @@ import java.util.Properties;
 import org.apache.commons.lang.StringUtils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.PropertyAccessException;
-import com.toscaruntime.exception.PropertyRequiredException;
+import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
+import com.toscaruntime.exception.deployment.configuration.PropertyAccessException;
+import com.toscaruntime.exception.deployment.configuration.PropertyRequiredException;
 
 public class PropertyUtil {
 

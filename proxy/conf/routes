@@ -1,9 +1,10 @@
 # Routes
 # This file defines all application routes (Higher priority routes first)
 # ~~~~
-GET           /context                          controllers.Application.getBootstrapContext
-POST          /context                          controllers.Application.saveBootstrapContext()
-GET           /deployments                      controllers.Application.list
-GET           /deployments/:deploymentId        controllers.Application.get(deploymentId: String)
-POST          /deployments/:deploymentId        controllers.Application.deploy(deploymentId: String)
-DELETE        /deployments/:deploymentId        controllers.Application.undeploy(deploymentId: String)
+GET         /context                                            controllers.ProxyController.getBootstrapContext
+POST        /context                                            controllers.ProxyController.saveBootstrapContext()
+GET         /deployments                                        controllers.ProxyController.list
+GET         /deployments/:deploymentId                          controllers.ProxyController.get(deploymentId: String)
+POST        /deployments/:deploymentId/executions               controllers.ProxyController.execute(deploymentId: String)
+POST        /deployments/:deploymentId/executions/cancel        controllers.ProxyController.cancel(deploymentId: String)
+POST        /deployments/:deploymentId/executions/resume        controllers.ProxyController.resume(deploymentId: String)

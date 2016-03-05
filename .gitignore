@@ -38,3 +38,5 @@ cli/src/main/resources/bootstrap/openstack/swarm/archive/toscaruntime.pem
 
 cli/src/main/resources/conf/providers/openstack/default/provider.conf
 cli/src/main/resources/conf/providers/openstack/swarm/provider.conf
+
+deployer/test/resources/testWorkspace/data

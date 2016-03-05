@@ -9,8 +9,10 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 import com.google.common.collect.ImmutableMap;
+import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.docker.DockerDeploymentPostConstructor;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.ClassLoaderUtil;
@@ -31,7 +33,7 @@ public class DockerNodesTest {
                 .put(DockerUtil.DOCKER_URL_KEY, dockerDaemonConfig.getUrl())
                 .put(DockerUtil.DOCKER_CERT_PATH_KEY, dockerDaemonConfig.getCertPath())
                 .build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
             Container compute = testDeployment.getNodeInstancesByType(Container.class).iterator().next();

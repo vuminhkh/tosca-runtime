@@ -17,6 +17,7 @@ import com.github.dockerjava.api.model.InternetProtocol;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.util.ClassLoaderUtil;
@@ -28,9 +29,15 @@ public class ContainerTest {
 
     private Logger logger = LoggerFactory.getLogger(ContainerTest.class);
 
+    private Deployment mockDeployment() {
+        Deployment deployment = Mockito.mock(Deployment.class);
+        Mockito.when(deployment.getDeploymentPersister()).thenReturn(Mockito.mock(DeploymentPersister.class));
+        return deployment;
+    }
+
     private Container createContainer(String imageId) throws MalformedURLException {
         Container container = new Container();
-        container.setDeployment(Mockito.mock(Deployment.class));
+        container.setDeployment(mockDeployment());
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
         deploymentConfig.setBootstrap(true);
@@ -77,6 +84,7 @@ public class ContainerTest {
     public void testContainerWithNetwork() throws MalformedURLException {
         Container container = createContainer("toscaruntime/ubuntu-trusty");
         Network network = new Network();
+        network.setDeployment(mockDeployment());
         network.setDockerClient(container.getDockerClient());
         network.setIndex(1);
         network.setName("dockerNet");

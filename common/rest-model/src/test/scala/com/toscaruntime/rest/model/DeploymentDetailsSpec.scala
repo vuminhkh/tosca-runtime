@@ -31,10 +31,10 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
 
   "DeploymentDetails" must {
     "be able to be converted to JsValue and vice versa" in {
-      val details = DeploymentDetails(
+      val details = DeploymentDTO(
         name = "test",
         nodes = List(
-          Node(
+          NodeDTO(
             id = "testNode",
             properties = Map(
               "testSimpleProp" -> "testSimpleValue",
@@ -44,7 +44,7 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
               )
             ),
             instances = List(
-              Instance(
+              InstanceDTO(
                 id = "testNodeInstance",
                 state = "started",
                 attributes = Map(
@@ -65,12 +65,12 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
           )
         ),
         relationships = List(
-          RelationshipNode(
+          RelationshipNodeDTO(
             sourceNodeId = "testSource",
             targetNodeId = "testTarget",
             properties = Map.empty,
             relationshipInstances = List(
-              RelationshipInstance(
+              RelationshipInstanceDTO(
                 sourceInstanceId = "testSourceInstanceId",
                 targetInstanceId = "testTargetInstanceId",
                 state = "postConfiguredSource",
@@ -86,11 +86,12 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
             "a" -> List(2, 4),
             "b" -> List(1, 3)
           )
-        )
+        ),
+        executions = List.empty
       )
       val serialized = Json.toJson(details)
       logger.info(s"Serialized deployment details $serialized")
-      val convertedDetails = Json.fromJson[DeploymentDetails](serialized).get
+      val convertedDetails = Json.fromJson[DeploymentDTO](serialized).get
       convertedDetails must be(details)
     }
   }

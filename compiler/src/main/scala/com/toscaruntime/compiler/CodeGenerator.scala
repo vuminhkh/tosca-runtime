@@ -6,8 +6,8 @@ import _root_.tosca.relationships.{AttachTo, HostedOn}
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.{InvalidTopologyException, NotSupportedGenerationException}
-import com.toscaruntime.util.{ClassLoaderUtil, CodeGeneratorUtil, FileUtil, PathUtil}
+import com.toscaruntime.exception.compilation.{InvalidTopologyException, NotSupportedGenerationException}
+import com.toscaruntime.util.{ClassLoaderUtil, FileUtil, PathUtil}
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -24,8 +24,7 @@ object CodeGenerator extends LazyLogging {
   }
 
   def parseMethod(interfaceName: String, operationName: String, operation: Operation) = {
-    val methodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName)
-    runtime.Method(methodName, getInputs(operation), operation.implementation.map(_.value))
+    runtime.Method(interfaceName, operationName, getInputs(operation), operation.implementation.map(_.value))
   }
 
   def parseInterface(interfaceName: String, interface: Interface) = {

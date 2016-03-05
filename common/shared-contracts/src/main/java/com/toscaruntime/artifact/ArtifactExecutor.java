@@ -15,7 +15,7 @@ public interface ArtifactExecutor {
      *
      * @throws Exception
      */
-    void initialize() throws Exception;
+    void initialize();
 
     /**
      * Execute implementation artifact on the remote host (the artifact has already been uploaded on the host)
@@ -27,5 +27,5 @@ public interface ArtifactExecutor {
      * @return outputs of the operation
      * @throws Exception
      */
-    Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env) throws Exception;
+    Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env);
 }

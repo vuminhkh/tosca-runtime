@@ -10,9 +10,9 @@ import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.exception.OperationExecutionException;
-import com.toscaruntime.exception.ProviderResourceAllocationException;
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourceAllocationException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.tosca.ToscaSize;
 import com.toscaruntime.util.FailSafeUtil;
@@ -32,6 +32,13 @@ public class Volume extends BlockStorage {
     protected Compute owner;
 
     protected org.jclouds.openstack.cinder.v1.domain.Volume volume;
+
+    @Override
+    public void initialLoad() {
+        super.initialLoad();
+        String volumeId = getAttributeAsString("provider_resource_id");
+        volume = volumeApi.get(volumeId);
+    }
 
     @Override
     public void create() {
@@ -81,6 +88,8 @@ public class Volume extends BlockStorage {
                 throw new ProviderResourcesNotFoundException("Volume [" + getId() + "] : Volume with id [" + volumeId + "] cannot be found");
             }
         }
+        setAttribute("provider_resource_id", volume.getId());
+        setAttribute("provider_resource_name", volume.getName());
     }
 
     private void waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status status) {
@@ -105,7 +114,7 @@ public class Volume extends BlockStorage {
     public void start() {
         super.start();
         if (volume == null) {
-            throw new OperationExecutionException("Volume [" + getId() + "] : Must create volume before starting it");
+            throw new InvalidOperationExecutionException("Volume [" + getId() + "] : Must create volume before starting it");
         }
         waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
         if (owner != null) {

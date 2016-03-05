@@ -10,10 +10,12 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.openstack.OpenstackDeploymentPostConstructor;
 import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.util.ClassLoaderUtil;
@@ -34,7 +36,7 @@ public class OpenstackNodesTest {
                 .put("region", "RegionOne")
                 .put("password", "mqAgNPA2c6VDjoOD")
                 .put("tenant", "facebook1389662728").build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();
@@ -68,7 +70,7 @@ public class OpenstackNodesTest {
             try {
                 compute.execute("testError", "testErrorScript.sh", Maps.newHashMap(), new HashMap<>());
                 Assert.fail("testErrorScript.sh should trigger error");
-            } catch (OperationExecutionException ignored) {
+            } catch (InvalidOperationExecutionException ignored) {
                 // It's what's expected
             }
         } finally {

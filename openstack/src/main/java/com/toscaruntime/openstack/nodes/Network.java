@@ -1,8 +1,11 @@
 package com.toscaruntime.openstack.nodes;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.openstack.neutron.v2.domain.ExternalGatewayInfo;
@@ -16,7 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.toscaruntime.exception.ProviderResourcesNotFoundException;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.openstack.util.NetworkUtil;
 import com.toscaruntime.util.FailSafeUtil;
@@ -74,10 +77,22 @@ public class Network extends tosca.nodes.Network {
         return subnetId;
     }
 
-    private void createRouter(String routerName, String externalNetworkId) {
+    @Override
+    public void initialLoad() {
+        super.initialLoad();
+        this.networkId = getAttributeAsString("provider_resource_id");
+        this.subnetId = getAttributeAsString("subnet_id");
+        this.createdNetwork = networkApi.get(this.networkId);
+        this.createdSubnet = subnetApi.get(this.subnetId);
+        List<String> createdRouterIds = (List<String>) getAttribute("created_router_ids");
+        this.createdRouters.addAll(createdRouterIds.stream().map(createdRouterId -> routerApi.get(createdRouterId)).collect(Collectors.toList()));
+    }
+
+    private Router createRouter(String routerName, String externalNetworkId) {
         Router router = routerApi.create(Router.createBuilder().name(routerName).externalGatewayInfo(ExternalGatewayInfo.builder().networkId(externalNetworkId).build()).build());
         this.routerApi.addInterfaceForSubnet(router.getId(), this.getSubnetId());
         this.createdRouters.add(router);
+        return router;
     }
 
     private void initializeWithExistingNetwork(org.jclouds.openstack.neutron.v2.domain.Network existing) {
@@ -88,6 +103,7 @@ public class Network extends tosca.nodes.Network {
             throw new ProviderResourcesNotFoundException("Network [" + networkId + "] : Network does not have any subnet");
         }
         setAttribute("provider_resource_name", existing.getName());
+        setAttribute("subnet_id", this.subnetId);
         log.info("Network [{}] : Reuse existing network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
     }
 
@@ -129,14 +145,19 @@ public class Network extends tosca.nodes.Network {
                     this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
                     this.subnetId = this.createdSubnet.getId();
                     // Check that we won't create twice router for the same external network
+                    Set<String> createdRouters = new HashSet<>();
                     if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.stream().anyMatch(nw -> externalNetworkId.equals(nw.getNetworkId()))) {
                         // If no external network is found then use the default one if configured
-                        createRouter(networkName + "-Router", externalNetworkId);
+                        createdRouters.add(createRouter(networkName + "-Router", externalNetworkId).getId());
                     }
                     for (ExternalNetwork externalNetwork : externalNetworks) {
-                        createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId());
+                        createdRouters.add(createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId()).getId());
                     }
+                    setAttribute("created_router_ids", new ArrayList<>(createdRouters));
+                    setAttribute("created_network_id", this.createdNetwork.getId());
+                    setAttribute("created_subnet_id", this.createdSubnet.getId());
                     setAttribute("provider_resource_name", networkName);
+                    setAttribute("subnet_id", this.subnetId);
                     log.info("Network [{}] : Created network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
                 }
             } else {
@@ -169,23 +190,25 @@ public class Network extends tosca.nodes.Network {
         }
         if (createdSubnet != null) {
             try {
-                FailSafeUtil.doActionWithRetry(() -> {
-                    subnetApi.delete(createdSubnet.getId());
-                }, "delete subnet " + createdSubnet.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
+                FailSafeUtil.doActionWithRetry(() -> subnetApi.delete(createdSubnet.getId()), "delete subnet " + createdSubnet.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
             } catch (Throwable e) {
                 log.warn("Network [" + getId() + "] : Could not delete subnet [" + this.createdSubnet + "]", e);
             }
         }
         if (createdNetwork != null) {
             try {
-                FailSafeUtil.doActionWithRetry(() -> {
-                    networkApi.delete(createdNetwork.getId());
-                }, "delete network " + createdNetwork.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
+                FailSafeUtil.doActionWithRetry(() -> networkApi.delete(createdNetwork.getId()), "delete network " + createdNetwork.getName(), retryNumber, coolDownPeriod, TimeUnit.SECONDS, Throwable.class);
             } catch (Throwable e) {
                 log.warn("Network [" + getId() + "] : Could not delete network [" + this.createdNetwork + "]", e);
             }
         }
         log.info("Network [{}] : Deleted network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
+        removeAttribute("created_router_ids");
+        removeAttribute("created_network_id");
+        removeAttribute("created_subnet_id");
+        removeAttribute("subnet_id");
+        removeAttribute("provider_resource_id");
+        removeAttribute("provider_resource_name");
     }
 
     public int getOpenstackOperationRetry() {

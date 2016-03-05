@@ -1,19 +1,24 @@
 package tosca.nodes;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.exception.IllegalFunctionException;
-import com.toscaruntime.exception.OperationExecutionException;
+import com.toscaruntime.exception.UnexpectedException;
+import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
+import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.model.OperationInputDefinition;
 import com.toscaruntime.sdk.util.OperationInputUtil;
+import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
+import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
 
 public abstract class Root extends AbstractRuntimeType {
@@ -81,6 +86,62 @@ public abstract class Root extends AbstractRuntimeType {
         this.node = node;
     }
 
+    @Override
+    public void initialLoad() {
+        Map<String, String> rawAttributes = deployment.getDeploymentPersister().syncGetAttributes(getId());
+        for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
+            try {
+                getAttributes().put(rawAttributeEntry.getKey(), JSONUtil.toObject(rawAttributeEntry.getValue()));
+            } catch (IOException e) {
+                throw new DeploymentPersistenceException("Cannot read as json from persistence attribute " + rawAttributeEntry.getKey() + " of node instance " + getId(), e);
+            }
+        }
+        List<String> outputInterfaces = deployment.getDeploymentPersister().syncGetOutputInterfaces(getId());
+        for (String interfaceName : outputInterfaces) {
+            List<String> operationNames = deployment.getDeploymentPersister().syncGetOutputOperations(getId(), interfaceName);
+            for (String operationName : operationNames) {
+                Map<String, String> outputs = deployment.getDeploymentPersister().syncGetOutputs(getId(), interfaceName, operationName);
+                operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
+            }
+        }
+        this.state = deployment.getDeploymentPersister().syncGetInstanceState(getId());
+    }
+
+    @Override
+    public void setState(String newState) {
+        if (!newState.equals(this.state)) {
+            deployment.getDeploymentPersister().syncSaveInstanceState(getId(), newState);
+            this.state = newState;
+        }
+    }
+
+    @Override
+    public void setAttribute(String key, Object newValue) {
+        Object oldValue = getAttributes().get(key);
+        if (newValue == null) {
+            removeAttribute(key);
+        } else if (!newValue.equals(oldValue)) {
+            try {
+                deployment.getDeploymentPersister().syncSaveInstanceAttribute(getId(), key, JSONUtil.toString(newValue));
+            } catch (Exception e) {
+                throw new DeploymentPersistenceException("Cannot persist attribute " + key + " of node instance " + getId(), e);
+            }
+            getAttributes().put(key, newValue);
+        }
+    }
+
+    @Override
+    public void removeAttribute(String key) {
+        deployment.getDeploymentPersister().syncDeleteInstanceAttribute(getId(), key);
+        getAttributes().remove(key);
+    }
+
+    @Override
+    public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
+        deployment.getDeploymentPersister().syncSaveInstanceOutputs(getId(), interfaceName, operationName, outputs);
+        operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
+    }
+
     /**
      * Id of a node is generated based on its index within its parent and its parent index within its grandparent etc ...
      * For example: A war hosted on a tomcat which is hosted on a compute will have as id war_1_1_1 or war_2_1_1 (if the compute is scaled with 2 instances)
@@ -112,7 +173,11 @@ public abstract class Root extends AbstractRuntimeType {
 
     public Compute getComputableHost() {
         if (host == null) {
-            return null;
+            if (this instanceof Compute) {
+                return (Compute) this;
+            } else {
+                return null;
+            }
         }
         Root currentHost = host;
         while (currentHost.getHost() != null) {
@@ -152,7 +217,8 @@ public abstract class Root extends AbstractRuntimeType {
     protected Map<String, String> executeOperation(String operationName, String operationArtifactPath) {
         Compute host = getComputableHost();
         if (host == null) {
-            throw new OperationExecutionException("Non hosted node cannot have operation");
+            // This error should be avoided by validating the recipe in compilation phase
+            throw new UnexpectedException("Non hosted node cannot have operation");
         }
         Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
         Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
@@ -185,7 +251,6 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     public void delete() {
-        getAttributes().clear();
     }
 
     private String functionToString(String functionName, String... paths) {

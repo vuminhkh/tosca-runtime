@@ -3,7 +3,9 @@ package com.toscaruntime.runtime
 import java.nio.file.Paths
 
 import com.toscaruntime.compiler.{AbstractSpec, Compiler}
+import com.toscaruntime.deployment.DeploymentPersister
 import com.toscaruntime.util.GitClient
+import org.mockito.Mockito
 
 class DeployerSpec extends AbstractSpec {
 
@@ -32,9 +34,11 @@ class DeployerSpec extends AbstractSpec {
         inputs = Map.empty[String, Any],
         providerProperties = Map.empty[String, String],
         bootstrapContext = Map.empty[String, Any],
-        bootstrap = true
+        bootstrap = true,
+        Thread.currentThread().getContextClassLoader,
+        Mockito.mock(classOf[DeploymentPersister])
       )
-      deployment.initialize()
+      deployment.createInstances()
       deployment.getConfig.getDeploymentName must be("wordpress")
       deployment.getConfig.getRecipePath must be(wordpressTopologyOutput)
       deployment.getConfig.getArtifactsPath must be(wordpressTopologyOutput.resolve("src").resolve("main").resolve("resources"))
@@ -77,9 +81,11 @@ class DeployerSpec extends AbstractSpec {
         inputs = Map.empty[String, AnyRef],
         providerProperties = Map.empty[String, String],
         bootstrapContext = Map.empty[String, AnyRef],
-        bootstrap = true
+        bootstrap = true,
+        Thread.currentThread().getContextClassLoader,
+        Mockito.mock(classOf[DeploymentPersister])
       )
-      deployment.initialize()
+      deployment.createInstances()
       deployment.getConfig.getDeploymentName must be("tomcat-apache")
       deployment.getConfig.getRecipePath must be(tomcatApacheOutput)
       deployment.getConfig.getArtifactsPath must be(tomcatApacheOutput.resolve("src").resolve("main").resolve("resources"))
