@@ -36,7 +36,7 @@ public class ExternalNetwork extends tosca.nodes.Network {
                 throw new ProviderResourcesNotFoundException("ExternalNetwork [" + getId() + "] : Network with name [" + networkName + "] cannot be found");
             }
         } else {
-            networkApi.get(networkId);
+            network = networkApi.get(networkId);
             if (network == null) {
                 throw new ProviderResourcesNotFoundException("ExternalNetwork [" + getId() + "] : Network with id [" + networkId + "] cannot be found");
             }

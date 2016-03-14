@@ -2,7 +2,6 @@ package com.toscaruntime.sdk.workflow.tasks;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 
@@ -17,8 +16,8 @@ public class MockTask extends AbstractTask {
 
     private String mockedTaskName;
 
-    public MockTask(String mockedTaskName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService taskExecutor, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, taskExecutor, workflowExecution);
+    public MockTask(String mockedTaskName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
         this.mockedTaskName = mockedTaskName;
     }
 

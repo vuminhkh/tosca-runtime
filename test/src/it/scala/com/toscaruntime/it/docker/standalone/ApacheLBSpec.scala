@@ -83,7 +83,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
 
       And("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
-      
+
       And("I should be able to undeploy it without error")
       launchUndeployment("apache-lb")
     }

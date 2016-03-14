@@ -38,6 +38,25 @@ public class Volume extends tosca.nodes.BlockStorage {
         location = getMandatoryPropertyAsString("location");
     }
 
+    private void doCreate(String name) {
+        CreateVolumeCmd createVolumeCmd = dockerClient.createVolumeCmd();
+        createVolumeCmd.withName(name);
+        driver = getPropertyAsString("volume_driver");
+        Map<String, String> driverOpts = (Map<String, String>) getProperty("volume_driver_opts");
+        if (StringUtils.isNotBlank(driver)) {
+            createVolumeCmd.withDriver(driver);
+        }
+        if (driverOpts != null && !driverOpts.isEmpty()) {
+            createVolumeCmd.withDriverOpts(driverOpts);
+        }
+        CreateVolumeResponse volumeResponse = createVolumeCmd.exec();
+        volumeId = volumeResponse.getName();
+        mountPoint = volumeResponse.getMountpoint();
+        driver = volumeResponse.getDriver();
+        log.info("Volume [{}]: Created new volume {} mounted at {} with driver {}", getId(), volumeId, mountPoint, driver);
+        initializeAttributes();
+    }
+
     @Override
     public void create() {
         super.create();
@@ -58,31 +77,6 @@ public class Volume extends tosca.nodes.BlockStorage {
             volumeId = UUID.randomUUID().toString();
             doCreate(volumeId);
         }
-    }
-
-    @Override
-    public void start() {
-        super.start();
-        container.attachVolume(this);
-    }
-
-    private void doCreate(String name) {
-        CreateVolumeCmd createVolumeCmd = dockerClient.createVolumeCmd();
-        createVolumeCmd.withName(name);
-        driver = getPropertyAsString("volume_driver");
-        Map<String, String> driverOpts = (Map<String, String>) getProperty("volume_driver_opts");
-        if (StringUtils.isNotBlank(driver)) {
-            createVolumeCmd.withDriver(driver);
-        }
-        if (driverOpts != null && !driverOpts.isEmpty()) {
-            createVolumeCmd.withDriverOpts(driverOpts);
-        }
-        CreateVolumeResponse volumeResponse = createVolumeCmd.exec();
-        volumeId = volumeResponse.getName();
-        mountPoint = volumeResponse.getMountpoint();
-        driver = volumeResponse.getDriver();
-        log.info("Volume [{}]: Created new volume {} mounted at {} with driver {}", getId(), volumeId, mountPoint, driver);
-        initializeAttributes();
     }
 
     private void initializeAttributes() {

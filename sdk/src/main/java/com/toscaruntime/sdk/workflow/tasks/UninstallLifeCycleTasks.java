@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
@@ -25,20 +24,11 @@ public class UninstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     private AbstractTask deleteTask;
 
-    private void initDependencies() {
-        // Dependencies between tasks of the same node instance are declared here
-        // Remove source and remove target are executed before stop
-        stopTask.dependsOn(removeSourceTask, removeTargetTask);
-        // Delete is executed after stop
-        deleteTask.dependsOn(stopTask);
-    }
-
-    public UninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-        this.stopTask = new StopTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.deleteTask = new DeleteTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        initDependencies();
+    public UninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        this.stopTask = new StopTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.deleteTask = new DeleteTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
     }
 
     private void mockAllTask(AbstractTask mockTask) {
@@ -51,18 +41,15 @@ public class UninstallLifeCycleTasks extends AbstractLifeCycleTasks {
     public UninstallLifeCycleTasks(RemoveSourceTask removeSourceTask) {
         mockAllTask(removeSourceTask);
         this.removeSourceTask = removeSourceTask;
-        initDependencies();
     }
 
     public UninstallLifeCycleTasks(RemoveTargetTask removeTargetTask) {
         mockAllTask(removeTargetTask);
         this.removeTargetTask = removeTargetTask;
-        initDependencies();
     }
 
     public UninstallLifeCycleTasks(MockTask mockTask) {
         mockAllTask(mockTask);
-        initDependencies();
     }
 
     public AbstractTask getRemoveSourceTask() {

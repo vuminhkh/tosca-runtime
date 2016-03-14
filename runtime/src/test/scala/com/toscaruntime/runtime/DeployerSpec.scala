@@ -4,7 +4,7 @@ import java.nio.file.Paths
 
 import com.toscaruntime.compiler.{AbstractSpec, Compiler}
 import com.toscaruntime.deployment.DeploymentPersister
-import com.toscaruntime.util.GitClient
+import com.toscaruntime.util.{FileUtil, GitClient}
 import org.mockito.Mockito
 
 class DeployerSpec extends AbstractSpec {
@@ -28,6 +28,7 @@ class DeployerSpec extends AbstractSpec {
       installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
 
       val wordpressTopologyOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/")
+      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyWordpressDocker").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "wordpress",
         deploymentRecipeFolder = wordpressTopologyOutput,
@@ -75,6 +76,7 @@ class DeployerSpec extends AbstractSpec {
       installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
 
       val tomcatApacheOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/")
+      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyApacheLoadBalancerDocker").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "tomcat-apache",
         deploymentRecipeFolder = tomcatApacheOutput,

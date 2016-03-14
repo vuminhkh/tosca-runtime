@@ -2,17 +2,18 @@ package com.toscaruntime.openstack.nodes;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
+import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
 import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
 import org.slf4j.Logger;
@@ -24,7 +25,6 @@ import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFail
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
-import com.toscaruntime.exception.deployment.execution.ProviderResourceAllocationException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.FailSafeUtil;
@@ -44,6 +44,8 @@ public class Compute extends tosca.nodes.Compute {
 
     private FloatingIPApi floatingIPApi;
 
+    private VolumeAttachmentApi volumeAttachmentApi;
+
     private String networkId;
 
     private String externalNetworkId;
@@ -51,6 +53,8 @@ public class Compute extends tosca.nodes.Compute {
     private Set<ExternalNetwork> externalNetworks;
 
     private Set<Network> networks;
+
+    private Set<Volume> volumes;
 
     private Server server;
 
@@ -78,6 +82,14 @@ public class Compute extends tosca.nodes.Compute {
 
     public void setNetworks(Set<Network> networks) {
         this.networks = networks;
+    }
+
+    public void setVolumes(Set<Volume> volumes) {
+        this.volumes = volumes;
+    }
+
+    public void setVolumeAttachmentApi(VolumeAttachmentApi volumeAttachmentApi) {
+        this.volumeAttachmentApi = volumeAttachmentApi;
     }
 
     @Override
@@ -146,19 +158,9 @@ public class Compute extends tosca.nodes.Compute {
         if (networksProperty != null) {
             internalNetworks.addAll(networksProperty);
         }
-        for (Network internalNetwork : networks) {
-            boolean networkCreate = false;
-            try {
-                int networkCreateRetry = internalNetwork.getOpenstackOperationRetry();
-                long waitBetweenNetworkCreationRetry = internalNetwork.getOpenstackWaitBetweenOperationRetry();
-                networkCreate = internalNetwork.waitForNetworkCreated(networkCreateRetry * waitBetweenNetworkCreationRetry, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-            }
-            if (!networkCreate) {
-                throw new ProviderResourceAllocationException("Compute [" + getId() + "] : The network " + internalNetwork + " could not be created for compute " + this);
-            }
-            internalNetworks.add(internalNetwork.getNetworkId());
-        }
+
+        internalNetworks.addAll(networks.stream().map(Network::getNetworkId).collect(Collectors.toList()));
+
         if (StringUtils.isNotEmpty(this.networkId)) {
             internalNetworks.add(this.networkId);
         }
@@ -232,6 +234,14 @@ public class Compute extends tosca.nodes.Compute {
         return floatingIP;
     }
 
+    private void attachVolume(Volume volume) {
+        volumeAttachmentApi.attachVolumeToServerAsDevice(volume.getVolume().getId(), server.getId(), volume.getPropertyAsString("device", ""));
+        volume.waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.IN_USE);
+        if (!volume.getVolume().getAttachments().isEmpty()) {
+            volume.setAttribute("device", volume.getVolume().getAttachments().iterator().next().getDevice());
+        }
+    }
+
     @Override
     public void start() {
         super.start();
@@ -253,15 +263,15 @@ public class Compute extends tosca.nodes.Compute {
             }
         }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
-        Set<String> floatingIpIds = new HashSet<>();
-        for (ExternalNetwork externalNetwork : this.externalNetworks) {
-            floatingIpIds.add(attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod).getId());
-        }
+        // Create floating ips
+        Set<String> floatingIpIds = this.externalNetworks.stream().map(externalNetwork -> attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod).getId()).collect(Collectors.toSet());
         if (this.config.isBootstrap() && this.externalNetworks.isEmpty() && StringUtils.isNotBlank(this.externalNetworkId)) {
             // In bootstrap mode and if external network id can be found in the context, we attach automatically a floating ip
             log.info("Compute [{}] : Bootstrap mode enabled automatically attach a floating IP from [{}] as no external network found for the compute [{}]", getId(), this.externalNetworkId);
             floatingIpIds.add(attachFloatingIP(this.externalNetworkId, retryNumber, coolDownPeriod).getId());
         }
+        // Attach volumes
+        this.volumes.stream().forEach(this::attachVolume);
         setAttribute("ip_address", this.ipAddress);
         setAttribute("provider_resource_id", server.getId());
         setAttribute("provider_resource_name", server.getName());
@@ -285,6 +295,22 @@ public class Compute extends tosca.nodes.Compute {
         }
     }
 
+    private void detachVolume(Volume volume) {
+        try {
+            FailSafeUtil.doActionWithRetry(
+                    () -> volumeAttachmentApi.detachVolumeFromServer(volume.getVolume().getId(), this.server.getId()),
+                    "Detach volume",
+                    getOpenstackOperationRetry(),
+                    getOpenstackWaitBetweenOperationRetry(),
+                    TimeUnit.SECONDS,
+                    Exception.class);
+        } catch (Throwable throwable) {
+            log.error("Volume [" + getId() + "] : Could not detach volume " + volume.getVolume().getId() + " from server " + this.server.getId());
+        }
+        volume.removeAttribute("device");
+        volume.waitForStatus(org.jclouds.openstack.cinder.v1.domain.Volume.Status.AVAILABLE);
+    }
+
     @Override
     public void stop() {
         super.stop();
@@ -292,6 +318,9 @@ public class Compute extends tosca.nodes.Compute {
             log.warn("Compute [{}] : Server has not been started yet", getId());
             return;
         }
+        // Detach volumes
+        this.volumes.stream().forEach(this::detachVolume);
+        // Stop the compute
         int retryNumber = getOpenstackOperationRetry();
         long coolDownPeriod = getOpenstackWaitBetweenOperationRetry();
         destroySshExecutor();

@@ -80,7 +80,7 @@ lazy val miscUtil = project.in(file("common/misc-util"))
     libraryDependencies ++= commonDependencies,
     libraryDependencies ++= testDependencies,
     libraryDependencies ++= scalaTestDependencies,
-    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.5.4"
+    libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.4"
   ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val sshUtil = project.in(file("common/ssh-util"))

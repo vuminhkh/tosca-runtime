@@ -1,6 +1,5 @@
 package com.toscaruntime.docker.nodes;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -13,8 +12,7 @@ import org.mockito.Mockito;
 
 import com.google.common.collect.ImmutableMap;
 import com.toscaruntime.deployment.DeploymentPersister;
-import com.toscaruntime.docker.DockerDeploymentPostConstructor;
-import com.toscaruntime.sdk.DeploymentPostConstructor;
+import com.toscaruntime.docker.DockerProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
@@ -26,14 +24,14 @@ public class DockerNodesTest {
     @Test
     public void testDocker() throws Throwable {
         DockerTestDeployment testDeployment = new DockerTestDeployment();
-        DockerDeploymentPostConstructor postConstructor = new DockerDeploymentPostConstructor();
+        DockerProviderHook providerHook = new DockerProviderHook();
         DockerDaemonConfig dockerDaemonConfig = DockerUtil.getDefaultDockerDaemonConfig();
 
         Map<String, String> providerProperties = ImmutableMap.<String, String>builder()
                 .put(DockerUtil.DOCKER_URL_KEY, dockerDaemonConfig.getUrl())
                 .put(DockerUtil.DOCKER_CERT_PATH_KEY, dockerDaemonConfig.getCertPath())
                 .build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), Mockito.mock(DeploymentPersister.class), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
             Container compute = testDeployment.getNodeInstancesByType(Container.class).iterator().next();

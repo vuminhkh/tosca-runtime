@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
@@ -40,34 +39,16 @@ public class InstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     private AbstractTask addTargetTask;
 
-    private void initTasksDependencies() {
-        // Dependencies between tasks of the same node instance are declared here
-        // Pre configure source and target of the instance are executed after create
-        preConfigureSourceTask.dependsOn(createTask);
-        preConfigureTargetTask.dependsOn(createTask);
-        // Configure is executed after pre configure source and target
-        configureTask.dependsOn(preConfigureSourceTask, preConfigureTargetTask);
-        // Post configure source and target are executed after configure
-        postConfigureSourceTask.dependsOn(configureTask);
-        postConfigureTargetTask.dependsOn(configureTask);
-        // Start is executed after post configure source and target
-        startTask.dependsOn(postConfigureSourceTask, postConfigureTargetTask);
-        // Add source and target are executed after start
-        addSourceTask.dependsOn(startTask);
-        addTargetTask.dependsOn(startTask);
-    }
-
-    public InstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-        this.createTask = new CreateTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.configureTask = new ConfigureTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.startTask = new StartTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.preConfigureSourceTask = new PreConfigureSourceTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.preConfigureTargetTask = new PreConfigureTargetTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.postConfigureSourceTask = new PostConfigureSourceTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.postConfigureTargetTask = new PostConfigureTargetTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        this.addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
-        initTasksDependencies();
+    public InstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        this.createTask = new CreateTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.configureTask = new ConfigureTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.startTask = new StartTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.preConfigureSourceTask = new PreConfigureSourceTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.preConfigureTargetTask = new PreConfigureTargetTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.postConfigureSourceTask = new PostConfigureSourceTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.postConfigureTargetTask = new PostConfigureTargetTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        this.addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
     }
 
     private void mockAllTask(AbstractTask mockTask) {
@@ -84,19 +65,16 @@ public class InstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     public InstallLifeCycleTasks(MockTask mockTask) {
         mockAllTask(mockTask);
-        initTasksDependencies();
     }
 
     public InstallLifeCycleTasks(AddSourceTask addSourceTask) {
         mockAllTask(addSourceTask);
         this.addSourceTask = addSourceTask;
-        initTasksDependencies();
     }
 
     public InstallLifeCycleTasks(AddTargetTask addTargetTask) {
         mockAllTask(addTargetTask);
         this.addTargetTask = addTargetTask;
-        initTasksDependencies();
     }
 
     public AbstractTask getCreateTask() {

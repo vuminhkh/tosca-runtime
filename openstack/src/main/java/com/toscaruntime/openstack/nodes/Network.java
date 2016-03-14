@@ -107,70 +107,54 @@ public class Network extends tosca.nodes.Network {
         log.info("Network [{}] : Reuse existing network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
     }
 
-    // FIXME This method is only implemented because a VM needs its private network created before it can be created
-    // FIXME as the current workflow create components in concurrence event if there are relationships between them, the compute needs to wait with this method before being created
-    // FIXME Needs to think about letting the provider handle workflows of native components instead of force them to use the default workflow
-    public synchronized boolean waitForNetworkCreated(long timeout, TimeUnit timeUnit) throws InterruptedException {
-        if (networkId != null) {
-            return true;
-        } else {
-            wait(timeUnit.toMillis(timeout));
-            return networkId != null;
-        }
-    }
-
     @Override
     public synchronized void create() {
-        try {
-            super.create();
-            String networkId = getPropertyAsString("network_id");
-            List<String> dnsNameServers = (List<String>) getProperty("dns_name_servers");
-            if (StringUtils.isBlank(networkId)) {
-                String networkName = getMandatoryPropertyAsString("network_name");
-                org.jclouds.openstack.neutron.v2.domain.Network existing = NetworkUtil.findNetworkByName(networkApi, networkName, false);
-                if (existing != null) {
-                    initializeWithExistingNetwork(existing);
-                } else {
-                    String cidr = getPropertyAsString("cidr");
-                    int ipVersion = Integer.parseInt(getPropertyAsString("ip_version", "4"));
-                    this.createdNetwork = networkApi.create(org.jclouds.openstack.neutron.v2.domain.Network.createBuilder(networkName).build());
-                    this.networkId = this.createdNetwork.getId();
-                    Subnet.CreateBuilder subnetCreateBuilder =
-                            Subnet.createBuilder(this.createdNetwork.getId(), cidr)
-                                    .ipVersion(ipVersion)
-                                    .name(networkName + "-Subnet");
-                    if (dnsNameServers != null) {
-                        subnetCreateBuilder.dnsNameServers(ImmutableSet.copyOf(dnsNameServers));
-                    }
-                    this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
-                    this.subnetId = this.createdSubnet.getId();
-                    // Check that we won't create twice router for the same external network
-                    Set<String> createdRouters = new HashSet<>();
-                    if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.stream().anyMatch(nw -> externalNetworkId.equals(nw.getNetworkId()))) {
-                        // If no external network is found then use the default one if configured
-                        createdRouters.add(createRouter(networkName + "-Router", externalNetworkId).getId());
-                    }
-                    for (ExternalNetwork externalNetwork : externalNetworks) {
-                        createdRouters.add(createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId()).getId());
-                    }
-                    setAttribute("created_router_ids", new ArrayList<>(createdRouters));
-                    setAttribute("created_network_id", this.createdNetwork.getId());
-                    setAttribute("created_subnet_id", this.createdSubnet.getId());
-                    setAttribute("provider_resource_name", networkName);
-                    setAttribute("subnet_id", this.subnetId);
-                    log.info("Network [{}] : Created network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
-                }
-            } else {
-                org.jclouds.openstack.neutron.v2.domain.Network existing = networkApi.get(networkId);
-                if (existing == null) {
-                    throw new ProviderResourcesNotFoundException("Network [" + getId() + "] : network with id [" + networkId + "] cannot be found");
-                }
+        super.create();
+        String networkId = getPropertyAsString("network_id");
+        List<String> dnsNameServers = (List<String>) getProperty("dns_name_servers");
+        if (StringUtils.isBlank(networkId)) {
+            String networkName = getMandatoryPropertyAsString("network_name");
+            org.jclouds.openstack.neutron.v2.domain.Network existing = NetworkUtil.findNetworkByName(networkApi, networkName, false);
+            if (existing != null) {
                 initializeWithExistingNetwork(existing);
+            } else {
+                String cidr = getPropertyAsString("cidr");
+                int ipVersion = Integer.parseInt(getPropertyAsString("ip_version", "4"));
+                this.createdNetwork = networkApi.create(org.jclouds.openstack.neutron.v2.domain.Network.createBuilder(networkName).build());
+                this.networkId = this.createdNetwork.getId();
+                Subnet.CreateBuilder subnetCreateBuilder =
+                        Subnet.createBuilder(this.createdNetwork.getId(), cidr)
+                                .ipVersion(ipVersion)
+                                .name(networkName + "-Subnet");
+                if (dnsNameServers != null) {
+                    subnetCreateBuilder.dnsNameServers(ImmutableSet.copyOf(dnsNameServers));
+                }
+                this.createdSubnet = subnetApi.create(subnetCreateBuilder.build());
+                this.subnetId = this.createdSubnet.getId();
+                // Check that we won't create twice router for the same external network
+                Set<String> createdRouters = new HashSet<>();
+                if (StringUtils.isNotBlank(externalNetworkId) && !this.externalNetworks.stream().anyMatch(nw -> externalNetworkId.equals(nw.getNetworkId()))) {
+                    // If no external network is found then use the default one if configured
+                    createdRouters.add(createRouter(networkName + "-Router", externalNetworkId).getId());
+                }
+                for (ExternalNetwork externalNetwork : externalNetworks) {
+                    createdRouters.add(createRouter(networkName + "-" + externalNetwork.getName() + "-Router", externalNetwork.getNetworkId()).getId());
+                }
+                setAttribute("created_router_ids", new ArrayList<>(createdRouters));
+                setAttribute("created_network_id", this.createdNetwork.getId());
+                setAttribute("created_subnet_id", this.createdSubnet.getId());
+                setAttribute("provider_resource_name", networkName);
+                setAttribute("subnet_id", this.subnetId);
+                log.info("Network [{}] : Created network [{}] with subnet [{}]", getId(), this.networkId, this.subnetId);
             }
-            setAttribute("provider_resource_id", this.networkId);
-        } finally {
-            notifyAll();
+        } else {
+            org.jclouds.openstack.neutron.v2.domain.Network existing = networkApi.get(networkId);
+            if (existing == null) {
+                throw new ProviderResourcesNotFoundException("Network [" + getId() + "] : network with id [" + networkId + "] cannot be found");
+            }
+            initializeWithExistingNetwork(existing);
         }
+        setAttribute("provider_resource_id", this.networkId);
     }
 
     @Override

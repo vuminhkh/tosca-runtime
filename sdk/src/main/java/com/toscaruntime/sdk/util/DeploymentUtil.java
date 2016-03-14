@@ -44,6 +44,14 @@ public class DeploymentUtil {
         ).collect(Collectors.toSet());
     }
 
+    public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByTypes(Set<tosca.relationships.Root> relationshipInstances, Class<?> sourceType, Class<?> targetType, Class<T> relationshipType) {
+        return relationshipInstances.stream().filter(relationshipInstance ->
+                relationshipType.isAssignableFrom(relationshipInstance.getClass()) &&
+                        sourceType.isAssignableFrom(relationshipInstance.getSource().getClass()) &&
+                        targetType.isAssignableFrom(relationshipInstance.getTarget().getClass())
+        ).map(relationshipInstance -> (T) relationshipInstance).collect(Collectors.toSet());
+    }
+
     public static <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByNamesAndType(Set<tosca.relationships.Root> relationshipInstances, String sourceName, String targetName, Class<T> relationshipType) {
         return relationshipInstances.stream().filter(relationshipInstance ->
                 relationshipInstance.getSource().getName().equals(sourceName) &&
@@ -64,9 +72,9 @@ public class DeploymentUtil {
         ).collect(Collectors.toSet());
     }
 
-    public static Map<String, tosca.nodes.Root> toMap(Set<tosca.nodes.Root> instances) {
-        Map<String, tosca.nodes.Root> instanceMap = new HashMap<>();
-        for (tosca.nodes.Root instance : instances) {
+    public static <T extends tosca.nodes.Root> Map<String, T> toMap(Set<T> instances) {
+        Map<String, T> instanceMap = new HashMap<>();
+        for (T instance : instances) {
             instanceMap.put(instance.getId(), instance);
         }
         return instanceMap;
@@ -112,5 +120,9 @@ public class DeploymentUtil {
         return relationships.stream().filter(relationship ->
                 targetType.isAssignableFrom(relationship.getTarget().getClass())
         ).map(relationship -> (T) relationship.getTarget()).collect(Collectors.toSet());
+    }
+
+    public static Set<tosca.nodes.Root> getTargetInstancesOfRelationship(Set<Root> relationshipInstances, String sourceId) {
+        return relationshipInstances.stream().filter(relationship -> relationship.getSource().getId().equals(sourceId)).map(Root::getTarget).collect(Collectors.toSet());
     }
 }

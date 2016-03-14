@@ -91,10 +91,31 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
       .map(handleWorkflowExecutionResponse)
   }
 
+  def teardownInfrastructure(deploymentId: String) = {
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("teardown_infrastructure", Map.empty)))
+      .map(handleWorkflowExecutionResponse)
+  }
+
   def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
       .post(Json.toJson(WorkflowExecutionRequest("scale", Map("nodeId" -> nodeName, "newInstancesCount" -> instancesCount))))
+      .map(handleWorkflowExecutionResponse)
+  }
+
+  def cancel(deploymentId: String) = {
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions/cancel")
+      .post("")
+      .map(handleWorkflowExecutionResponse)
+  }
+
+  def resume(deploymentId: String) = {
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions/resume")
+      .post("")
       .map(handleWorkflowExecutionResponse)
   }
 

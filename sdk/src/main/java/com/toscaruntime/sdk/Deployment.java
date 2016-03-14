@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,9 +82,9 @@ public abstract class Deployment {
     private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
 
     /**
-     * Hold reference to the post constructor that was used to initialize the deployment, it's used later to modify the deployment if needed.
+     * Hold reference to the provider that was used to initialize the deployment, it's used later to modify the deployment if needed.
      */
-    private List<DeploymentPostConstructor> deploymentPostConstructors;
+    private ProviderHook providerHook;
 
     /**
      * Deployment persister save deployment's state to database
@@ -134,7 +135,7 @@ public abstract class Deployment {
      * @param inputs             the inputs for the deployment
      * @param providerProperties properties of provider
      * @param bootstrapContext   context of the bootstrapped daemon (id of openstack network, docker network etc ...)
-     * @param postConstructors   post constructors
+     * @param providerHook       hook in order to let provider to inject specific logic to the deployment
      * @param bootstrap          is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
      */
     public void initializeConfig(String deploymentName,
@@ -142,7 +143,7 @@ public abstract class Deployment {
                                  Map<String, Object> inputs,
                                  Map<String, String> providerProperties,
                                  Map<String, Object> bootstrapContext,
-                                 List<DeploymentPostConstructor> postConstructors,
+                                 ProviderHook providerHook,
                                  DeploymentPersister deploymentPersister,
                                  boolean bootstrap) {
         this.config = new DeploymentConfig();
@@ -153,7 +154,8 @@ public abstract class Deployment {
         this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
         this.config.setProviderProperties(providerProperties);
         this.deploymentPersister = deploymentPersister;
-        this.deploymentPostConstructors = postConstructors;
+        this.providerHook = providerHook;
+        this.workflowEngine.setProviderHook(providerHook);
         postInitializeConfig();
         this.config.getInputs().putAll(inputs);
         initializeNodes();
@@ -223,7 +225,7 @@ public abstract class Deployment {
     }
 
     /**
-     * Scale the given node to the given instances
+     * Scale the given node to the given instances count
      *
      * @param nodeName          name of the node to scale
      * @param newInstancesCount new instances count
@@ -235,10 +237,10 @@ public abstract class Deployment {
             throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
         }
         if (newInstancesCount < node.getMinInstancesCount()) {
-            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is less than min instances count");
+            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is less than min instances count [" + node.getMinInstancesCount() + "]");
         }
         if (newInstancesCount > node.getMaxInstancesCount()) {
-            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is greater than max instances count");
+            throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is greater than max instances count [" + node.getMaxInstancesCount() + "]");
         }
         if (newInstancesCount == node.getInstancesCount()) {
             throw new InvalidInstancesCountException("New instances count [" + newInstancesCount + "] is the same as the current instances count [" + node.getInstancesCount() + "]");
@@ -302,30 +304,39 @@ public abstract class Deployment {
         initializeInstances();
         initializeRelationshipInstances();
         attachCreatedInstancesToNode(nodeInstances, relationshipInstances);
-        for (DeploymentPostConstructor postConstructor : deploymentPostConstructors) {
-            postConstructor.postConstruct(this, this.config.getProviderProperties(), this.config.getBootstrapContext());
-        }
+        providerHook.postConstruct(this, this.config.getProviderProperties(), this.config.getBootstrapContext());
     }
 
+    /**
+     * Cancel the current running execution
+     */
     public void cancel() {
         WorkflowExecution execution = runningWorkflowExecution.get();
         if (execution == null) {
-            log.warn("No running execution is found to cancel");
+            log.warn("No running execution is found in memory to cancel");
         } else {
             execution.shutdown(false);
             runningWorkflowExecution.set(null);
         }
     }
 
+    /**
+     * Resume the current running execution
+     */
     public void resume() {
         WorkflowExecution execution = runningWorkflowExecution.get();
         if (execution == null) {
-            throw new RunningExecutionNotFound("No running execution is found to resume");
+            throw new RunningExecutionNotFound("No running execution is found in memory to resume");
         } else {
             execution.resume();
         }
     }
 
+    /**
+     * Install the deployment by executing install life cycle of all nodes
+     *
+     * @return workflow execution
+     */
     public WorkflowExecution install() {
         final long before = System.currentTimeMillis();
         createInstances();
@@ -378,7 +389,7 @@ public abstract class Deployment {
         }
     }
 
-    public WorkflowExecution uninstall() {
+    private WorkflowExecution doUninstall(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {
         final long before = System.currentTimeMillis();
         WorkflowExecution execution = workflowEngine.uninstall(nodeInstances, relationshipInstances);
         execution.addListener(new WorkflowExecutionListener() {
@@ -397,6 +408,26 @@ public abstract class Deployment {
         });
         runningWorkflowExecution.set(execution);
         return execution;
+    }
+
+    /**
+     * Uninstall the deployment by executing uninstall life cycle of all nodes native or software
+     *
+     * @return workflow execution
+     */
+    public WorkflowExecution uninstall() {
+        return doUninstall(nodeInstances, relationshipInstances);
+    }
+
+    /**
+     * Teardown will not take into account uninstall life cycle of software components, it will delete by force the infrastructure of the deployment
+     *
+     * @return workflow execution
+     */
+    public WorkflowExecution teardown() {
+        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHook.isNativeType(entry.getValue().getClass())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Set<tosca.relationships.Root> nativeRelationshipInstances = relationshipInstances.stream().filter(relationship -> nativeNodeInstances.containsKey(relationship.getSource().getId()) && nativeNodeInstances.containsKey(relationship.getTarget().getId())).collect(Collectors.toSet());
+        return doUninstall(nativeNodeInstances, nativeRelationshipInstances);
     }
 
     public Map<String, Object> getOutputs() {
@@ -483,8 +514,8 @@ public abstract class Deployment {
         return relationshipNodes;
     }
 
-    public List<DeploymentPostConstructor> getDeploymentPostConstructors() {
-        return deploymentPostConstructors;
+    public ProviderHook getProviderHook() {
+        return providerHook;
     }
 
     public Map<String, Root> getNodeInstances() {

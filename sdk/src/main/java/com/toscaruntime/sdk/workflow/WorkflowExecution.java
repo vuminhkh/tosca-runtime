@@ -24,6 +24,8 @@ public class WorkflowExecution {
 
     private Set<AbstractTask> tasksInError = new HashSet<>();
 
+    private Set<AbstractTask> tasksRunning = new HashSet<>();
+
     private ReentrantLock lock = new ReentrantLock();
 
     private Condition finishedCondition = lock.newCondition();
@@ -38,10 +40,14 @@ public class WorkflowExecution {
         this.executorService = executorService;
     }
 
+    public ReentrantLock getLock() {
+        return lock;
+    }
+
     public boolean isFinished() {
         try {
             lock.lock();
-            return tasksLeft.isEmpty() && tasksInError.isEmpty();
+            return tasksLeft.isEmpty() && tasksInError.isEmpty() && tasksRunning.isEmpty();
         } finally {
             lock.unlock();
         }
@@ -52,14 +58,14 @@ public class WorkflowExecution {
             lock.lock();
             errors.add(t);
             if (errorTask != null) {
-                if (!tasksLeft.remove(errorTask)) {
+                if (!tasksRunning.remove(errorTask)) {
                     log.warn("Notified of errors of unknown task {}", errorTask);
                 }
                 if (!tasksInError.add(errorTask)) {
                     log.warn("Notified more than once of errors task {}", errorTask);
                 }
             }
-            if (!canRunTask()) {
+            if (tasksRunning.isEmpty()) {
                 // Some task notified errors and the workflow is suspended as no task can continue anymore
                 finishedCondition.signalAll();
                 listeners.forEach(this::notifyErrorToListener);
@@ -94,9 +100,9 @@ public class WorkflowExecution {
     public void onTaskCompletion(AbstractTask completedTask) {
         try {
             lock.lock();
-            if (!tasksLeft.remove(completedTask)) {
+            if (!tasksRunning.remove(completedTask)) {
                 log.warn("Notified of completion of unknown task {}", completedTask);
-            } else if (!errors.isEmpty() && !canRunTask()) {
+            } else if (!errors.isEmpty() && tasksRunning.isEmpty()) {
                 // Some task notified errors and the workflow is suspended as no task can continue anymore
                 finishedCondition.signalAll();
                 listeners.forEach(this::notifyErrorToListener);
@@ -107,7 +113,8 @@ public class WorkflowExecution {
                 // Gracefully shut down the execution
                 shutdown(true);
             } else {
-                checkCyclicDependencies();
+                // Check if tasks can be run, if yes run it
+                doLaunch(completedTask.getDependedByTasks());
             }
         } finally {
             lock.unlock();
@@ -173,15 +180,32 @@ public class WorkflowExecution {
         tasksLeft.addAll(tasks);
     }
 
-    public void launch() {
+    private void doLaunch(Set<AbstractTask> tasksToRun) {
         try {
             lock.lock();
-            if (checkCyclicDependencies()) {
-                tasksLeft.stream().filter(AbstractTask::canRun).forEach(task -> executorService.submit(task));
+            Set<AbstractTask> tasksCanBeRun = tasksToRun.stream().filter(task -> task.canRun() && !tasksRunning.contains(task)).collect(Collectors.toSet());
+            if (tasksCanBeRun.isEmpty()) {
+                if (tasksRunning.isEmpty()) {
+                    checkCyclicDependencies();
+                }
+            } else {
+                tasksCanBeRun.stream().forEach(task -> {
+                    if (!tasksRunning.add(task)) {
+                        log.error("Running {} more than once", task);
+                    }
+                    if (!tasksLeft.remove(task)) {
+                        log.error("Running unknown task {}", task);
+                    }
+                    executorService.submit(task);
+                });
             }
         } finally {
             lock.unlock();
         }
+    }
+
+    public void launch() {
+        doLaunch(tasksLeft);
     }
 
     public void resume() {

@@ -26,7 +26,7 @@ object AgentsSteps extends MustMatchers {
   }
 
   def launchUndeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.undeploy(Context.client, deploymentId), 10 minutes)
+    Await.result(AgentsCommand.undeploy(Context.client, deploymentId, force = false), 10 minutes)
   }
 
   def createAgent(deploymentId: String) = {
@@ -43,6 +43,7 @@ object AgentsSteps extends MustMatchers {
 
   def launchInstallWorkflow(deploymentId: String) = {
     AgentsCommand.launchInstallWorkflow(Context.client, deploymentId)
+    Await.result(Context.client.waitForRunningExecutionToFinish(deploymentId), 10 minutes)
   }
 
   def assertDeploymentHasNode(deploymentId: String, nodeName: String, instanceCount: Int) = {
@@ -71,6 +72,7 @@ object AgentsSteps extends MustMatchers {
 
   def launchUninstallWorkflow(deploymentId: String) = {
     AgentsCommand.launchUninstallWorkflow(Context.client, deploymentId)
+    Await.result(Context.client.waitForRunningExecutionToFinish(deploymentId), 10 minutes)
   }
 
   def stopAgent(deploymentId: String) = {

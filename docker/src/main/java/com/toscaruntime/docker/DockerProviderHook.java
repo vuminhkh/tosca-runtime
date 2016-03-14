@@ -13,14 +13,14 @@ import com.toscaruntime.docker.nodes.Container;
 import com.toscaruntime.docker.nodes.Network;
 import com.toscaruntime.docker.nodes.Volume;
 import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
+import com.toscaruntime.sdk.AbstractProviderHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.util.DockerUtil;
 
 import tosca.nodes.Root;
 
-public class DockerDeploymentPostConstructor implements DeploymentPostConstructor {
+public class DockerProviderHook extends AbstractProviderHook {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
 
@@ -49,27 +49,7 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
         } else {
             log.info("No overlay docker network detected, must be in non toscaruntime bootstrap context");
         }
-        for (Container container : deployment.getNodeInstancesByType(Container.class)) {
-            Set<Network> connectedNetworks = deployment.getTargetInstancesOfRelationship(container.getId(), tosca.relationships.Network.class, Network.class);
-            Set<Volume> attachedVolumes = deployment.getSourceInstancesOfRelationship(container.getId(), tosca.relationships.AttachTo.class, Volume.class);
-            initializeContainer(container, connectedNetworks, attachedVolumes);
-        }
-        for (Network network : deployment.getNodeInstancesByType(Network.class)) {
-            network.setDockerClient(dockerClient);
-        }
-        for (Volume volume : deployment.getNodeInstancesByType(Volume.class)) {
-            volume.setDockerClient(dockerClient);
-        }
-    }
-
-    private void initializeContainer(Container container, Set<Network> connectedNetworks, Set<Volume> attachedVolumes) {
-        container.setDockerClient(dockerClient);
-        container.setBootstrapNetworkId(dockerNetworkId);
-        container.setBootstrapNetworkName(dockerNetworkName);
-        container.setNetworks(connectedNetworks);
-        container.setDockerHostIP(dockerHostIP);
-        container.setVolumes(attachedVolumes);
-        attachedVolumes.stream().forEach(volume -> volume.setContainer(container));
+        postConstructInstances(deployment.getNodeInstances(), deployment.getRelationshipInstances());
     }
 
     @Override
@@ -78,7 +58,13 @@ public class DockerDeploymentPostConstructor implements DeploymentPostConstructo
             for (Container container : DeploymentUtil.getNodeInstancesByType(nodeInstances, Container.class)) {
                 Set<Network> connectedNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, container.getId(), tosca.relationships.Network.class, Network.class);
                 Set<Volume> attachedVolumes = DeploymentUtil.getSourceInstancesOfRelationship(relationshipInstances, container.getId(), tosca.relationships.AttachTo.class, Volume.class);
-                initializeContainer(container, connectedNetworks, attachedVolumes);
+                container.setDockerClient(dockerClient);
+                container.setBootstrapNetworkId(dockerNetworkId);
+                container.setBootstrapNetworkName(dockerNetworkName);
+                container.setNetworks(connectedNetworks);
+                container.setDockerHostIP(dockerHostIP);
+                container.setVolumes(attachedVolumes);
+                attachedVolumes.stream().forEach(volume -> volume.setContainer(container));
             }
             for (Network network : DeploymentUtil.getNodeInstancesByType(nodeInstances, Network.class)) {
                 network.setDockerClient(dockerClient);

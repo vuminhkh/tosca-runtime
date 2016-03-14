@@ -2,7 +2,6 @@ package com.toscaruntime.sdk.workflow.tasks.nodes;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +17,8 @@ public class DeleteTask extends AbstractTask {
 
     private static final Logger log = LoggerFactory.getLogger(DeleteTask.class);
 
-    public DeleteTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService taskExecutor, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, taskExecutor, workflowExecution);
+    public DeleteTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
     }
 
     @Override

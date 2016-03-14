@@ -4,7 +4,8 @@ import java.nio.file._
 
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.deployment.DeploymentPersister
-import com.toscaruntime.sdk.{Deployment, DeploymentPostConstructor}
+import com.toscaruntime.exception.deployment.creation.{MultipleProviderHooksFoundException, ProviderHookNotFoundException}
+import com.toscaruntime.sdk.{Deployment, ProviderHook}
 import com.toscaruntime.util.JavaScalaConversionUtil
 
 import scala.collection.JavaConverters._
@@ -71,16 +72,21 @@ object Deployer {
     val currentClassLoader = Thread.currentThread().getContextClassLoader
     Thread.currentThread().setContextClassLoader(deploymentClassLoader)
     val deployment = deploymentClassLoader.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
-    val postConstructorClasses = DeployerUtil.findImplementations(loadedClasses, deploymentClassLoader, classOf[DeploymentPostConstructor])
-    val postConstructorInstances = postConstructorClasses.map { postConstructorClass =>
-      postConstructorClass.newInstance().asInstanceOf[DeploymentPostConstructor]
+    val providerHookClasses = DeployerUtil.findImplementations(loadedClasses, deploymentClassLoader, classOf[ProviderHook])
+    if (providerHookClasses.isEmpty) {
+      throw new ProviderHookNotFoundException("No provider hook is found on the classpath to initialize the deployment")
     }
+    if (providerHookClasses.size > 1) {
+      throw new MultipleProviderHooksFoundException(s"More than one provider hooks exist on the classpath ${providerHookClasses.map(_.getName).mkString(", ")}")
+    }
+    val providerHookClass = providerHookClasses.head
+    val providerHookInstance = providerHookClass.newInstance().asInstanceOf[ProviderHook]
     deployment.initializeConfig(deploymentName,
       deploymentRecipeFolder,
       JavaScalaConversionUtil.toJavaMap(inputs),
       providerProperties.asJava,
       JavaScalaConversionUtil.toJavaMap(bootstrapContext),
-      postConstructorInstances.asJava,
+      providerHookInstance,
       deploymentPersister,
       bootstrap
     )

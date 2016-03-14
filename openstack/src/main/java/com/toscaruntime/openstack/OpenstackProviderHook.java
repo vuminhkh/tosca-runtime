@@ -29,14 +29,14 @@ import com.toscaruntime.openstack.nodes.ExternalNetwork;
 import com.toscaruntime.openstack.nodes.Network;
 import com.toscaruntime.openstack.nodes.Volume;
 import com.toscaruntime.openstack.util.NetworkUtil;
+import com.toscaruntime.sdk.AbstractProviderHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.DeploymentPostConstructor;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.util.PropertyUtil;
 
 import tosca.nodes.Root;
 
-public class OpenstackDeploymentPostConstructor implements DeploymentPostConstructor {
+public class OpenstackProviderHook extends AbstractProviderHook {
 
     private ServerApi serverApi;
 
@@ -146,16 +146,18 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         }
         for (Compute compute : computes) {
             compute.setServerApi(serverApi);
+            compute.setNetworkId(networkId);
+            compute.setFloatingIPApi(floatingIPApi);
+            compute.setVolumeAttachmentApi(volumeAttachmentApi);
             if (StringUtils.isNotBlank(externalNetworkId)) {
                 compute.setExternalNetworkId(externalNetworkId);
             }
-            compute.setNetworkId(networkId);
-            compute.setFloatingIPApi(floatingIPApi);
             Set<ExternalNetwork> connectedExternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
             Set<Network> connectedInternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, Network.class);
             compute.setNetworks(connectedInternalNetworks);
             compute.setExternalNetworks(connectedExternalNetworks);
-            compute.getChildren().stream().filter(child -> child instanceof Volume).forEach(child -> ((Volume) child).setOwner(compute));
+            Set<Volume> attachedVolumes = DeploymentUtil.getSourceInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.AttachTo.class, Volume.class);
+            compute.setVolumes(attachedVolumes);
         }
         for (Network network : networks) {
             network.setNetworkApi(networkApi);
@@ -166,7 +168,6 @@ public class OpenstackDeploymentPostConstructor implements DeploymentPostConstru
         }
         for (Volume volume : volumes) {
             volume.setVolumeApi(volumeApi);
-            volume.setVolumeAttachmentApi(volumeAttachmentApi);
         }
     }
 }

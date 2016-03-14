@@ -19,8 +19,8 @@ public class RemoveSourceTask extends AbstractTask {
 
     private static final Logger log = LoggerFactory.getLogger(RemoveSourceTask.class);
 
-    public RemoveSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService taskExecutor, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, taskExecutor, workflowExecution);
+    public RemoveSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
     }
 
     @Override

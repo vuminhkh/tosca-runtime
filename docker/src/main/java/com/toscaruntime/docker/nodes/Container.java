@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +26,6 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.StartContainerCmd;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.NetworkSettings;
 import com.github.dockerjava.api.model.Ports;
 import com.github.dockerjava.core.command.PullImageResultCallback;
@@ -119,25 +117,6 @@ public class Container extends Compute {
         return mapping;
     }
 
-    private Set<Volume> createdVolumes = new HashSet<>();
-
-    public synchronized void attachVolume(Volume newVolume) {
-        createdVolumes.add(newVolume);
-        if (createdVolumes.size() >= volumes.size()) {
-            createdVolumes.stream().forEach(volume -> log.info("Container [{}] : Mounting volume [{}] to location [{}]", getId(), volume.getVolumeId(), volume.getLocation()));
-            dockerClient.stopContainerCmd(containerId).exec();
-            StartContainerCmd startContainerCmd = dockerClient.startContainerCmd(containerId);
-            // Once all volumes have been created we can restart
-            List<Bind> binds = createdVolumes.stream().map(volume ->
-                    new Bind(volume.getVolumeId(), new com.github.dockerjava.api.model.Volume(volume.getLocation()))).collect(Collectors.toList()
-            );
-            HostConfig hostConfig = new HostConfig();
-            hostConfig.setBinds(binds.toArray(new Bind[binds.size()]));
-            startContainerCmd.withHostConfig(hostConfig);
-            startContainerCmd.exec();
-        }
-    }
-
     @Override
     public void create() {
         super.create();
@@ -165,6 +144,9 @@ public class Container extends Compute {
                 .withName(DockerUtil.normalizeResourceName(config.getDeploymentName() + "_" + getId()))
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
                 .withPortBindings(portBindings);
+        if (volumes != null && !volumes.isEmpty()) {
+            createContainerCmd.withBinds(volumes.stream().map(volume -> new Bind(volume.getVolumeId(), new com.github.dockerjava.api.model.Volume(volume.getLocation()))).collect(Collectors.toList()));
+        }
         List<String> commands = (List<String>) getProperty("commands");
         if (commands != null && !commands.isEmpty()) {
             createContainerCmd.withCmd(commands);
@@ -229,7 +211,9 @@ public class Container extends Compute {
         log.info("Container [" + getId() + "] : Stopping container with id " + containerId);
         dockerClient.stopContainerCmd(containerId).exec();
         log.info("Container [" + getId() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
+        removeAttribute("ip_addresses");
         removeAttribute("ip_address");
+        removeAttribute("public_ip_address");
         ipAddress = null;
     }
 
@@ -243,10 +227,6 @@ public class Container extends Compute {
         dockerClient.removeContainerCmd(containerId).exec();
         log.info("Container [" + getId() + "] : Deleted container with id " + containerId);
         containerId = null;
-        volumes.stream().filter(volume -> volume instanceof DeletableVolume).forEach(volume -> {
-            dockerClient.removeVolumeCmd(volume.getVolumeId()).exec();
-            log.info("Container [" + getId() + "] : Deleted volume with id " + volume.getVolumeId());
-        });
     }
 
     @Override
@@ -305,10 +285,6 @@ public class Container extends Compute {
 
     public void setDockerClient(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
-    }
-
-    public String getIpAddress() {
-        return ipAddress;
     }
 
     public DockerClient getDockerClient() {

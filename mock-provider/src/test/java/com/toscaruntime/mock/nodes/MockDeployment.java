@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.toscaruntime.util.PropertyUtil;
 
+import tosca.relationships.AttachTo;
 import tosca.relationships.HostedOn;
 import tosca.relationships.Network;
 
@@ -66,6 +67,8 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
         Map<String, Map<String, Object>> capabilities_properties_Internet = new HashMap<>();
         initializeNode("Internet", MockNetwork.class, null, null, properties_Internet, capabilities_properties_Internet);
 
+        initializeNode("Volume", MockVolume.class, "LoadBalancerServer", null, new HashMap<>(), new HashMap<>());
+
         setDependencies("War", "ApacheLoadBalancer");
         setDependencies("WebServer", "Internet");
         setDependencies("LoadBalancerServer", "Internet");
@@ -103,6 +106,8 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
 
         Map<String, Object> properties_rel_Tomcat_WebServer = new HashMap<>();
         generateRelationships("Tomcat", "WebServer", properties_rel_Tomcat_WebServer, HostedOn.class);
+
+        generateRelationships("Volume", "LoadBalancerServer", new HashMap<>(), AttachTo.class);
     }
 
     @Override
@@ -115,6 +120,7 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
         generateRelationshipInstances("WebServer", "Internet", Network.class);
         generateRelationshipInstances("Tomcat", "Java", MockRelationship.class);
         generateRelationshipInstances("Tomcat", "WebServer", HostedOn.class);
+        generateRelationshipInstances("Volume", "LoadBalancerServer", AttachTo.class);
     }
 
     @Override
@@ -152,6 +158,12 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
             for (int ApacheLoadBalancerIndex = 1; ApacheLoadBalancerIndex <= ApacheLoadBalancerInstancesCount; ApacheLoadBalancerIndex++) {
                 MockSoftware ApacheLoadBalancer = new MockSoftware();
                 initializeInstance(ApacheLoadBalancer, "ApacheLoadBalancer", ApacheLoadBalancerIndex, LoadBalancerServer, LoadBalancerServer);
+            }
+
+            int VolumeCount = this.nodes.get("Volume").getInstancesCount();
+            for (int VolumeIndex = 1; VolumeIndex <= VolumeCount; VolumeIndex++) {
+                MockVolume Volume = new MockVolume();
+                initializeInstance(Volume, "Volume", VolumeIndex, LoadBalancerServer, null);
             }
         }
 

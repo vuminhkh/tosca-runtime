@@ -14,8 +14,8 @@ import tosca.nodes.Root;
 
 public class PostConfigureSourceTask extends AbstractTask {
 
-    public PostConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService taskExecutor, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, taskExecutor, workflowExecution);
+    public PostConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
     }
 
     @Override

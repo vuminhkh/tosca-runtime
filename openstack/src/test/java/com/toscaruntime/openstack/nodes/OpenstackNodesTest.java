@@ -1,6 +1,5 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -16,8 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
-import com.toscaruntime.openstack.OpenstackDeploymentPostConstructor;
-import com.toscaruntime.sdk.DeploymentPostConstructor;
+import com.toscaruntime.openstack.OpenstackProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
 
 import tosca.constants.RelationshipInstanceState;
@@ -29,14 +27,14 @@ public class OpenstackNodesTest {
     @Test
     public void testOpenstack() throws Throwable {
         OpenstackTestDeployment testDeployment = new OpenstackTestDeployment();
-        OpenstackDeploymentPostConstructor postConstructor = new OpenstackDeploymentPostConstructor();
+        OpenstackProviderHook providerHook = new OpenstackProviderHook();
         Map<String, String> providerProperties = ImmutableMap.<String, String>builder()
                 .put("keystone_url", "http://128.136.179.2:5000/v2.0")
                 .put("user", "facebook1389662728")
                 .put("region", "RegionOne")
                 .put("password", "mqAgNPA2c6VDjoOD")
                 .put("tenant", "facebook1389662728").build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), Collections.<DeploymentPostConstructor>singletonList(postConstructor), Mockito.mock(DeploymentPersister.class), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();
@@ -73,6 +71,9 @@ public class OpenstackNodesTest {
             } catch (InvalidOperationExecutionException ignored) {
                 // It's what's expected
             }
+        } catch (Exception e) {
+            testDeployment.cancel();
+            throw e;
         } finally {
             testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
         }

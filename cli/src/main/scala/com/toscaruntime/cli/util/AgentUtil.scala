@@ -51,6 +51,18 @@ object AgentUtil extends LazyLogging {
     Await.result(client.undeploy(deploymentId), waitForEver)
   }
 
+  def teardownInfrastructure(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.teardownInfrastructure(deploymentId), waitForEver)
+  }
+
+  def cancelExecution(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.cancel(deploymentId), waitForEver)
+  }
+
+  def resumeExecution(client: ToscaRuntimeClient, deploymentId: String) = {
+    Await.result(client.resume(deploymentId), waitForEver)
+  }
+
   def bootstrap(client: ToscaRuntimeClient, provider: String, target: String) = {
     Await.result(client.bootstrap(provider, target), waitForEver)
   }

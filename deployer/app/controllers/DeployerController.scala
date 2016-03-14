@@ -77,6 +77,7 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
             val workflowExecution = workflowExecutionRequest.workflowId match {
               case "install" => deployment.install()
               case "uninstall" => deployment.uninstall()
+              case "teardown_infrastructure" => deployment.teardown()
               case "scale" =>
                 if (workflowExecutionRequest.inputs.get("nodeId").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for scale workflow")
                 if (workflowExecutionRequest.inputs.get("newInstancesCount").isEmpty) throw new InvalidWorkflowException("Missing 'newInstancesCount' input for scale workflow")

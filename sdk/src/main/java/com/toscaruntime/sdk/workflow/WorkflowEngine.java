@@ -1,6 +1,7 @@
 package com.toscaruntime.sdk.workflow;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -13,6 +14,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
+import com.toscaruntime.sdk.ProviderHook;
+import com.toscaruntime.sdk.ProviderWorkflowProcessingResult;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.MockTask;
@@ -31,6 +34,8 @@ import tosca.nodes.Root;
  */
 public class WorkflowEngine {
 
+    private ProviderHook providerHook;
+
     private static final Logger log = LoggerFactory.getLogger(WorkflowEngine.class);
 
     private static ExecutorService createWorkflowExecutorService() {
@@ -39,8 +44,8 @@ public class WorkflowEngine {
             private AtomicInteger count = new AtomicInteger();
 
             @Override
-            public Thread newThread(Runnable r) {
-                Thread t = new Thread(r);
+            public Thread newThread(Runnable runnable) {
+                Thread t = new Thread(runnable);
                 t.setDaemon(true);
                 t.setName("WorkflowThread_" + count.incrementAndGet());
                 return t;
@@ -50,8 +55,8 @@ public class WorkflowEngine {
 
     private InstallLifeCycleTasksFactory mockInstallLifeCycleTasksFactory = new InstallLifeCycleTasksFactory() {
         @Override
-        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-            return new InstallLifeCycleTasks(new MockTask("to be copied from", nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution));
+        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+            return new InstallLifeCycleTasks(new MockTask("to be copied from", nodeInstances, relationshipInstances, nodeInstance, workflowExecution));
         }
 
         @Override
@@ -67,8 +72,8 @@ public class WorkflowEngine {
 
     private InstallLifeCycleTasksFactory installLifeCycleTasksFactory = new InstallLifeCycleTasksFactory() {
         @Override
-        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-            return new InstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
+        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+            return new InstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
         }
 
         @Override
@@ -84,8 +89,8 @@ public class WorkflowEngine {
 
     private UninstallLifeCycleTasksFactory mockUninstallLifeCycleTasksFactory = new UninstallLifeCycleTasksFactory() {
         @Override
-        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-            return new UninstallLifeCycleTasks(new MockTask("to be copied from", nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution));
+        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+            return new UninstallLifeCycleTasks(new MockTask("to be copied from", nodeInstances, relationshipInstances, nodeInstance, workflowExecution));
         }
 
         @Override
@@ -101,8 +106,8 @@ public class WorkflowEngine {
 
     private UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory = new UninstallLifeCycleTasksFactory() {
         @Override
-        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution) {
-            return new UninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
+        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+            return new UninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
         }
 
         @Override
@@ -147,7 +152,7 @@ public class WorkflowEngine {
 
     private interface InstallLifeCycleTasksFactory {
 
-        InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution);
+        InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution);
 
         InstallLifeCycleTasks create(AddSourceTask addSourceTask);
 
@@ -156,7 +161,7 @@ public class WorkflowEngine {
 
     private interface UninstallLifeCycleTasksFactory {
 
-        UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService executorService, WorkflowExecution workflowExecution);
+        UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution);
 
         UninstallLifeCycleTasks create(RemoveSourceTask removeSourceTask);
 
@@ -167,11 +172,10 @@ public class WorkflowEngine {
                                         Set<tosca.relationships.Root> relationshipInstances,
                                         InstallLifeCycleTasksFactory lifeCycleTasksFactory) {
         Map<Root, InstallLifeCycleTasks> allTasks = new HashMap<>();
-        ExecutorService executorService = createWorkflowExecutorService();
-        WorkflowExecution workflowExecution = new WorkflowExecution(executorService);
+        WorkflowExecution workflowExecution = new WorkflowExecution(createWorkflowExecutorService());
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
-            InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
+            InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
             allTasks.put(nodeInstance, installLifeCycleTasks);
             workflowExecution.addTasks(installLifeCycleTasks.getTasks());
         }
@@ -179,7 +183,7 @@ public class WorkflowEngine {
         relationshipInstances.stream().filter(
                 relationshipInstance -> !allTasks.containsKey(relationshipInstance.getSource())
         ).forEach(relationshipInstance -> {
-            AddTargetTask addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, relationshipInstance.getSource(), executorService, workflowExecution);
+            AddTargetTask addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, relationshipInstance.getSource(), workflowExecution);
             InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(addTargetTask);
             allTasks.put(relationshipInstance.getSource(), installLifeCycleTasks);
             workflowExecution.addTasks(installLifeCycleTasks.getTasks());
@@ -187,40 +191,20 @@ public class WorkflowEngine {
         relationshipInstances.stream().filter(
                 relationshipInstance -> !allTasks.containsKey(relationshipInstance.getTarget())
         ).forEach(relationshipInstance -> {
-            AddSourceTask addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), executorService, workflowExecution);
+            AddSourceTask addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), workflowExecution);
             InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(addSourceTask);
             allTasks.put(relationshipInstance.getTarget(), installLifeCycleTasks);
             workflowExecution.addTasks(installLifeCycleTasks.getTasks());
         });
-        for (Map.Entry<Root, InstallLifeCycleTasks> taskEntry : allTasks.entrySet()) {
+        ProviderWorkflowProcessingResult providerWorkflowResult = providerHook.postConstructInstallWorkflow(nodeInstances, relationshipInstances, allTasks);
+        Set<tosca.relationships.Root> nonProcessedRelationshipInstances = new HashSet<>(relationshipInstances);
+        nonProcessedRelationshipInstances.removeAll(providerWorkflowResult.getRelationshipInstances());
+        // Only process life cycles of nodes that were not processed by the provider, and based on relationships that were not processed by the provider
+        allTasks.entrySet().stream().filter(taskEntry -> !providerWorkflowResult.getNodeInstances().containsKey(taskEntry.getKey().getId())).forEach(taskEntry -> {
             Root instance = taskEntry.getKey();
             InstallLifeCycleTasks instanceLifeCycle = taskEntry.getValue();
-
-            Root host = instance.getHost();
-            InstallLifeCycleTasks hostInstallLifeCycle = allTasks.get(host);
-            if (hostInstallLifeCycle != null) {
-                // Instance create task must depends on start task of its host
-                // It means that the life cycle of the host and the hosted is sequential
-                instanceLifeCycle.getCreateTask().dependsOn(hostInstallLifeCycle.getStartTask());
-                // Add source of the the host depends on start of the instance, this way add source is called only when the source is already started
-                hostInstallLifeCycle.getAddSourceTask().dependsOn(instanceLifeCycle.getStartTask());
-            }
-            instance.getNode().getDependsOnNodes().forEach(dependencyName ->
-                    allTasks.keySet().stream().filter(taskInstance -> taskInstance.getName().equals(dependencyName)).forEach(dependency -> {
-                        // instance = A depends on dependency = B
-                        InstallLifeCycleTasks dependencyLifeCycle = allTasks.get(dependency);
-                        if (dependencyLifeCycle != null) {
-                            // A depends on B then A is configured only if B is started
-                            instanceLifeCycle.getPreConfigureSourceTask().dependsOn(dependencyLifeCycle.getStartTask());
-                            instanceLifeCycle.getPreConfigureTargetTask().dependsOn(dependencyLifeCycle.getStartTask());
-                            // A depends on B then B is configured only if A is created
-                            dependencyLifeCycle.getPreConfigureSourceTask().dependsOn(instanceLifeCycle.getCreateTask());
-                            dependencyLifeCycle.getPreConfigureTargetTask().dependsOn(instanceLifeCycle.getCreateTask());
-                            // A depends on B then B add source is executed only if A is started
-                            dependencyLifeCycle.getAddSourceTask().dependsOn(instanceLifeCycle.getStartTask());
-                        }
-                    }));
-        }
+            WorkflowUtil.declareNodeInstallDependenciesWithRelationship(instance, instanceLifeCycle, allTasks, nonProcessedRelationshipInstances);
+        });
         workflowExecution.launch();
         return workflowExecution;
     }
@@ -241,11 +225,10 @@ public class WorkflowEngine {
                                          Set<tosca.relationships.Root> relationshipInstances,
                                          UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory) {
         Map<Root, UninstallLifeCycleTasks> allTasks = new HashMap<>();
-        ExecutorService executorService = createWorkflowExecutorService();
-        WorkflowExecution workflowExecution = new WorkflowExecution(executorService);
+        WorkflowExecution workflowExecution = new WorkflowExecution(createWorkflowExecutorService());
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
-            UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, executorService, workflowExecution);
+            UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
             allTasks.put(nodeInstance, uninstallLifeCycleTasks);
             workflowExecution.addTasks(uninstallLifeCycleTasks.getTasks());
         }
@@ -253,7 +236,7 @@ public class WorkflowEngine {
         relationshipInstances.stream().filter(
                 relationshipInstance -> !allTasks.containsKey(relationshipInstance.getSource())
         ).forEach(relationshipInstance -> {
-            RemoveTargetTask removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, relationshipInstance.getSource(), executorService, workflowExecution);
+            RemoveTargetTask removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, relationshipInstance.getSource(), workflowExecution);
             UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(removeTargetTask);
             allTasks.put(relationshipInstance.getSource(), uninstallLifeCycleTasks);
             workflowExecution.addTasks(uninstallLifeCycleTasks.getTasks());
@@ -261,37 +244,25 @@ public class WorkflowEngine {
         relationshipInstances.stream().filter(
                 relationshipInstance -> !allTasks.containsKey(relationshipInstance.getTarget())
         ).forEach(relationshipInstance -> {
-            RemoveSourceTask removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), executorService, workflowExecution);
+            RemoveSourceTask removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), workflowExecution);
             UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(removeSourceTask);
             allTasks.put(relationshipInstance.getTarget(), uninstallLifeCycleTasks);
             workflowExecution.addTasks(uninstallLifeCycleTasks.getTasks());
         });
-        for (Map.Entry<Root, UninstallLifeCycleTasks> taskEntry : allTasks.entrySet()) {
+        ProviderWorkflowProcessingResult providerWorkflowResult = providerHook.postConstructUninstallWorkflow(nodeInstances, relationshipInstances, allTasks);
+        Set<tosca.relationships.Root> nonProcessedRelationshipInstances = new HashSet<>(relationshipInstances);
+        nonProcessedRelationshipInstances.removeAll(providerWorkflowResult.getRelationshipInstances());
+        // Only process life cycles of nodes that were not processed by the provider, and based on relationships that were not processed by the provider
+        allTasks.entrySet().stream().filter(taskEntry -> !providerWorkflowResult.getNodeInstances().containsKey(taskEntry.getKey().getId())).forEach(taskEntry -> {
             Root instance = taskEntry.getKey();
             UninstallLifeCycleTasks instanceLifeCycle = taskEntry.getValue();
-
-            Set<Root> instanceChildren = instance.getChildren();
-            for (Root instanceChild : instanceChildren) {
-                UninstallLifeCycleTasks instanceChildLifeCycle = allTasks.get(instanceChild);
-                // The host can be stopped only if all children has been deleted
-                instanceLifeCycle.getStopTask().dependsOn(instanceChildLifeCycle.getDeleteTask());
-                // The child can be stopped only if the host has been notified of the fact that it's being removed
-                instanceChildLifeCycle.getStopTask().dependsOn(instanceLifeCycle.getRemoveSourceTask());
-            }
-
-            instance.getNode().getDependedByNodes().forEach(subjectionName ->
-                    allTasks.keySet().stream().filter(taskInstance -> taskInstance.getName().equals(subjectionName)).forEach(subjection -> {
-                        // instance = A depended by subjection = B
-                        UninstallLifeCycleTasks subjectionLifeCycle = allTasks.get(subjection);
-                        if (subjectionLifeCycle != null) {
-                            // If A is depended by B, then only stop A if B has been stopped already
-                            instanceLifeCycle.getStopTask().dependsOn(subjectionLifeCycle.getStopTask());
-                            // If A is depended by B, then notify A removal before B is stopped
-                            subjectionLifeCycle.getStopTask().dependsOn(instanceLifeCycle.getRemoveSourceTask());
-                        }
-                    }));
-        }
+            WorkflowUtil.declareNodeUninstallDependenciesWithRelationship(instance, instanceLifeCycle, allTasks, relationshipInstances);
+        });
         workflowExecution.launch();
         return workflowExecution;
+    }
+
+    public void setProviderHook(ProviderHook providerHook) {
+        this.providerHook = providerHook;
     }
 }

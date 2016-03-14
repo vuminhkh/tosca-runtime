@@ -4,7 +4,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,34 +26,39 @@ public abstract class AbstractTask implements Runnable {
 
     protected Set<AbstractTask> dependedByTasks = new HashSet<>();
 
-    private ExecutorService taskExecutor;
-
     private WorkflowExecution workflowExecution;
 
-    public AbstractTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, ExecutorService taskExecutor, WorkflowExecution workflowExecution) {
+    public AbstractTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
         this.nodeInstances = nodeInstances;
         this.relationshipInstances = relationshipInstances;
         this.nodeInstance = nodeInstance;
-        this.taskExecutor = taskExecutor;
         this.workflowExecution = workflowExecution;
     }
 
     private void notifyTaskCompletion() {
-        dependedByTasks.stream().forEach(dependedByInstance -> dependedByInstance.onDependencyCompletion(this));
-        // The dependency is notified about the completion of the task before the workflow execution
-        // This way the workflow execution can validate that there is no cyclic dependencies
-        workflowExecution.onTaskCompletion(this);
+        try {
+            workflowExecution.getLock().lock();
+            dependedByTasks.stream().forEach(dependedByInstance -> dependedByInstance.onDependencyCompletion(this));
+            // The dependency is notified about the completion of the task before the workflow execution
+            // This way the workflow execution can validate that there is no cyclic dependencies
+            workflowExecution.onTaskCompletion(this);
+        } finally {
+            workflowExecution.getLock().unlock();
+        }
     }
 
     private void notifyTaskError(Throwable e) {
         workflowExecution.onTaskFailure(this, e);
     }
 
-    private synchronized void onDependencyCompletion(AbstractTask dependency) {
-        if (!dependsOnTasks.remove(dependency)) {
-            log.error("Notified completion of an unknown dependency {} for task {}", dependency, this);
-        } else if (dependsOnTasks.isEmpty()) {
-            taskExecutor.submit(this);
+    private void onDependencyCompletion(AbstractTask dependency) {
+        try {
+            workflowExecution.getLock().lock();
+            if (!dependsOnTasks.remove(dependency)) {
+                log.error("Notified completion of an unknown dependency {} for task {}", dependency, toString());
+            }
+        } finally {
+            workflowExecution.getLock().unlock();
         }
     }
 
@@ -77,7 +81,7 @@ public abstract class AbstractTask implements Runnable {
         }
     }
 
-    public synchronized boolean canRun() {
+    public boolean canRun() {
         return dependsOnTasks.isEmpty();
     }
 
@@ -109,15 +113,15 @@ public abstract class AbstractTask implements Runnable {
         return nodeInstance;
     }
 
-    public ExecutorService getTaskExecutor() {
-        return taskExecutor;
-    }
-
     public WorkflowExecution getWorkflowExecution() {
         return workflowExecution;
     }
 
     public Set<AbstractTask> getDependsOnTasks() {
         return dependsOnTasks;
+    }
+
+    public Set<AbstractTask> getDependedByTasks() {
+        return dependedByTasks;
     }
 }
