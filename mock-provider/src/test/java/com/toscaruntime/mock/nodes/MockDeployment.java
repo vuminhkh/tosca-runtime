@@ -3,10 +3,11 @@ package com.toscaruntime.mock.nodes;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.toscaruntime.mock.relationships.MockHostedOnRelationship;
+import com.toscaruntime.mock.relationships.MockRelationship;
 import com.toscaruntime.util.PropertyUtil;
 
 import tosca.relationships.AttachTo;
-import tosca.relationships.HostedOn;
 import tosca.relationships.Network;
 
 public class MockDeployment extends com.toscaruntime.sdk.Deployment {
@@ -87,16 +88,16 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
         generateRelationships("LoadBalancerServer", "Internet", properties_rel_LoadBalancerServer_Internet, Network.class);
 
         Map<String, Object> properties_rel_War_Tomcat = new HashMap<>();
-        generateRelationships("War", "Tomcat", properties_rel_War_Tomcat, MockRelationship.class);
+        generateRelationships("War", "Tomcat", properties_rel_War_Tomcat, MockHostedOnRelationship.class);
 
         Map<String, Object> properties_rel_War_ApacheLoadBalancer = new HashMap<>();
         generateRelationships("War", "ApacheLoadBalancer", properties_rel_War_ApacheLoadBalancer, MockRelationship.class);
 
         Map<String, Object> properties_rel_ApacheLoadBalancer_LoadBalancerServer = new HashMap<>();
-        generateRelationships("ApacheLoadBalancer", "LoadBalancerServer", properties_rel_ApacheLoadBalancer_LoadBalancerServer, HostedOn.class);
+        generateRelationships("ApacheLoadBalancer", "LoadBalancerServer", properties_rel_ApacheLoadBalancer_LoadBalancerServer, MockHostedOnRelationship.class);
 
         Map<String, Object> properties_rel_Java_WebServer = new HashMap<>();
-        generateRelationships("Java", "WebServer", properties_rel_Java_WebServer, HostedOn.class);
+        generateRelationships("Java", "WebServer", properties_rel_Java_WebServer, MockHostedOnRelationship.class);
 
         Map<String, Object> properties_rel_WebServer_Internet = new HashMap<>();
         generateRelationships("WebServer", "Internet", properties_rel_WebServer_Internet, Network.class);
@@ -105,7 +106,7 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
         generateRelationships("Tomcat", "Java", properties_rel_Tomcat_Java, MockRelationship.class);
 
         Map<String, Object> properties_rel_Tomcat_WebServer = new HashMap<>();
-        generateRelationships("Tomcat", "WebServer", properties_rel_Tomcat_WebServer, HostedOn.class);
+        generateRelationships("Tomcat", "WebServer", properties_rel_Tomcat_WebServer, MockHostedOnRelationship.class);
 
         generateRelationships("Volume", "LoadBalancerServer", new HashMap<>(), AttachTo.class);
     }
@@ -113,13 +114,13 @@ public class MockDeployment extends com.toscaruntime.sdk.Deployment {
     @Override
     protected void initializeRelationshipInstances() {
         generateRelationshipInstances("LoadBalancerServer", "Internet", Network.class);
-        generateRelationshipInstances("War", "Tomcat", MockRelationship.class);
+        generateRelationshipInstances("War", "Tomcat", MockHostedOnRelationship.class);
         generateRelationshipInstances("War", "ApacheLoadBalancer", MockRelationship.class);
-        generateRelationshipInstances("ApacheLoadBalancer", "LoadBalancerServer", HostedOn.class);
-        generateRelationshipInstances("Java", "WebServer", HostedOn.class);
+        generateRelationshipInstances("ApacheLoadBalancer", "LoadBalancerServer", MockHostedOnRelationship.class);
+        generateRelationshipInstances("Java", "WebServer", MockHostedOnRelationship.class);
         generateRelationshipInstances("WebServer", "Internet", Network.class);
         generateRelationshipInstances("Tomcat", "Java", MockRelationship.class);
-        generateRelationshipInstances("Tomcat", "WebServer", HostedOn.class);
+        generateRelationshipInstances("Tomcat", "WebServer", MockHostedOnRelationship.class);
         generateRelationshipInstances("Volume", "LoadBalancerServer", AttachTo.class);
     }
 

@@ -2,44 +2,38 @@ package com.toscaruntime.sdk.workflow.tasks.relationships;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
-public class RemoveSourceTask extends AbstractTask {
+public class RemoveSourceTask extends AbstractRelationshipTask {
 
     private static final Logger log = LoggerFactory.getLogger(RemoveSourceTask.class);
 
-    public RemoveSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public RemoveSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
     }
 
     @Override
     protected void doRun() {
-        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = DeploymentUtil.getRelationshipInstanceBySourceId(relationshipInstances, nodeInstance.getId());
-        nodeInstanceSourceRelationships.forEach(relationshipInstance -> {
+        synchronized (relationshipInstance.getTarget()) {
             try {
-                synchronized (relationshipInstance.getTarget()) {
-                    relationshipInstance.removeSource();
-                    WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.UNLINKING, RelationshipInstanceState.POST_CONFIGURED);
-                }
+                relationshipInstance.removeSource();
             } catch (Exception e) {
-                log.warn(relationshipInstance + " removedSource failed", e);
+                log.warn(relationshipInstance + " removeSource failed", e);
             }
-        });
+            WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.UNLINKING, RelationshipInstanceState.POST_CONFIGURED);
+        }
     }
 
     @Override
     public String toString() {
-        return "Remove Source task for " + nodeInstance.getId();
+        return "Remove Source task for " + relationshipInstance;
     }
 }

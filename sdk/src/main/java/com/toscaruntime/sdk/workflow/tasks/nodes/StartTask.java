@@ -5,12 +5,11 @@ import java.util.Set;
 
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
 import tosca.constants.InstanceState;
 import tosca.nodes.Root;
 
-public class StartTask extends AbstractTask {
+public class StartTask extends AbstractNodeTask {
 
     public StartTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
         super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
@@ -25,6 +24,6 @@ public class StartTask extends AbstractTask {
 
     @Override
     public String toString() {
-        return "Start Task For " + nodeInstance.getId();
+        return "Start Task For " + nodeInstance;
     }
 }

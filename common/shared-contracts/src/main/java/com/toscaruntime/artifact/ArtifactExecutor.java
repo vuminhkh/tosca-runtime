@@ -10,10 +10,10 @@ import java.util.Map;
  */
 public interface ArtifactExecutor {
 
+    String REMOTE_TEMP_DIR = "/tmp/";
+
     /**
      * Must be called to initialize the executor
-     *
-     * @throws Exception
      */
     void initialize();
 
@@ -25,7 +25,6 @@ public interface ArtifactExecutor {
      * @param remoteArtifactPath path to the artifact on the remote host
      * @param env                environment variable
      * @return outputs of the operation
-     * @throws Exception
      */
     Map<String, String> executeArtifact(String operationName, Path localArtifactPath, String remoteArtifactPath, Map<String, String> env);
 }

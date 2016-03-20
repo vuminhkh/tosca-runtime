@@ -98,14 +98,27 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
           case (executionId, workflowExecution) =>
             log.info(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
             workflowExecution.addListener(new WorkflowExecutionListener {
-              override def onFinish(): Unit = deploymentDAO.finishRunningExecution()
+              override def onFinish(): Unit = {
+                deploymentDAO.finishRunningExecution()
+                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has finished successfully")
+              }
 
-              override def onFailure(errors: java.util.List[Throwable]): Unit = {
+              override def onFailure(errors: java.util.Collection[Throwable]): Unit = {
                 val errorMessages = errors.asScala.map(e => {
                   log.info(s"Execution $executionId has been stopped for ${workflowExecutionRequest.workflowId} workflow due to error", e)
                   e.getMessage
                 })
                 deploymentDAO.stopExecution(Some(errorMessages.mkString(",")))
+              }
+
+              override def onStop(): Unit = {
+                deploymentDAO.stopExecution(None)
+                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has been paused successfully")
+              }
+
+              override def onCancel(): Unit = {
+                deploymentDAO.cancelRunningExecution()
+                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has been cancelled successfully")
               }
             })
             Ok(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
@@ -121,23 +134,35 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
     )
   }
 
-  def cancel() = Action.async { implicit request =>
-    deploymentDAO.cancelRunningExecution().map { rowsHit =>
-      if (rowsHit == 0) {
-        BadRequest(s"No running execution exists for this deployment")
-      } else {
-        deployment.cancel()
-        Ok(s"Execution has been cancelled")
-      }
+  def cancel(force: Boolean = false) = Action { implicit request =>
+    try {
+      deployment.cancel(force)
+      Ok(s"Execution has been cancelled")
+    } catch {
+      case e: RunningExecutionNotFound => BadRequest("No running execution is found to be cancelled")
     }
   }
 
-  def resume() = Action { implicit request =>
+  def resume() = Action.async { implicit request =>
     try {
       deployment.resume()
-      Ok("Execution of the current workflow has been resumed")
+      deploymentDAO.resumeRunningExecution().map { rowHit =>
+        if (rowHit == 0) {
+          log.error("No running execution found in persistence to resume")
+        }
+        Ok("Execution has been resumed")
+      }
     } catch {
-      case e: RunningExecutionNotFound => BadRequest("No running execution is found to be resumed")
+      case e: RunningExecutionNotFound => Future(BadRequest("No running execution is found to be resumed"))
+    }
+  }
+
+  def stop(force: Boolean = false) = Action { implicit request =>
+    try {
+      deployment.stop(force)
+      Ok("Execution has been stopped")
+    } catch {
+      case e: RunningExecutionNotFound => BadRequest("No running execution is found to be stopped")
     }
   }
 

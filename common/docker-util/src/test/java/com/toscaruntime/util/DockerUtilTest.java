@@ -28,4 +28,35 @@ public class DockerUtilTest {
         String dockerHost = DockerUtil.getDockerHost(url);
         Assert.assertEquals("192.168.99.100", dockerHost);
     }
+
+//    @Test
+//    public void testExecutor() throws MalformedURLException, UnsupportedEncodingException, InterruptedException {
+//        DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
+//        DockerClient dockerClient = DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath());
+//        CreateContainerResponse container = dockerClient.createContainerCmd("busybox").withCmd("sleep", "9999")
+//                .withName("test").exec();
+//        dockerClient.startContainerCmd(container.getId()).exec();
+//        DockerExecutor dockerExecutor = new DockerExecutor(dockerClient, container.getId());
+//        dockerExecutor.runCommand("cat", line -> {
+//            System.out.println(line.getData());
+//        }, new ByteArrayInputStream("TOTO".getBytes(StandardCharsets.UTF_8)));
+//        DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
+//        DockerClient dockerClient = DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath());
+//
+//        CreateContainerResponse container = dockerClient.createContainerCmd("busybox").withCmd("sleep", "9999")
+//                .withName("test").exec();
+//
+//        dockerClient.startContainerCmd(container.getId()).exec();
+//
+//        InputStream stdin = new ByteArrayInputStream("STDIN\n".getBytes("UTF-8"));
+//
+//        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+//
+//        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(container.getId())
+//                .withAttachStdout(true).withAttachStdin(true).withCmd("cat").exec();
+//        dockerClient.execStartCmd(execCreateCmdResponse.getId()).withDetach(false).withTty(true).withStdIn(stdin)
+//                .exec(new ExecStartResultCallback(stdout, System.err)).awaitCompletion(5, TimeUnit.SECONDS);
+//
+//        Assert.assertEquals(stdout.toString("UTF-8"), "STDIN\n");
+//    }
 }

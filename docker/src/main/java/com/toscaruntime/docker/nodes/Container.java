@@ -1,21 +1,11 @@
 package com.toscaruntime.docker.nodes;
 
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +24,7 @@ import com.google.common.collect.Maps;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.util.ArtifactExecutionUtil;
-import com.toscaruntime.util.DockerStreamDecoder;
+import com.toscaruntime.util.DockerExecutor;
 import com.toscaruntime.util.DockerUtil;
 
 import tosca.nodes.Compute;
@@ -44,19 +34,13 @@ public class Container extends Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
 
-    private static final Pattern ENV_VAR_PATTERN = Pattern.compile("^(\\S+)=(.+)$");
+    static final String RECIPE_LOCATION = "/tmp/recipe";
 
     private DockerClient dockerClient;
 
     private String containerId;
 
     private String ipAddress;
-
-    public static final String RECIPE_LOCATION = "/var/recipe";
-
-    public static final String GENERATED_SCRIPT_PATH = "/.generated";
-
-    private static final String RECIPE_GENERATED_SCRIPT_LOCATION = RECIPE_LOCATION + GENERATED_SCRIPT_PATH;
 
     /**
      * This is the bootstrap context network. Container must be connected by default to this network so they can see each other.
@@ -77,19 +61,22 @@ public class Container extends Compute {
 
     private String dockerHostIP;
 
+    private DockerExecutor dockerExecutor;
+
     @Override
     public void initialLoad() {
         super.initialLoad();
         this.containerId = getAttributeAsString("provider_resource_id");
         this.ipAddress = getAttributeAsString("ip_address");
         this.dockerHostIP = getAttributeAsString("public_ip_address");
+        dockerExecutor = new DockerExecutor(dockerClient, containerId);
     }
 
-    public String getImageId() {
+    private String getImageId() {
         return getMandatoryPropertyAsString("image_id");
     }
 
-    public List<ExposedPort> getExposedPorts() {
+    List<ExposedPort> getExposedPorts() {
         List<Map<String, String>> rawExposedPorts = (List<Map<String, String>>) getProperty("exposed_ports");
         List<ExposedPort> exposedPorts = Lists.newArrayList();
         if (rawExposedPorts != null) {
@@ -105,7 +92,7 @@ public class Container extends Compute {
         return exposedPorts;
     }
 
-    public Map<Integer, Integer> getPortsMapping() {
+    Map<Integer, Integer> getPortsMapping() {
         Map<Integer, Integer> mapping = new HashMap<>();
         List<Map<String, String>> portMappingsRaw = (List<Map<String, String>>) getProperty("port_mappings");
         if (portMappingsRaw == null) {
@@ -152,6 +139,7 @@ public class Container extends Compute {
             createContainerCmd.withCmd(commands);
         }
         containerId = createContainerCmd.exec().getId();
+        dockerExecutor = new DockerExecutor(dockerClient, containerId);
         log.info("Container [" + getId() + "] : Created container with id " + containerId);
     }
 
@@ -192,14 +180,13 @@ public class Container extends Compute {
         for (Map.Entry<java.lang.String, NetworkSettings.Network> networkEntry : response.getNetworkSettings().getNetworks().entrySet()) {
             ipAddresses.put(networkEntry.getKey(), networkEntry.getValue().getIpAddress());
         }
+        dockerExecutor.upload(this.config.getArtifactsPath().toString(), getPropertyAsString("recipe_location", RECIPE_LOCATION));
         setAttribute("ip_addresses", ipAddresses);
         setAttribute("ip_address", ipAddress);
         setAttribute("public_ip_address", dockerHostIP);
         setAttribute("provider_resource_id", containerId);
         setAttribute("provider_resource_name", response.getName());
         log.info("Container [" + getId() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
-        DockerUtil.runCommand(dockerClient, containerId, "Container [" + getId() + "][Create recipe dir]", Lists.newArrayList("mkdir", "-p", RECIPE_LOCATION), log);
-        dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(this.config.getArtifactsPath().toString()).withDirChildrenOnly(true).withRemotePath(RECIPE_LOCATION).exec();
     }
 
     @Override
@@ -230,64 +217,22 @@ public class Container extends Compute {
     }
 
     @Override
-    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> environmentVariables, Map<String, String> deploymentArtifacts) {
-        log.info("Container [{}] : Executing script [{}] for node [{}] with env [{}]", getId(), operationArtifactPath, nodeId, environmentVariables);
-        String containerGeneratedScriptDir = Paths.get(RECIPE_GENERATED_SCRIPT_LOCATION + "/" + getId() + "/" + operationArtifactPath).getParent().toString();
-        String containerScriptPath = RECIPE_LOCATION + "/" + operationArtifactPath;
-        PrintWriter localGeneratedScriptWriter = null;
-        String operationName = Paths.get(operationArtifactPath).getFileName().toString();
-        try {
-            Path localGeneratedScriptPath = Files.createTempFile("", ".sh");
-            final String endOfOutputToken = UUID.randomUUID().toString();
-            localGeneratedScriptWriter = new PrintWriter(new BufferedOutputStream(Files.newOutputStream(localGeneratedScriptPath)));
-            localGeneratedScriptWriter.write("#!/bin/bash\n");
-            Map<String, String> allInputs = ArtifactExecutionUtil.processInputs(environmentVariables, deploymentArtifacts, RECIPE_LOCATION, "/");
-            for (Map.Entry<String, String> inputEntry : allInputs.entrySet()) {
-                localGeneratedScriptWriter.write("export " + inputEntry.getKey() + "='" + inputEntry.getValue() + "'\n");
-            }
-            localGeneratedScriptWriter.write("chmod +x " + containerScriptPath + "\n");
-            localGeneratedScriptWriter.write(". " + containerScriptPath + "\n");
-            localGeneratedScriptWriter.write("_toscaruntime_rc=$?; if [[ $_toscaruntime_rc != 0 ]]; then echo \"Script exit with status $_toscaruntime_rc\"; exit $_toscaruntime_rc; fi" + "\n");
-            localGeneratedScriptWriter.write("echo '" + endOfOutputToken + "'\n");
-            localGeneratedScriptWriter.write("printenv\n");
-            localGeneratedScriptWriter.flush();
-            DockerUtil.runCommand(dockerClient, containerId, "Container [" + getId() + "][Create wrapper script dir]", Lists.newArrayList("mkdir", "-p", containerGeneratedScriptDir), log);
-            dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(localGeneratedScriptPath.toString()).withRemotePath(containerGeneratedScriptDir).exec();
-            String copiedScript = containerGeneratedScriptDir + "/" + localGeneratedScriptPath.getFileName().toString();
-            DockerUtil.runCommand(dockerClient, containerId, "Container [" + getId() + "][Chmod wrapper script]", Lists.newArrayList("chmod", "+x", copiedScript), log);
-            Map<String, String> envVars = new HashMap<>();
-            DockerUtil.runCommand(dockerClient, containerId, Lists.newArrayList(copiedScript), new DockerUtil.CommandLogger() {
-                private boolean endOfOutputDetected = false;
-
-                @Override
-                public void log(DockerStreamDecoder.DecoderResult line) {
-                    if (endOfOutputToken.equals(line.getData())) {
-                        endOfOutputDetected = true;
-                    } else {
-                        if (endOfOutputDetected) {
-                            Matcher matcher = ENV_VAR_PATTERN.matcher(line.getData());
-                            if (matcher.matches()) {
-                                envVars.put(matcher.group(1), matcher.group(2));
-                            }
-                        } else {
-                            log.info("[{}][{}][{}] {}", nodeId, operationName, line.getStreamType().toString().toLowerCase(), line.getData());
-                        }
-                    }
-                }
-            });
-            return envVars;
-        } catch (IOException e) {
-            throw new InvalidOperationExecutionException("Unable to create generated script for " + operationArtifactPath, e);
-        } finally {
-            IOUtils.closeQuietly(localGeneratedScriptWriter);
-        }
+    public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
+        log.info("Container [{}] : Executing script [{}] for node [{}] with env [{}]", getId(), operationArtifactPath, nodeId, inputs);
+        String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
+        return dockerExecutor.executeArtifact(
+                nodeId,
+                config.getArtifactsPath().resolve(operationArtifactPath),
+                recipeLocation + "/" + operationArtifactPath,
+                ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, recipeLocation, "/")
+        );
     }
 
     public void setDockerClient(DockerClient dockerClient) {
         this.dockerClient = dockerClient;
     }
 
-    public DockerClient getDockerClient() {
+    DockerClient getDockerClient() {
         return dockerClient;
     }
 
@@ -299,7 +244,7 @@ public class Container extends Compute {
         this.bootstrapNetworkName = bootstrapNetworkName;
     }
 
-    public String getContainerId() {
+    String getContainerId() {
         return containerId;
     }
 

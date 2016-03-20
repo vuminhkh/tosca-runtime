@@ -200,15 +200,15 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def start(deploymentId: String) = {
-    dockerClient.startContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).exec()
+    dockerClient.startContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId).exec()
   }
 
   def stop(deploymentId: String) = {
-    dockerClient.stopContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).exec()
+    dockerClient.stopContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId).exec()
   }
 
   def delete(deploymentId: String) = {
-    dockerClient.removeContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId).withForce(true).exec()
+    dockerClient.removeContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId).withForce(true).exec()
   }
 
   def tailContainerLog(containerId: String, output: PrintStream) = {
@@ -222,7 +222,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   def tailLog(deploymentId: String, output: PrintStream) = {
-    val containerId = getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Agent $deploymentId is not running")).getId
+    val containerId = getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId
     tailContainerLog(containerId, output)
   }
 

@@ -71,9 +71,6 @@ public class OpenstackNodesTest {
             } catch (InvalidOperationExecutionException ignored) {
                 // It's what's expected
             }
-        } catch (Exception e) {
-            testDeployment.cancel();
-            throw e;
         } finally {
             testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
         }

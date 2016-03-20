@@ -1,18 +1,25 @@
 package com.toscaruntime.sdk.workflow;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowCommandException;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
@@ -22,15 +29,19 @@ public class WorkflowExecution {
 
     private Set<AbstractTask> tasksLeft = new HashSet<>();
 
-    private Set<AbstractTask> tasksInError = new HashSet<>();
+    private Map<AbstractTask, Throwable> tasksInError = new HashMap<>();
 
-    private Set<AbstractTask> tasksRunning = new HashSet<>();
+    private Map<AbstractTask, Future> tasksRunning = new HashMap<>();
 
     private ReentrantLock lock = new ReentrantLock();
 
     private Condition finishedCondition = lock.newCondition();
 
-    private List<Throwable> errors = new ArrayList<>();
+    private boolean isCancelled = false;
+
+    private boolean isInterrupted = false;
+
+    private boolean isStoppedByError = false;
 
     private List<WorkflowExecutionListener> listeners = new ArrayList<>();
 
@@ -44,74 +55,33 @@ public class WorkflowExecution {
         return lock;
     }
 
-    public boolean isFinished() {
-        try {
-            lock.lock();
-            return tasksLeft.isEmpty() && tasksInError.isEmpty() && tasksRunning.isEmpty();
-        } finally {
-            lock.unlock();
-        }
-    }
-
     public void onTaskFailure(AbstractTask errorTask, Throwable t) {
         try {
             lock.lock();
-            errors.add(t);
             if (errorTask != null) {
-                if (!tasksRunning.remove(errorTask)) {
+                if (tasksRunning.remove(errorTask) == null) {
                     log.warn("Notified of errors of unknown task {}", errorTask);
                 }
-                if (!tasksInError.add(errorTask)) {
+                if (tasksInError.put(errorTask, t) != null) {
                     log.warn("Notified more than once of errors task {}", errorTask);
                 }
             }
-            if (tasksRunning.isEmpty()) {
-                // Some task notified errors and the workflow is suspended as no task can continue anymore
+            if (tryFinishingExecution()) {
                 finishedCondition.signalAll();
-                listeners.forEach(this::notifyErrorToListener);
             }
         } finally {
             lock.unlock();
         }
-    }
-
-    private boolean canRunTask() {
-        // Check to see if the deployment can continue
-        boolean canRunTask = false;
-        for (AbstractTask task : tasksLeft) {
-            if (task.canRun()) {
-                canRunTask = true;
-                break;
-            }
-        }
-        return canRunTask;
-    }
-
-    private boolean checkCyclicDependencies() {
-        // Check to see if the deployment can continue
-        boolean canRunTask = canRunTask();
-        if (!canRunTask) {
-            log.error("Cyclic dependencies detected: \n {}", toString());
-            onTaskFailure(null, new InvalidWorkflowException("Cyclic dependencies detected, cannot process workflow execution anymore"));
-        }
-        return canRunTask;
     }
 
     public void onTaskCompletion(AbstractTask completedTask) {
         try {
             lock.lock();
-            if (!tasksRunning.remove(completedTask)) {
+            if (tasksRunning.remove(completedTask) == null) {
                 log.warn("Notified of completion of unknown task {}", completedTask);
-            } else if (!errors.isEmpty() && tasksRunning.isEmpty()) {
-                // Some task notified errors and the workflow is suspended as no task can continue anymore
+            }
+            if (tryFinishingExecution()) {
                 finishedCondition.signalAll();
-                listeners.forEach(this::notifyErrorToListener);
-            } else if (isFinished()) {
-                // No task left
-                finishedCondition.signalAll();
-                listeners.forEach(this::notifyCompletionToListener);
-                // Gracefully shut down the execution
-                shutdown(true);
             } else {
                 // Check if tasks can be run, if yes run it
                 doLaunch(completedTask.getDependedByTasks());
@@ -121,56 +91,99 @@ public class WorkflowExecution {
         }
     }
 
+    private boolean tryFinishingExecution() {
+        if (!tasksRunning.isEmpty()) {
+            // Has running tasks then so cannot finish the execution
+            return false;
+        }
+        if (isCancelled) {
+            listeners.forEach(this::notifyCancelledToListener);
+            listeners.clear();
+            return true;
+        } else if (isInterrupted) {
+            long numberOfTasksInterrupted = tasksInError.values().stream().filter(error -> ExceptionUtils.indexOfType(error, InterruptedException.class) > -1).count();
+            log.info("Execution has been stopped, number of tasks not executed {}, number of tasks interrupted {}, number of tasks in error {}", tasksLeft.size(), numberOfTasksInterrupted, tasksInError.values().size() - numberOfTasksInterrupted);
+            listeners.forEach(this::notifyInterruptedToListener);
+            tasksLeft.addAll(tasksInError.keySet());
+            tasksInError.clear();
+            return true;
+        } else if (!tasksInError.isEmpty()) {
+            log.info("Execution has been stopped by error, number of tasks not executed {}, number of tasks in error {}", tasksLeft.size(), tasksInError.values().size());
+            listeners.forEach(listener -> notifyErrorToListener(listener, tasksInError.values()));
+            isStoppedByError = true;
+            tasksLeft.addAll(tasksInError.keySet());
+            tasksInError.clear();
+            return true;
+        } else if (tasksLeft.isEmpty()) {
+            listeners.forEach(this::notifyCompletionToListener);
+            executorService.shutdown();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     private void notifyCompletionToListener(WorkflowExecutionListener listener) {
         try {
             listener.onFinish();
         } catch (Throwable e) {
-            log.error("Listener throw unexpected errors", e);
-            errors.add(e);
-            notifyErrorToListener(listener);
+            log.error("Listener onFinish throw unexpected errors", e);
         }
     }
 
-    private void notifyErrorToListener(WorkflowExecutionListener listener) {
+    private void notifyErrorToListener(WorkflowExecutionListener listener, Collection<Throwable> errors) {
         try {
             listener.onFailure(errors);
         } catch (Throwable fe) {
-            log.error("Listener throw unexpected errors", fe);
+            log.error("Listener onFailure throw unexpected errors", fe);
+        }
+    }
+
+    private void notifyInterruptedToListener(WorkflowExecutionListener listener) {
+        try {
+            listener.onStop();
+        } catch (Throwable fe) {
+            log.error("Listener onStop throw unexpected errors", fe);
+        }
+    }
+
+    private void notifyCancelledToListener(WorkflowExecutionListener listener) {
+        try {
+            listener.onCancel();
+        } catch (Throwable fe) {
+            log.error("Listener onCancel throw unexpected errors", fe);
         }
     }
 
     public void addListener(WorkflowExecutionListener listener) {
         try {
             lock.lock();
-            if (!errors.isEmpty()) {
-                notifyErrorToListener(listener);
-            } else if (isFinished()) {
-                notifyCompletionToListener(listener);
-            } else {
-                listeners.add(listener);
-            }
+            listeners.add(listener);
         } finally {
             lock.unlock();
         }
     }
 
+    private boolean checkWorkflowExecutionFinish() throws Throwable {
+        if ((tasksLeft.isEmpty() && tasksRunning.isEmpty() && tasksInError.isEmpty())) {
+            return true;
+        } else if (isCancelled) {
+            throw new InterruptedException("Workflow execution has been cancelled");
+        } else if (isInterrupted) {
+            throw new InterruptedException("Workflow execution has been interrupted");
+        } else if (!tasksInError.isEmpty()) {
+            throw tasksInError.values().iterator().next();
+        } else {
+            return false;
+        }
+    }
+
+
     public boolean waitForCompletion(long timeout, TimeUnit unit) throws Throwable {
         try {
             lock.lock();
-            if (isFinished()) {
-                return true;
-            } else if (!errors.isEmpty()) {
-                throw errors.iterator().next();
-            } else {
-                boolean signaled = finishedCondition.await(timeout, unit);
-                if (!signaled) {
-                    return false;
-                } else if (!errors.isEmpty()) {
-                    throw errors.iterator().next();
-                } else {
-                    return true;
-                }
-            }
+            // It must finish immediately or else waiting for the execution to finish must succeed, and when awaken, then the recheck the execution state
+            return checkWorkflowExecutionFinish() || (finishedCondition.await(timeout, unit) && checkWorkflowExecutionFinish());
         } finally {
             lock.unlock();
         }
@@ -183,20 +196,31 @@ public class WorkflowExecution {
     private void doLaunch(Set<AbstractTask> tasksToRun) {
         try {
             lock.lock();
-            Set<AbstractTask> tasksCanBeRun = tasksToRun.stream().filter(task -> task.canRun() && !tasksRunning.contains(task)).collect(Collectors.toSet());
+            Set<AbstractTask> tasksCanBeRun = tasksToRun.stream().filter(task -> task.canRun() && !tasksRunning.containsKey(task)).collect(Collectors.toSet());
             if (tasksCanBeRun.isEmpty()) {
                 if (tasksRunning.isEmpty()) {
-                    checkCyclicDependencies();
+                    // Check to see if the deployment can continue
+                    boolean canRunTask = false;
+                    for (AbstractTask task : tasksLeft) {
+                        if (task.canRun()) {
+                            canRunTask = true;
+                            break;
+                        }
+                    }
+                    if (!canRunTask) {
+                        log.error("Cyclic dependencies detected: \n {}", toString());
+                        finishedCondition.signalAll();
+                        listeners.forEach(listener -> notifyErrorToListener(listener, Collections.singleton(new InvalidWorkflowException("Cyclic dependency detected in the workflow"))));
+                    }
                 }
             } else {
                 tasksCanBeRun.stream().forEach(task -> {
-                    if (!tasksRunning.add(task)) {
-                        log.error("Running {} more than once", task);
-                    }
                     if (!tasksLeft.remove(task)) {
                         log.error("Running unknown task {}", task);
                     }
-                    executorService.submit(task);
+                    if (tasksRunning.put(task, executorService.submit(task)) != null) {
+                        log.error("Running {} more than once", task);
+                    }
                 });
             }
         } finally {
@@ -211,22 +235,48 @@ public class WorkflowExecution {
     public void resume() {
         try {
             lock.lock();
-            errors.clear();
-            tasksLeft.addAll(tasksInError);
-            tasksInError.clear();
+            log.info("Trying to resume execution of workflow");
+            isInterrupted = false;
+            isStoppedByError = false;
             launch();
         } finally {
             lock.unlock();
         }
     }
 
-    public void shutdown(boolean gracefully) {
+    public void stop(boolean force) {
         try {
             lock.lock();
-            if (gracefully) {
-                executorService.shutdown();
+            if (isInterrupted) {
+                throw new InvalidWorkflowCommandException("Cannot stop workflow execution as it has already been stopped");
+            }
+            if (isStoppedByError) {
+                throw new InvalidWorkflowCommandException("Cannot stop workflow execution as it has already been stopped by error");
+            }
+            isInterrupted = true;
+            if (force) {
+                log.info("Trying to stop execution");
             } else {
-                executorService.shutdownNow();
+                log.info("Trying to stop execution gracefully");
+            }
+            if (!tasksRunning.isEmpty()) {
+                tasksRunning.values().forEach(task -> task.cancel(force));
+            } else {
+                listeners.forEach(this::notifyInterruptedToListener);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void cancel(boolean force) {
+        try {
+            lock.lock();
+            isCancelled = true;
+            executorService.shutdownNow();
+            if (force || tasksRunning.isEmpty()) {
+                // If not forcing the cancel then the listeners will be notified only when every tasks have successfully been cancelled
+                listeners.forEach(this::notifyCancelledToListener);
             }
         } finally {
             lock.unlock();
@@ -237,25 +287,13 @@ public class WorkflowExecution {
     public String toString() {
         try {
             lock.lock();
-            if (isFinished()) {
-                return "Workflow execution is finished";
-            } else {
-                StringBuilder buffer = new StringBuilder("Workflow execution has ").append(tasksLeft.size()).append(" tasks left:\n");
-                for (AbstractTask task : tasksLeft) {
-                    buffer.append("\t- ").append(task).append(" depends on [").append(task.getDependsOnTasks()).append("]\n");
-                }
-                buffer.append("Inter-dependent tasks:\n");
-                for (AbstractTask task : tasksLeft) {
-                    Set<AbstractTask> interDependencies = task.getDependsOnTasks().stream().filter(dependencyTask -> !dependencyTask.getNodeInstance().equals(task.getNodeInstance())).collect(Collectors.toSet());
-                    if (!interDependencies.isEmpty()) {
-                        buffer.append("\t- ").append(task).append(" depends on [").append(interDependencies).append("]\n");
-                    }
-                }
-                return buffer.toString();
+            StringBuilder buffer = new StringBuilder("Workflow execution has ").append(tasksLeft.size()).append(" tasks left:\n");
+            for (AbstractTask task : tasksLeft) {
+                buffer.append("\t- ").append(task).append(" depends on [").append(task.getDependsOnTasks()).append("]\n");
             }
+            return buffer.toString();
         } finally {
             lock.unlock();
         }
     }
-
 }

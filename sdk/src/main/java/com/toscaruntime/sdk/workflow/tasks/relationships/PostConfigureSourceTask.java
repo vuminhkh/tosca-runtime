@@ -2,36 +2,29 @@ package com.toscaruntime.sdk.workflow.tasks.relationships;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
-import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
-public class PostConfigureSourceTask extends AbstractTask {
+public class PostConfigureSourceTask extends AbstractRelationshipTask {
 
-    public PostConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public PostConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
     }
 
     @Override
     protected void doRun() {
-        Set<tosca.relationships.Root> nodeInstanceSourceRelationships = DeploymentUtil.getRelationshipInstanceBySourceId(relationshipInstances, nodeInstance.getId());
-        nodeInstanceSourceRelationships.stream().filter(relationshipInstance ->
-                // Only execute post configure once
-                relationshipInstance.getSource().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())
-        ).forEach(relationshipInstance -> {
+        if (relationshipInstance.getSource().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())) {
             relationshipInstance.postConfigureSource();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.POST_CONFIGURING, RelationshipInstanceState.POST_CONFIGURED);
-        });
+        }
     }
 
     @Override
     public String toString() {
-        return "Post Configure Source task for " + nodeInstance.getId();
+        return "Post Configure Source task for " + relationshipInstance;
     }
 }

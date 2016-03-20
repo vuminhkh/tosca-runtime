@@ -17,7 +17,6 @@ import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
 
-//@Ignore
 @RunWith(JUnit4.class)
 public class DockerNodesTest {
 

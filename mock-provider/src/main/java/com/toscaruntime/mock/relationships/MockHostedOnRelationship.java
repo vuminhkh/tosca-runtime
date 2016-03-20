@@ -1,13 +1,13 @@
-package com.toscaruntime.mock.nodes;
+package com.toscaruntime.mock.relationships;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import tosca.relationships.Root;
+import tosca.relationships.HostedOn;
 
-public class MockRelationship extends Root {
+public class MockHostedOnRelationship extends HostedOn {
 
-    private static final Logger log = LoggerFactory.getLogger(MockRelationship.class);
+    private static final Logger log = LoggerFactory.getLogger(MockHostedOnRelationship.class);
 
     @Override
     public void preConfigureSource() {

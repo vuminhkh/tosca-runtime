@@ -1,0 +1,96 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+
+template_name: test-type
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - tosca-normative-types:*
+
+node_types:
+
+  com.toscaruntime.nodes.Sleep:
+    derived_from: tosca.nodes.SoftwareComponent
+    description: >
+      This type sleep with a configurable duration for testing purpose
+    properties:
+      create_sleep_time:
+        type: integer
+        default: 0
+      configure_sleep_time:
+        type: integer
+        default: 0
+      start_sleep_time:
+        type: integer
+        default: 0
+      stop_sleep_time:
+        type: integer
+        default: 0
+      delete_sleep_time:
+        type: integer
+        default: 0
+    interfaces:
+      Standard:
+        create:
+          inputs:
+            SLEEP_TIME: { get_property: [SELF, create_sleep_time] }
+          implementation: scripts/sleep.sh
+        configure:
+          inputs:
+            SLEEP_TIME: { get_property: [SELF, configure_sleep_time] }
+          implementation: scripts/sleep.sh
+        start:
+          inputs:
+            SLEEP_TIME: { get_property: [SELF, start_sleep_time] }
+          implementation: scripts/sleep.sh
+        stop:
+          inputs:
+            SLEEP_TIME: { get_property: [SELF, stop_sleep_time] }
+          implementation: scripts/sleep.sh
+        delete:
+          inputs:
+            SLEEP_TIME: { get_property: [SELF, delete_sleep_time] }
+          implementation: scripts/sleep.sh
+
+  com.toscaruntime.nodes.Error:
+    derived_from: tosca.nodes.SoftwareComponent
+    description: >
+      This type throws error if it's required to do so
+    properties:
+      create_throw_error:
+        type: boolean
+        default: true
+      configure_throw_error:
+        type: boolean
+        default: true
+      start_throw_error:
+        type: boolean
+        default: true
+      stop_throw_error:
+        type: boolean
+        default: true
+      delete_throw_error:
+        type: boolean
+        default: true
+    interfaces:
+      Standard:
+        create:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, create_throw_error] }
+          implementation: scripts/error.sh
+        configure:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, configure_throw_error] }
+          implementation: scripts/error.sh
+        start:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, start_throw_error] }
+          implementation: scripts/error.sh
+        stop:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, stop_throw_error] }
+          implementation: scripts/error.sh
+        delete:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, delete_throw_error] }
+          implementation: scripts/error.sh

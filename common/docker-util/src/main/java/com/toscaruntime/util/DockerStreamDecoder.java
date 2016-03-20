@@ -13,7 +13,7 @@ import com.google.common.collect.Lists;
  */
 public class DockerStreamDecoder extends ResultCallbackTemplate<DockerStreamDecoder, Frame> {
 
-    private DockerUtil.CommandLogger logger;
+    private CommandLogger logger;
 
     private StringBuilder stdinBuffer;
 
@@ -21,7 +21,7 @@ public class DockerStreamDecoder extends ResultCallbackTemplate<DockerStreamDeco
 
     private StringBuilder stderrBuffer;
 
-    public DockerStreamDecoder(DockerUtil.CommandLogger logger) {
+    DockerStreamDecoder(CommandLogger logger) {
         this.logger = logger;
         this.stdinBuffer = new StringBuilder();
         this.stdoutBuffer = new StringBuilder();
@@ -76,18 +76,18 @@ public class DockerStreamDecoder extends ResultCallbackTemplate<DockerStreamDeco
         }
     }
 
-    public static class DecoderResult {
+    static class DecoderResult {
 
         private StreamType streamType;
 
         private String line;
 
-        public DecoderResult(StreamType streamType, String line) {
+        DecoderResult(StreamType streamType, String line) {
             this.streamType = streamType;
             this.line = line;
         }
 
-        public StreamType getStreamType() {
+        StreamType getStreamType() {
             return streamType;
         }
 

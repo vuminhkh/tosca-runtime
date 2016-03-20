@@ -1,10 +1,14 @@
 package com.toscaruntime.sdk.workflow;
 
-import java.util.List;
+import java.util.Collection;
 
 public interface WorkflowExecutionListener {
 
+    void onStop();
+
+    void onCancel();
+
     void onFinish();
 
-    void onFailure(List<Throwable> e);
+    void onFailure(Collection<Throwable> e);
 }

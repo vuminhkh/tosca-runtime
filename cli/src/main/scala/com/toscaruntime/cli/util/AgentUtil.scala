@@ -20,7 +20,7 @@ import scala.language.postfixOps
   */
 object AgentUtil extends LazyLogging {
 
-  private val waitForEver = 365 day
+  private val forEver = 365 day
 
   def printDeploymentAgentsList(agentsList: List[List[String]]) = {
     if (agentsList.nonEmpty) {
@@ -33,46 +33,51 @@ object AgentUtil extends LazyLogging {
   }
 
   def listDeploymentAgents(client: ToscaRuntimeClient) = {
-    val deploymentAgents = Await.result(client.listDeploymentAgents(), waitForEver)
+    val deploymentAgents = Await.result(client.listDeploymentAgents(), forEver)
     deploymentAgents.map { deployment =>
       List(deployment.name, deployment.agentStatus, deployment.agentCreated, deployment.agentIPs.values.mkString(", "), deployment.agentId)
     }
   }
 
-  def scale(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, newInstancesCount: Int) = {
-    Await.result(client.scale(deploymentId, nodeName, newInstancesCount), waitForEver)
+
+  def scaleExecution(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, newInstancesCount: Int) = {
+    Await.result(client.scale(deploymentId, nodeName, newInstancesCount), forEver)
   }
 
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.deploy(deploymentId), waitForEver)
+    Await.result(client.deploy(deploymentId), forEver)
   }
 
   def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.undeploy(deploymentId), waitForEver)
+    Await.result(client.undeploy(deploymentId), forEver)
   }
 
   def teardownInfrastructure(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.teardownInfrastructure(deploymentId), waitForEver)
+    Await.result(client.teardownInfrastructure(deploymentId), forEver)
   }
 
-  def cancelExecution(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.cancel(deploymentId), waitForEver)
+  def cancelExecution(client: ToscaRuntimeClient, deploymentId: String, force: Boolean) = {
+    Await.result(client.cancel(deploymentId, force), forEver)
   }
 
   def resumeExecution(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.resume(deploymentId), waitForEver)
+    Await.result(client.resume(deploymentId), forEver)
+  }
+
+  def stopExecution(client: ToscaRuntimeClient, deploymentId: String, force: Boolean) = {
+    Await.result(client.stop(deploymentId, force), forEver)
   }
 
   def bootstrap(client: ToscaRuntimeClient, provider: String, target: String) = {
-    Await.result(client.bootstrap(provider, target), waitForEver)
+    Await.result(client.bootstrap(provider, target), forEver)
   }
 
   def teardown(client: ToscaRuntimeClient, provider: String, target: String) = {
-    Await.result(client.teardown(provider, target), waitForEver)
+    Await.result(client.teardown(provider, target), forEver)
   }
 
   def getDeploymentDetails(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
+    Await.result(client.getDeploymentAgentInfo(deploymentId), forEver)
   }
 
   def printDetails(client: ToscaRuntimeClient, deploymentId: String): Unit = {
@@ -87,7 +92,24 @@ object AgentUtil extends LazyLogging {
   def printDetails(deploymentId: String, details: DeploymentDTO): Unit = {
     printNodesDetails(deploymentId, getNodesDetails(details))
     printRelationshipsDetails(deploymentId, getRelationshipsDetails(details))
+    printExecutionsDetails(deploymentId, getExecutionsDetails(details))
     printOutputsDetails(deploymentId, getOutputsDetails(details))
+  }
+
+  def printExecutionsDetails(deploymentId: String, executionsData: List[List[String]]) = {
+    println("Executions for " + deploymentId + " :")
+    val executionsHeaders = List("Id", "Workflow", "Start Time", "End Time", "Status")
+    println(TabulatorUtil.format(executionsHeaders :: executionsData))
+  }
+
+  def getExecutionsDetails(details: DeploymentDTO) = {
+    details.executions.map { execution =>
+      List(execution.id,
+        execution.workflowId,
+        execution.startTime.toString,
+        execution.endTime.map(_.toString).getOrElse("not finished"),
+        execution.status)
+    }
   }
 
   def getRelationshipsDetails(details: DeploymentDTO) = {
@@ -118,7 +140,7 @@ object AgentUtil extends LazyLogging {
 
   def printRelationshipsDetails(name: String, relationshipsData: List[List[String]]): Unit = {
     println(name + " has " + relationshipsData.length + " relationships :")
-    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configuring", "Pre-Configured", "Post-Configured", "Post-Configuring", "Establishing", "Established", "Unlinking")
+    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configuring", "Pre-Configured", "Post-Configuring", "Post-Configured", "Establishing", "Established", "Unlinking")
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 
@@ -158,6 +180,24 @@ object AgentUtil extends LazyLogging {
       case (key, value) => List(key, value.toString)
     }.toList
     println(TabulatorUtil.format(List("Key", "Value") :: propertiesData))
+  }
+
+  def printExecutionDetails(client: ToscaRuntimeClient, deploymentId: String, executionId: String): Unit = {
+    val deploymentDetails = getDeploymentDetails(client, deploymentId)
+    deploymentDetails.executions.find(_.id == executionId) match {
+      case Some(execution) =>
+        val executionData = List(
+          List("Id", execution.id),
+          List("Workflow", execution.workflowId),
+          List("Start Time", execution.startTime),
+          List("End Time", execution.endTime.map(_.toString).getOrElse("not finished")),
+          List("Status", execution.status)
+        )
+        println(TabulatorUtil.format(List("Name", "Value") :: executionData))
+        execution.error.foreach(error => println(s"Execution has error \n$error"))
+      case None =>
+        println(s"Execution $executionId not found in the deployment [$deploymentId] ")
+    }
   }
 
   def printNodeDetails(client: ToscaRuntimeClient, deploymentId: String, nodeId: String): Unit = {
@@ -250,7 +290,7 @@ object AgentUtil extends LazyLogging {
     // Avoid that it freezes on some systems
     Thread.sleep(2000L)
     FailSafeUtil.doActionWithRetry(new Action[Any] {
-      override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), waitForEver)
+      override def doAction(): Any = Await.result(client.getDeploymentAgentInfo(deploymentId), forEver)
     }, "Wait for deployment " + deploymentId, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])
   }
 
@@ -258,7 +298,7 @@ object AgentUtil extends LazyLogging {
     // Avoid that it freezes on some systems
     Thread.sleep(2000L)
     FailSafeUtil.doActionWithRetry(new Action[Any] {
-      override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), waitForEver)
+      override def doAction(): Any = Await.result(client.getBootstrapAgentInfo(provider, target), forEver)
     }, "Wait for bootstrap " + provider, Integer.MAX_VALUE, 2, TimeUnit.SECONDS, classOf[Throwable])
   }
 }

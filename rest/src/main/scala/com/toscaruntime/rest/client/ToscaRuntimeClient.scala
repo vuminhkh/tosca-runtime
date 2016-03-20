@@ -72,7 +72,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   private def handleWorkflowExecutionResponse(response: WSResponse): String = {
     response.status match {
       case Status.OK => response.body
-      case Status.BAD_REQUEST => throw new BadRequestException(s"Bad workflow execution request :\n ${response.body}")
+      case Status.BAD_REQUEST => throw new BadRequestException(response.body)
       case _ => throw new ServerFailureException(s"Encountered unexpected exception while trying to launch install workflow :\n ${response.body}")
     }
   }
@@ -105,9 +105,18 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
       .map(handleWorkflowExecutionResponse)
   }
 
-  def cancel(deploymentId: String) = {
+  def cancel(deploymentId: String, force: Boolean) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions/cancel")
+      .withQueryString("force" -> force.toString)
+      .post("")
+      .map(handleWorkflowExecutionResponse)
+  }
+
+  def stop(deploymentId: String, force: Boolean) = {
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions/stop")
+      .withQueryString("force" -> force.toString)
       .post("")
       .map(handleWorkflowExecutionResponse)
   }
@@ -119,19 +128,19 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
       .map(handleWorkflowExecutionResponse)
   }
 
-  def waitForRunningExecutionToFinish(deploymentId: String): Future[DeploymentDTO] = {
+  def waitForRunningExecutionToEnd(deploymentId: String): Future[DeploymentDTO] = {
     getDeploymentAgentInfo(deploymentId).flatMap { deploymentInfo =>
       if (deploymentInfo.executions.head.error.nonEmpty) {
         Future.failed(new WorkflowExecutionFailureException(s"Execution of workflow failed ${deploymentInfo.executions.head.error.get}"))
       } else if (deploymentInfo.executions.head.endTime.isEmpty) {
-        after(2 seconds, system.scheduler)(waitForRunningExecutionToFinish(deploymentId))
+        after(2 seconds, system.scheduler)(waitForRunningExecutionToEnd(deploymentId))
       } else {
         Future(deploymentInfo)
       }
     }
   }
 
-  def waitForBootstrapToFinish(provider: String, target: String) = waitForRunningExecutionToFinish(generateDeploymentIdForBootstrap(provider, target))
+  def waitForBootstrapToFinish(provider: String, target: String) = waitForRunningExecutionToEnd(generateDeploymentIdForBootstrap(provider, target))
 
   def bootstrap(provider: String, target: String): Future[DeploymentDTO] = {
     deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>

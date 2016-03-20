@@ -226,31 +226,30 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
-            return true;
-        if (o == null || getClass() != o.getClass())
-            return false;
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
 
         Root root = (Root) o;
 
-        if (source != null ? !source.equals(root.source) : root.source != null)
-            return false;
-        return !(target != null ? !target.equals(root.target) : root.target != null);
+        if (!source.equals(root.source)) return false;
+        if (!target.equals(root.target)) return false;
+        return node.getRelationshipType().equals(root.node.getRelationshipType());
 
     }
 
     @Override
     public int hashCode() {
-        int result = source != null ? source.hashCode() : 0;
-        result = 31 * result + (target != null ? target.hashCode() : 0);
+        int result = source.hashCode();
+        result = 31 * result + target.hashCode();
+        result = 31 * result + node.getRelationshipType().hashCode();
         return result;
     }
 
     @Override
     public String toString() {
         return "Root{" +
-                "source=" + source +
-                ", target=" + target +
+                "source=" + source.getId() +
+                ", target=" + target.getId() +
                 ", type=" + node.getRelationshipType().getName() +
                 '}';
     }

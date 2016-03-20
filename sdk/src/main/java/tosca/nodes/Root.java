@@ -331,8 +331,7 @@ public abstract class Root extends AbstractRuntimeType {
     @Override
     public String toString() {
         return "NodeInstance{" +
-                "name='" + getName() + '\'' +
-                ", id='" + getId() + '\'' +
+                "id='" + getId() + '\'' +
                 '}';
     }
 }

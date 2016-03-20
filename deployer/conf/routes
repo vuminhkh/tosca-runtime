@@ -3,5 +3,6 @@
 # ~~~~
 GET         /deployment                          controllers.DeployerController.getDeploymentInformation()
 POST        /deployment/executions               controllers.DeployerController.execute()
-POST        /deployment/executions/cancel        controllers.DeployerController.cancel()
+POST        /deployment/executions/cancel        controllers.DeployerController.cancel(force: Boolean)
 POST        /deployment/executions/resume        controllers.DeployerController.resume()
+POST        /deployment/executions/stop          controllers.DeployerController.stop(force: Boolean)

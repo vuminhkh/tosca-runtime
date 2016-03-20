@@ -24,6 +24,7 @@ import com.google.common.collect.Sets;
 import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
+import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.util.ArtifactExecutionUtil;
@@ -36,7 +37,7 @@ public class Compute extends tosca.nodes.Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
 
-    public static final String RECIPE_LOCATION = "/tmp/recipe";
+    private static final String RECIPE_LOCATION = "/tmp/recipe";
 
     private SSHJExecutor artifactExecutor;
 
@@ -97,6 +98,8 @@ public class Compute extends tosca.nodes.Compute {
         super.initialLoad();
         this.server = serverApi.get(getAttributeAsString("provider_resource_id"));
         this.ipAddress = getAttributeAsString("ip_address");
+        this.artifactExecutor = createExecutor(getIpAddressForSSHSession());
+        this.artifactExecutor.initialize();
     }
 
     @Override
@@ -116,6 +119,8 @@ public class Compute extends tosca.nodes.Compute {
                     TimeUnit.SECONDS,
                     ArtifactConnectException.class,
                     ArtifactExecutionException.class);
+        } catch (ArtifactInterruptedException e) {
+            throw e;
         } catch (Throwable e) {
             throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to execute operation " + operationArtifactPath, e);
         }
@@ -191,10 +196,7 @@ public class Compute extends tosca.nodes.Compute {
         }
     }
 
-    private void initSshExecutor(String ipForSSSHSession) {
-        if (StringUtils.isBlank(ipForSSSHSession)) {
-            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
-        }
+    private SSHJExecutor createExecutor(String ipForSSSHSession) {
         String user = getMandatoryPropertyAsString("login");
         String keyPath = getMandatoryPropertyAsString("key_path");
         String absoluteKeyPath;
@@ -204,13 +206,21 @@ public class Compute extends tosca.nodes.Compute {
             absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
         }
         String port = getPropertyAsString("ssh_port", "22");
-        String operationName = "create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath;
+        // Create the executor
+        return new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
+    }
+
+    private void initSshExecutor(String ipForSSSHSession) {
+        if (StringUtils.isBlank(ipForSSSHSession)) {
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : IP of the server " + getId() + "is null, maybe it was not initialized properly or has been deleted");
+        }
+        String operationName = "Create ssh session for " + getId();
         int connectRetry = getConnectRetry();
         long waitBetweenConnectRetry = getWaitBetweenConnectRetry();
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
             // Create the executor
-            this.artifactExecutor = new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
+            this.artifactExecutor = createExecutor(ipForSSSHSession);
             // Wait before initializing the connection
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeConnection()));
             // Initialize the connection
@@ -219,9 +229,11 @@ public class Compute extends tosca.nodes.Compute {
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeArtifactExecution()));
             // Upload the recipe to the remote host
             FailSafeUtil.doActionWithRetry(() -> artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation), "Upload recipe", connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
+        } catch (ArtifactInterruptedException e) {
+            throw e;
         } catch (Throwable e) {
-            log.error("Compute [" + getId() + "] : Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
-            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to create ssh session  " + user + "@" + ipForSSSHSession + " with key : " + keyPath, e);
+            log.error("Compute [" + getId() + "] : Unable to create ssh session", e);
+            throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to create ssh session", e);
         }
     }
 

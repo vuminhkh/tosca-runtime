@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
+import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
 
 import tosca.nodes.Root;
 
@@ -12,12 +13,12 @@ import tosca.nodes.Root;
  *
  * @author Minh Khang VU
  */
-public class MockTask extends AbstractTask {
+public class MockRelationshipTask extends AbstractRelationshipTask {
 
     private String mockedTaskName;
 
-    public MockTask(String mockedTaskName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public MockRelationshipTask(String mockedTaskName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
+        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
         this.mockedTaskName = mockedTaskName;
     }
 
@@ -32,7 +33,7 @@ public class MockTask extends AbstractTask {
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
-        MockTask mockTask = (MockTask) o;
+        MockRelationshipTask mockTask = (MockRelationshipTask) o;
 
         return mockedTaskName != null ? mockedTaskName.equals(mockTask.mockedTaskName) : mockTask.mockedTaskName == null;
 
@@ -47,6 +48,6 @@ public class MockTask extends AbstractTask {
 
     @Override
     public String toString() {
-        return "Mock " + this.mockedTaskName + " for " + nodeInstance.getId();
+        return "Mock " + this.mockedTaskName + " for " + relationshipInstance;
     }
 }

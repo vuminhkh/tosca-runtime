@@ -139,6 +139,8 @@ class DeploymentDAO @Inject()(schema: Schema,
 
   def finishRunningExecution() = executionDAO.finish("SUCCESS", None)
 
+  def resumeRunningExecution() = executionDAO.resume()
+
   def failRunningExecution(error: String) = executionDAO.finish("FAILURE", Some(error))
 
   def cancelRunningExecution() = executionDAO.finish("CANCELED", None)

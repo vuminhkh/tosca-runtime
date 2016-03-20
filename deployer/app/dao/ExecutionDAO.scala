@@ -53,7 +53,7 @@ class ExecutionDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvi
       if (runningExecutions.isEmpty) {
         Executions += executionEntity
       } else {
-        throw new ConcurrentWorkflowExecutionException(s"Cannot start execution ${executionEntity.id} for workflow ${executionEntity.workflowId} because deployment has unfinished executions")
+        throw new ConcurrentWorkflowExecutionException(s"Cannot start execution for workflow ${executionEntity.workflowId} because deployment has unfinished executions")
       }
     }
     db.run(insertAction.transactionally)
@@ -61,6 +61,10 @@ class ExecutionDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvi
 
   def stop(error: Option[String]) = {
     db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update(("STOPPED", error)))
+  }
+
+  def resume() = {
+    db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update(("RUNNING", None)))
   }
 
   def finish(status: String, error: Option[String]) = {

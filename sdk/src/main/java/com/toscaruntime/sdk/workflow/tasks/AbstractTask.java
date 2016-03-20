@@ -20,18 +20,15 @@ public abstract class AbstractTask implements Runnable {
 
     protected Set<tosca.relationships.Root> relationshipInstances;
 
-    protected Root nodeInstance;
-
     protected Set<AbstractTask> dependsOnTasks = new HashSet<>();
 
     protected Set<AbstractTask> dependedByTasks = new HashSet<>();
 
     private WorkflowExecution workflowExecution;
 
-    public AbstractTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
+    public AbstractTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, WorkflowExecution workflowExecution) {
         this.nodeInstances = nodeInstances;
         this.relationshipInstances = relationshipInstances;
-        this.nodeInstance = nodeInstance;
         this.workflowExecution = workflowExecution;
     }
 
@@ -85,32 +82,12 @@ public abstract class AbstractTask implements Runnable {
         return dependsOnTasks.isEmpty();
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        AbstractTask that = (AbstractTask) o;
-
-        return nodeInstance != null ? nodeInstance.equals(that.nodeInstance) : that.nodeInstance == null;
-
-    }
-
-    @Override
-    public int hashCode() {
-        return nodeInstance != null ? nodeInstance.hashCode() : 0;
-    }
-
     public Map<String, Root> getNodeInstances() {
         return nodeInstances;
     }
 
     public Set<tosca.relationships.Root> getRelationshipInstances() {
         return relationshipInstances;
-    }
-
-    public Root getNodeInstance() {
-        return nodeInstance;
     }
 
     public WorkflowExecution getWorkflowExecution() {

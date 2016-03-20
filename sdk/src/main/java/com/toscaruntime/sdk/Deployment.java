@@ -1,10 +1,10 @@
 package com.toscaruntime.sdk;
 
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -261,13 +261,24 @@ public abstract class Deployment {
             execution.addListener(new WorkflowExecutionListener() {
                 @Override
                 public void onFinish() {
-                    runningWorkflowExecution.set(null);
                     log.info("Finished to scale up node [{}] from [{}] to [{}] after [{}] seconds", nodeName, oldInstanceCount, newInstancesCount, DeploymentUtil.getExecutionTime(before));
+                    runningWorkflowExecution.set(null);
                 }
 
                 @Override
-                public void onFailure(List<Throwable> errors) {
+                public void onFailure(Collection<Throwable> errors) {
                     errors.stream().forEach(e -> log.info("Scale workflow execution failed", e));
+                }
+
+                @Override
+                public void onStop() {
+                    log.info("Scale up node [{}] from [{}] to [{}] has been stopped", nodeName, oldInstanceCount, newInstancesCount);
+                }
+
+                @Override
+                public void onCancel() {
+                    log.info("Scale up node [{}] from [{}] to [{}] has been cancelled", nodeName, oldInstanceCount, newInstancesCount);
+                    runningWorkflowExecution.set(null);
                 }
             });
             runningWorkflowExecution.set(execution);
@@ -286,13 +297,24 @@ public abstract class Deployment {
                     relationshipInstances.removeAll(modification.getRelationshipInstancesToDelete());
                     unlinkDeletedInstancesFromNode(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
                     deleteInstancesFromPersistence(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete());
-                    runningWorkflowExecution.set(null);
                     log.info("Finished to scale down node [{}] from [{}] to [{}] after [{}] seconds", nodeName, oldInstanceCount, newInstancesCount, DeploymentUtil.getExecutionTime(before));
+                    runningWorkflowExecution.set(null);
                 }
 
                 @Override
-                public void onFailure(List<Throwable> errors) {
+                public void onFailure(Collection<Throwable> errors) {
                     errors.stream().forEach(e -> log.info("Scale down workflow execution failed", e));
+                }
+
+                @Override
+                public void onStop() {
+                    log.info("Scale down node [{}] from [{}] to [{}] has been stopped", nodeName, oldInstanceCount, newInstancesCount);
+                }
+
+                @Override
+                public void onCancel() {
+                    log.info("Scale down node [{}] from [{}] to [{}] has been cancelled", nodeName, oldInstanceCount, newInstancesCount);
+                    runningWorkflowExecution.set(null);
                 }
             });
             runningWorkflowExecution.set(execution);
@@ -310,13 +332,12 @@ public abstract class Deployment {
     /**
      * Cancel the current running execution
      */
-    public void cancel() {
+    public void cancel(boolean force) {
         WorkflowExecution execution = runningWorkflowExecution.get();
         if (execution == null) {
-            log.warn("No running execution is found in memory to cancel");
+            throw new RunningExecutionNotFound("No running execution is found in memory to cancel");
         } else {
-            execution.shutdown(false);
-            runningWorkflowExecution.set(null);
+            execution.cancel(force);
         }
     }
 
@@ -329,6 +350,18 @@ public abstract class Deployment {
             throw new RunningExecutionNotFound("No running execution is found in memory to resume");
         } else {
             execution.resume();
+        }
+    }
+
+    /**
+     * Stop the current running execution
+     */
+    public void stop(boolean force) {
+        WorkflowExecution execution = runningWorkflowExecution.get();
+        if (execution == null) {
+            throw new RunningExecutionNotFound("No running execution is found in memory to resume");
+        } else {
+            execution.stop(force);
         }
     }
 
@@ -350,8 +383,19 @@ public abstract class Deployment {
             }
 
             @Override
-            public void onFailure(List<Throwable> errors) {
+            public void onFailure(Collection<Throwable> errors) {
                 errors.stream().forEach(e -> log.info("Error happened while trying to install the deployment", e));
+            }
+
+            @Override
+            public void onStop() {
+                log.info("Stopped installation of the deployment with [{}] instances and [{}] relationship instances", nodeInstances.size(), relationshipInstances.size());
+            }
+
+            @Override
+            public void onCancel() {
+                log.info("Cancelled installation of the deployment with [{}] instances and [{}] relationship instances", nodeInstances.size(), relationshipInstances.size());
+                runningWorkflowExecution.set(null);
             }
         });
         runningWorkflowExecution.set(execution);
@@ -402,8 +446,19 @@ public abstract class Deployment {
             }
 
             @Override
-            public void onFailure(List<Throwable> errors) {
+            public void onFailure(Collection<Throwable> errors) {
                 errors.stream().forEach(e -> log.info("Error happened while trying to uninstall the deployment", e));
+            }
+
+            @Override
+            public void onStop() {
+                log.info("Stopped uninstall of the deployment with [{}] instances and [{}] relationship instances", nodeInstances.size(), relationshipInstances.size());
+            }
+
+            @Override
+            public void onCancel() {
+                log.info("Cancelled uninstall of the deployment with [{}] instances and [{}] relationship instances", nodeInstances.size(), relationshipInstances.size());
+                runningWorkflowExecution.set(null);
             }
         });
         runningWorkflowExecution.set(execution);

@@ -8,12 +8,11 @@ import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 
 import tosca.constants.InstanceState;
 import tosca.nodes.Root;
 
-public class StopTask extends AbstractTask {
+public class StopTask extends AbstractNodeTask {
 
     private static final Logger log = LoggerFactory.getLogger(StopTask.class);
 
@@ -34,6 +33,6 @@ public class StopTask extends AbstractTask {
 
     @Override
     public String toString() {
-        return "Stop Task For " + nodeInstance.getId();
+        return "Stop Task For " + nodeInstance;
     }
 }

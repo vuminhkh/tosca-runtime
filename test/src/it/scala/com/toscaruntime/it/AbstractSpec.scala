@@ -23,8 +23,7 @@ class AbstractSpec extends FeatureSpec with GivenWhenThen with LazyLogging with 
       logger.info("Cleaning agents on the local docker daemon")
       AgentsSteps.listAgents().foreach { agent =>
         logger.info(s"Cleaning agent [${agent.head}]")
-        ignoring(classOf[Exception])(AgentsSteps.launchUninstallWorkflow(agent.head))
-        ignoring(classOf[Exception])(AgentsSteps.deleteAgent(agent.head))
+        ignoring(classOf[Exception])(AgentsSteps.launchUndeployment(agent.head))
         logger.info(s"Cleaned agent [${agent.head}]")
       }
       logger.info("Cleaning deployment images on the local docker daemon")
