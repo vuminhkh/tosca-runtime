@@ -2,7 +2,7 @@ package com.toscaruntime.sdk.workflow;
 
 import java.util.Collection;
 
-public interface WorkflowExecutionListener {
+public interface Listener {
 
     void onStop();
 

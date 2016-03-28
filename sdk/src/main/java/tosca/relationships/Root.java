@@ -165,7 +165,7 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void initialLoad() {
-        Map<String, String> rawAttributes = deployment.getDeploymentPersister().syncGetRelationshipAttributes(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+        Map<String, String> rawAttributes = deployment.getDeploymentPersister().syncGetRelationshipAttributes(getSource().getId(), getTarget().getId(), node.getRelationshipName());
         for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
             try {
                 getAttributes().put(rawAttributeEntry.getKey(), JSONUtil.toObject(rawAttributeEntry.getValue()));
@@ -173,21 +173,21 @@ public abstract class Root extends AbstractRuntimeType {
                 throw new DeploymentPersistenceException("Cannot read as json from persistence attribute " + rawAttributeEntry.getKey() + " of relationship instance " + this, e);
             }
         }
-        List<String> outputInterfaces = deployment.getDeploymentPersister().syncGetRelationshipOutputInterfaces(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+        List<String> outputInterfaces = deployment.getDeploymentPersister().syncGetRelationshipOutputInterfaces(getSource().getId(), getTarget().getId(), node.getRelationshipName());
         for (String interfaceName : outputInterfaces) {
-            List<String> operationNames = deployment.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), interfaceName);
+            List<String> operationNames = deployment.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName);
             for (String operationName : operationNames) {
-                Map<String, String> outputs = deployment.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), interfaceName, operationName);
+                Map<String, String> outputs = deployment.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName, operationName);
                 operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
             }
         }
-        this.state = deployment.getDeploymentPersister().syncGetRelationshipInstanceState(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName());
+        this.state = deployment.getDeploymentPersister().syncGetRelationshipInstanceState(getSource().getId(), getTarget().getId(), node.getRelationshipName());
     }
 
     @Override
     public void setState(String state) {
         if (!state.equals(this.state)) {
-            deployment.getDeploymentPersister().syncSaveRelationshipState(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), state);
+            deployment.getDeploymentPersister().syncSaveRelationshipState(getSource().getId(), getTarget().getId(), node.getRelationshipName(), state);
             this.state = state;
         }
     }
@@ -199,9 +199,9 @@ public abstract class Root extends AbstractRuntimeType {
             removeAttribute(key);
         } else if (!newValue.equals(oldValue)) {
             try {
-                deployment.getDeploymentPersister().syncSaveRelationshipAttribute(getSource().getId(), getTarget().getId(), node.getRelationshipType().getName(), key, JSONUtil.toString(newValue));
+                deployment.getDeploymentPersister().syncSaveRelationshipAttribute(getSource().getId(), getTarget().getId(), node.getRelationshipName(), key, JSONUtil.toString(newValue));
             } catch (JsonProcessingException e) {
-                throw new DeploymentPersistenceException("Cannot persist attribute " + key + " with value " + newValue + " of relationship instance from " + getSource().getId() + " to " + getTarget().getId() + " of type " + node.getRelationshipType().getName(), e);
+                throw new DeploymentPersistenceException("Cannot persist attribute " + key + " with value " + newValue + " of relationship instance from " + getSource().getId() + " to " + getTarget().getId() + " of type " + node.getRelationshipName(), e);
             }
             getAttributes().put(key, newValue);
             // Attribute of the relationship is copied to the node
@@ -212,7 +212,7 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
-        deployment.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipType().getName(), interfaceName, operationName, outputs);
+        deployment.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipName(), interfaceName, operationName, outputs);
         operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
     }
 
@@ -220,7 +220,7 @@ public abstract class Root extends AbstractRuntimeType {
     public void removeAttribute(String key) {
         getSource().removeAttribute(key);
         getTarget().removeAttribute(key);
-        deployment.getDeploymentPersister().syncDeleteRelationshipAttribute(source.getId(), target.getId(), node.getRelationshipType().getName(), key);
+        deployment.getDeploymentPersister().syncDeleteRelationshipAttribute(source.getId(), target.getId(), node.getRelationshipName(), key);
         getAttributes().remove(key);
     }
 
@@ -250,7 +250,7 @@ public abstract class Root extends AbstractRuntimeType {
         return "Root{" +
                 "source=" + source.getId() +
                 ", target=" + target.getId() +
-                ", type=" + node.getRelationshipType().getName() +
+                ", type=" + node.getRelationshipName() +
                 '}';
     }
 }

@@ -6,3 +6,4 @@ POST        /deployment/executions               controllers.DeployerController.
 POST        /deployment/executions/cancel        controllers.DeployerController.cancel(force: Boolean)
 POST        /deployment/executions/resume        controllers.DeployerController.resume()
 POST        /deployment/executions/stop          controllers.DeployerController.stop(force: Boolean)
+POST        /deployment/recipe/update            controllers.DeployerController.updateRecipe()

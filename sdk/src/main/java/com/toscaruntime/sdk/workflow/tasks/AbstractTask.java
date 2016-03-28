@@ -2,7 +2,6 @@ package com.toscaruntime.sdk.workflow.tasks;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -10,27 +9,15 @@ import org.slf4j.LoggerFactory;
 
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 
-import tosca.nodes.Root;
-
 public abstract class AbstractTask implements Runnable {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractTask.class);
-
-    protected Map<String, Root> nodeInstances;
-
-    protected Set<tosca.relationships.Root> relationshipInstances;
 
     protected Set<AbstractTask> dependsOnTasks = new HashSet<>();
 
     protected Set<AbstractTask> dependedByTasks = new HashSet<>();
 
-    private WorkflowExecution workflowExecution;
-
-    public AbstractTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, WorkflowExecution workflowExecution) {
-        this.nodeInstances = nodeInstances;
-        this.relationshipInstances = relationshipInstances;
-        this.workflowExecution = workflowExecution;
-    }
+    protected WorkflowExecution workflowExecution;
 
     private void notifyTaskCompletion() {
         try {
@@ -82,20 +69,20 @@ public abstract class AbstractTask implements Runnable {
         return dependsOnTasks.isEmpty();
     }
 
-    public Map<String, Root> getNodeInstances() {
-        return nodeInstances;
-    }
-
-    public Set<tosca.relationships.Root> getRelationshipInstances() {
-        return relationshipInstances;
-    }
-
     public WorkflowExecution getWorkflowExecution() {
         return workflowExecution;
     }
 
+    public void setWorkflowExecution(WorkflowExecution workflowExecution) {
+        this.workflowExecution = workflowExecution;
+    }
+
     public Set<AbstractTask> getDependsOnTasks() {
         return dependsOnTasks;
+    }
+
+    public void setDependsOnTasks(Set<AbstractTask> dependsOnTasks) {
+        this.dependsOnTasks = dependsOnTasks;
     }
 
     public Set<AbstractTask> getDependedByTasks() {

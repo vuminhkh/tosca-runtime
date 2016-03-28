@@ -103,6 +103,12 @@ public class Compute extends tosca.nodes.Compute {
     }
 
     @Override
+    public void uploadRecipe() {
+        String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
+        artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation);
+    }
+
+    @Override
     public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
@@ -120,6 +126,7 @@ public class Compute extends tosca.nodes.Compute {
                     ArtifactConnectException.class,
                     ArtifactExecutionException.class);
         } catch (ArtifactInterruptedException e) {
+            log.info("Compute [{}][{}] has been interrupted", getId(), operationArtifactPath);
             throw e;
         } catch (Throwable e) {
             throw new InvalidOperationExecutionException("Compute [" + getId() + "] : Unable to execute operation " + operationArtifactPath, e);
@@ -217,7 +224,6 @@ public class Compute extends tosca.nodes.Compute {
         String operationName = "Create ssh session for " + getId();
         int connectRetry = getConnectRetry();
         long waitBetweenConnectRetry = getWaitBetweenConnectRetry();
-        String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         try {
             // Create the executor
             this.artifactExecutor = createExecutor(ipForSSSHSession);
@@ -228,7 +234,7 @@ public class Compute extends tosca.nodes.Compute {
             // Sometimes the created VM needs sometimes to initialize and to resolve DNS
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeArtifactExecution()));
             // Upload the recipe to the remote host
-            FailSafeUtil.doActionWithRetry(() -> artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation), "Upload recipe", connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
+            FailSafeUtil.doActionWithRetry(this::uploadRecipe, "Upload recipe", connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
         } catch (ArtifactInterruptedException e) {
             throw e;
         } catch (Throwable e) {
@@ -384,38 +390,38 @@ public class Compute extends tosca.nodes.Compute {
         this.removeAttribute("floating_ip_ids");
     }
 
-    public int getOpenstackOperationRetry() {
+    private int getOpenstackOperationRetry() {
         return FailSafeConfigUtil.getOpenstackOperationRetry(getProperties());
     }
 
-    public long getOpenstackWaitBetweenOperationRetry() {
+    private long getOpenstackWaitBetweenOperationRetry() {
         return FailSafeConfigUtil.getOpenstackWaitBetweenOperationRetry(getProperties());
     }
 
-    public long getWaitBeforeConnection() {
+    private long getWaitBeforeConnection() {
         String waitBeforeConnection = getMandatoryPropertyAsString("compute_fail_safe.wait_before_connection");
         return FailSafeConfigUtil.convertToSeconds(waitBeforeConnection);
     }
 
-    public int getConnectRetry() {
+    private int getConnectRetry() {
         return Integer.parseInt(getMandatoryPropertyAsString("compute_fail_safe.connect_retry"));
     }
 
-    public long getWaitBetweenConnectRetry() {
+    private long getWaitBetweenConnectRetry() {
         String waitBetweenConnectRetry = getMandatoryPropertyAsString("compute_fail_safe.wait_between_connect_retry");
         return FailSafeConfigUtil.convertToSeconds(waitBetweenConnectRetry);
     }
 
-    public int getArtifactExecutionRetry() {
+    private int getArtifactExecutionRetry() {
         return Integer.parseInt(getMandatoryPropertyAsString("compute_fail_safe.artifact_execution_retry"));
     }
 
-    public long getWaitBetweenArtifactExecutionRetry() {
+    private long getWaitBetweenArtifactExecutionRetry() {
         String waitBetweenArtifactExecutionRetry = getMandatoryPropertyAsString("compute_fail_safe.wait_between_artifact_execution_retry");
         return FailSafeConfigUtil.convertToSeconds(waitBetweenArtifactExecutionRetry);
     }
 
-    public long getWaitBeforeArtifactExecution() {
+    private long getWaitBeforeArtifactExecution() {
         String waitBeforeArtifactExecution = getMandatoryPropertyAsString("compute_fail_safe.wait_before_artifact_execution");
         return FailSafeConfigUtil.convertToSeconds(waitBeforeArtifactExecution);
     }

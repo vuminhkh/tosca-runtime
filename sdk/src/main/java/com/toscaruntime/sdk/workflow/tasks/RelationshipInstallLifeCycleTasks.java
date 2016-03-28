@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AddSourceTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AddTargetTask;
@@ -30,13 +29,13 @@ public class RelationshipInstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     private AbstractTask addTargetTask;
 
-    public RelationshipInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        this.preConfigureSourceTask = new PreConfigureSourceTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.preConfigureTargetTask = new PreConfigureTargetTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.postConfigureSourceTask = new PostConfigureSourceTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.postConfigureTargetTask = new PostConfigureTargetTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public RelationshipInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        this.preConfigureSourceTask = new PreConfigureSourceTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.preConfigureTargetTask = new PreConfigureTargetTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.postConfigureSourceTask = new PostConfigureSourceTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.postConfigureTargetTask = new PostConfigureTargetTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.addSourceTask = new AddSourceTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.addTargetTask = new AddTargetTask(nodeInstances, relationshipInstances, relationshipInstance);
     }
 
     public RelationshipInstallLifeCycleTasks(AbstractRelationshipTask preConfigureSourceTask, AbstractRelationshipTask preConfigureTargetTask, AbstractTask postConfigureSourceTask, AbstractTask postConfigureTargetTask, AbstractTask addSourceTask, AbstractTask addTargetTask) {

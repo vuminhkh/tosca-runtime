@@ -59,19 +59,19 @@ node_types:
     properties:
       create_throw_error:
         type: boolean
-        default: true
+        default: false
       configure_throw_error:
         type: boolean
-        default: true
+        default: false
       start_throw_error:
         type: boolean
-        default: true
+        default: false
       stop_throw_error:
         type: boolean
-        default: true
+        default: false
       delete_throw_error:
         type: boolean
-        default: true
+        default: false
     interfaces:
       Standard:
         create:

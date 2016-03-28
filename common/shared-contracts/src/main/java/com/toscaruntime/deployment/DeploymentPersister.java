@@ -63,4 +63,46 @@ public interface DeploymentPersister {
     String syncGetRelationshipInstanceState(String sourceInstanceId, String targetInstanceId, String relationshipType);
 
     boolean hasExistingData();
+
+    void syncInsertNewNodeTask(String instanceId, String interfaceName, String operationName);
+
+    void syncStartNodeTask(String instanceId, String interfaceName, String operationName);
+
+    void syncFinishNodeTask(String instanceId, String interfaceName, String operationName);
+
+    void syncStopNodeTask(String instanceId, String interfaceName, String operationName, String error);
+
+    void syncInsertNewTask(String taskId);
+
+    void syncStartTask(String taskId);
+
+    void syncFinishTask(String taskId);
+
+    void syncStopTask(String taskId, String error);
+
+    void syncInsertNewRelationshipTask(String sourceInstanceId, String targetInstanceId, String relationshipType, String interfaceName, String operationName);
+
+    void syncStartRelationshipTask(String sourceInstanceId, String targetInstanceId, String relationshipType, String interfaceName, String operationName);
+
+    void syncFinishRelationshipTask(String sourceInstanceId, String targetInstanceId, String relationshipType, String interfaceName, String operationName);
+
+    void syncStopRelationshipTask(String sourceInstanceId, String targetInstanceId, String relationshipType, String interfaceName, String operationName, String error);
+
+    RunningExecutionDTO syncGetRunningExecution();
+
+    Map<NodeTaskDTO, String> syncGetRunningExecutionNodeTasks();
+
+    Map<RelationshipTaskDTO, String> syncGetRunningExecutionRelationshipTasks();
+
+    Map<TaskDTO, String> syncGetRunningExecutionTasks();
+
+    void syncInsertExecutionInputs(Map<String, Object> inputs);
+
+    void syncFinishRunningExecution();
+
+    void syncStopRunningExecution(String error);
+
+    void syncStopRunningExecution();
+
+    void syncCancelRunningExecution();
 }

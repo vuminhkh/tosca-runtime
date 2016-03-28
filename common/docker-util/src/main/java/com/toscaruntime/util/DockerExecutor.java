@@ -129,7 +129,8 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
         try (ResultCallbackTemplate resultCallback = execStartCmd.exec(new DockerStreamDecoder(log))) {
             resultCallback.awaitCompletion();
         } catch (InterruptedException e) {
-            throw new ArtifactInterruptedException("Script " + command + " exec has been interrupted ", e);
+            DockerExecutor.log.info("Command [{}] exec has been interrupted", command);
+            throw new ArtifactInterruptedException("Script " + command + " exec has been interrupted", e);
         } catch (Exception e) {
             throw new ArtifactExecutionException("Script " + command + " exec encountered error", e);
         }

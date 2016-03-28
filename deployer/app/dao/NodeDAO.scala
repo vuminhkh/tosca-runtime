@@ -46,14 +46,9 @@ class NodeDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvider) 
 
   def insertIfNotExist(nodeEntity: NodeEntity): Future[Int] = {
     val insertAction = Nodes.filter(_.id === nodeEntity.id).exists.result.flatMap { exists =>
-      if (!exists) Nodes += nodeEntity
-      else DBIO.successful(0)
+      if (!exists) Nodes += nodeEntity else DBIO.successful(0)
     }.transactionally
-    val insertFuture = db.run(insertAction)
-    insertFuture.onFailure {
-      case error: SQLException => logger.error(s"SQL exception happened while inserting $nodeEntity", error)
-    }
-    insertFuture
+    db.run(insertAction)
   }
 
   def saveInstancesCount(id: String, newInstancesCount: Int) = {

@@ -147,6 +147,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
                     if (isInterrupted) {
                         stdErrFuture.cancel(true);
                         stdOutFuture.cancel(true);
+                        log.info("[{}][{}] execution has been interrupted", operationName, artifactName);
                         throw new ArtifactInterruptedException("Execution has been interrupted", e);
                     }
                 }

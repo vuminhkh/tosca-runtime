@@ -69,63 +69,63 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  private def handleWorkflowExecutionResponse(response: WSResponse): String = {
+  private def handleWSResponse(response: WSResponse): String = {
     response.status match {
       case Status.OK => response.body
       case Status.BAD_REQUEST => throw new BadRequestException(response.body)
-      case _ => throw new ServerFailureException(s"Encountered unexpected exception while trying to launch install workflow :\n ${response.body}")
+      case _ => throw new ServerFailureException(s"Encountered unexpected exception :\n ${response.body}")
     }
   }
 
-  def deploy(deploymentId: String) = {
+  def executeInstallWorkflow(deploymentId: String) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
       .post(Json.toJson(WorkflowExecutionRequest("install", Map.empty)))
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
-  def undeploy(deploymentId: String) = {
+  def executeUninstallWorkflow(deploymentId: String) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
       .post(Json.toJson(WorkflowExecutionRequest("uninstall", Map.empty)))
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
-  def teardownInfrastructure(deploymentId: String) = {
+  def executeTeardownInfrastructureWorkflow(deploymentId: String) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
       .post(Json.toJson(WorkflowExecutionRequest("teardown_infrastructure", Map.empty)))
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
-  def scale(deploymentId: String, nodeName: String, instancesCount: Int) = {
+  def executeScaleWorkflow(deploymentId: String, nodeName: String, instancesCount: Int) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
-      .post(Json.toJson(WorkflowExecutionRequest("scale", Map("nodeId" -> nodeName, "newInstancesCount" -> instancesCount))))
-      .map(handleWorkflowExecutionResponse)
+      .post(Json.toJson(WorkflowExecutionRequest("scale", Map("node_id" -> nodeName, "new_instances_count" -> instancesCount))))
+      .map(handleWSResponse)
   }
 
-  def cancel(deploymentId: String, force: Boolean) = {
+  def cancelExecution(deploymentId: String, force: Boolean) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions/cancel")
       .withQueryString("force" -> force.toString)
       .post("")
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
-  def stop(deploymentId: String, force: Boolean) = {
+  def stopExecution(deploymentId: String, force: Boolean) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions/stop")
       .withQueryString("force" -> force.toString)
       .post("")
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
-  def resume(deploymentId: String) = {
+  def resumeExecution(deploymentId: String) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions/resume")
       .post("")
-      .map(handleWorkflowExecutionResponse)
+      .map(handleWSResponse)
   }
 
   def waitForRunningExecutionToEnd(deploymentId: String): Future[DeploymentDTO] = {
@@ -143,7 +143,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   def waitForBootstrapToFinish(provider: String, target: String) = waitForRunningExecutionToEnd(generateDeploymentIdForBootstrap(provider, target))
 
   def bootstrap(provider: String, target: String): Future[DeploymentDTO] = {
-    deploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
+    executeInstallWorkflow(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
       logger.info(s"Install workflow launched for bootstrap $response")
       waitForBootstrapToFinish(provider, target).flatMap { bootstrapInfo =>
         val proxyUrl = bootstrapInfo.outputs.get("public_proxy_url").get + "/context"
@@ -178,7 +178,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
   }
 
   def teardown(provider: String, target: String) = {
-    undeploy(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
+    executeUninstallWorkflow(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
       logger.info(s"Install workflow launched for bootstrap $response")
       waitForBootstrapToFinish(provider, target)
     }
@@ -229,6 +229,18 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
 
   def stopDeploymentAgent(deploymentId: String) = {
     daemonClient.stop(deploymentId)
+  }
+
+  def restartDeploymentAgent(deploymentId: String) = {
+    daemonClient.restart(deploymentId)
+  }
+
+  def updateDeploymentAgentRecipe(deploymentId: String, recipePath: Path) = {
+    daemonClient.updateAgentRecipe(deploymentId, recipePath)
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/recipe/update")
+      .post("")
+      .map(handleWSResponse)
   }
 
   def deleteDeploymentAgent(deploymentId: String) = {

@@ -3,18 +3,21 @@ package com.toscaruntime.sdk.workflow.tasks.nodes;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
+import com.toscaruntime.sdk.workflow.tasks.AbstractOperationTask;
 
 import tosca.nodes.Root;
 
-public abstract class AbstractNodeTask extends AbstractTask {
+public abstract class AbstractNodeTask extends AbstractOperationTask {
 
     protected Root nodeInstance;
 
-    public AbstractNodeTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, workflowExecution);
+    public AbstractNodeTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+        super(nodeInstances, relationshipInstances);
         this.nodeInstance = nodeInstance;
+    }
+
+    public Root getNodeInstance() {
+        return nodeInstance;
     }
 
     @Override

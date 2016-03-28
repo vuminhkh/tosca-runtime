@@ -8,12 +8,12 @@ import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 
-trait RelationshipOutputsComponent extends RelationshipInstancesComponents {
+trait RelationshipOutputsComponent extends RelationshipOperationsComponent {
   self: HasDatabaseConfigProvider[JdbcProfile] =>
 
   import driver.api._
 
-  private val RelationshipInstances = TableQuery[RelationshipInstanceTable]
+  private val RelationshipOperations = TableQuery[RelationshipOperationTable]
 
   class RelationshipOutputTable(tag: Tag) extends Table[RelationshipOperationOutputEntity](tag, "RELATIONSHIP_OUTPUT") {
 
@@ -34,7 +34,7 @@ trait RelationshipOutputsComponent extends RelationshipInstancesComponents {
     def value = column[String]("VALUE")
 
     def relationshipInstance =
-      foreignKey("RELATIONSHIP_OUTPUT_INSTANCE_FK", (sourceInstanceId, targetInstanceId, relationshipType), RelationshipInstances)(relIns => (relIns.sourceInstanceId, relIns.targetInstanceId, relIns.relationshipType), onUpdate = ForeignKeyAction.Cascade, onDelete = ForeignKeyAction.Cascade)
+      foreignKey("RELATIONSHIP_OUTPUT_RELATIONSHIP_OPERATION_FK", (sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName), RelationshipOperations)(relOp => (relOp.sourceInstanceId, relOp.targetInstanceId, relOp.relationshipType, relOp.interfaceName, relOp.operationName), onUpdate = ForeignKeyAction.Cascade, onDelete = ForeignKeyAction.Cascade)
 
     def * = (sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, key, value) <>(RelationshipOperationOutputEntity.tupled, RelationshipOperationOutputEntity.unapply)
   }
@@ -72,7 +72,7 @@ class RelationshipOutputDAO @Inject()(protected val dbConfigProvider: DatabaseCo
     )
   }
 
-  def save(attributeEntity: RelationshipOperationOutputEntity): Future[Int] = db.run(RelationshipOutputs insertOrUpdate attributeEntity)
+  def save(relationshipOutputEntity: RelationshipOperationOutputEntity): Future[Int] = db.run(RelationshipOutputs insertOrUpdate relationshipOutputEntity)
 
   def saveAll(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, outputs: Map[String, String]): Future[Option[Int]] = {
     val deleteAction = RelationshipOutputs

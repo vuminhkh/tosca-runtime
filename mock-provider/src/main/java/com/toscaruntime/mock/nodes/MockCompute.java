@@ -17,6 +17,11 @@ public class MockCompute extends Compute {
     private static final AtomicInteger COUNT = new AtomicInteger(0);
 
     @Override
+    public void uploadRecipe() {
+        log.info("Upload recipe");
+    }
+
+    @Override
     public void create() {
         log.info("create {} state {}", getId(), getState());
         super.create();

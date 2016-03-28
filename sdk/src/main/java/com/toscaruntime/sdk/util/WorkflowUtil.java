@@ -5,8 +5,8 @@ import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.MockNodeTask;
 import com.toscaruntime.sdk.workflow.tasks.MockRelationshipTask;
@@ -145,32 +145,32 @@ public class WorkflowUtil {
         childLifeCycleTasks.getStopTask().dependsOn(relationshipInstallLifeCycleTasks.getRemoveSourceTask());
     }
 
-    public static InstallLifeCycleTasks mockInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        AbstractNodeTask createTask = new MockNodeTask("create", nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        AbstractNodeTask configureTask = new MockNodeTask("configure", nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        AbstractNodeTask startTask = new MockNodeTask("start", nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public static InstallLifeCycleTasks mockInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+        AbstractNodeTask createTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.CREATE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
+        AbstractNodeTask configureTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.CONFIGURE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
+        AbstractNodeTask startTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.START_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
         return new InstallLifeCycleTasks(createTask, configureTask, startTask);
     }
 
-    public static RelationshipInstallLifeCycleTasks mockRelationshipInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        AbstractRelationshipTask preConfigureSourceTask = new MockRelationshipTask("preConfigureSource", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask preConfigureTargetTask = new MockRelationshipTask("preConfigureTarget", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask postConfigureSourceTask = new MockRelationshipTask("postConfigureSource", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask postConfigureTargetTask = new MockRelationshipTask("postConfigureTarget", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask addSourceTask = new MockRelationshipTask("addSource", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask addTargetTask = new MockRelationshipTask("addTarget", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public static RelationshipInstallLifeCycleTasks mockRelationshipInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        AbstractRelationshipTask preConfigureSourceTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.PRE_CONFIGURE_SOURCE_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask preConfigureTargetTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.PRE_CONFIGURE_TARGET_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask postConfigureSourceTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.POST_CONFIGURE_SOURCE_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask postConfigureTargetTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.POST_CONFIGURE_TARGET_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask addSourceTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.ADD_SOURCE_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask addTargetTask = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.ADD_TARGET_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
         return new RelationshipInstallLifeCycleTasks(preConfigureSourceTask, preConfigureTargetTask, postConfigureSourceTask, postConfigureTargetTask, addSourceTask, addTargetTask);
     }
 
-    public static UninstallLifeCycleTasks mockUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        AbstractNodeTask stopTask = new MockNodeTask("stop", nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        AbstractNodeTask deleteTask = new MockNodeTask("delete", nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public static UninstallLifeCycleTasks mockUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+        AbstractNodeTask stopTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.STOP_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
+        AbstractNodeTask deleteTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.DELETE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
         return new UninstallLifeCycleTasks(stopTask, deleteTask);
     }
 
-    public static RelationshipUninstallLifeCycleTasks mockRelationshipUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        AbstractRelationshipTask removeSource = new MockRelationshipTask("removeSource", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        AbstractRelationshipTask removeTarget = new MockRelationshipTask("removeTarget", nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public static RelationshipUninstallLifeCycleTasks mockRelationshipUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        AbstractRelationshipTask removeSource = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.REMOVE_SOURCE_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
+        AbstractRelationshipTask removeTarget = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.REMOVE_TARGET_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
         return new RelationshipUninstallLifeCycleTasks(removeSource, removeTarget);
     }
 }

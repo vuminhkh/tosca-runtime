@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.nodes.ConfigureTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.CreateTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.StartTask;
@@ -20,10 +19,10 @@ public class InstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     private AbstractTask startTask;
 
-    public InstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        this.createTask = new CreateTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        this.configureTask = new ConfigureTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        this.startTask = new StartTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public InstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+        this.createTask = new CreateTask(nodeInstances, relationshipInstances, nodeInstance);
+        this.configureTask = new ConfigureTask(nodeInstances, relationshipInstances, nodeInstance);
+        this.startTask = new StartTask(nodeInstances, relationshipInstances, nodeInstance);
     }
 
     public InstallLifeCycleTasks(AbstractTask createTask, AbstractTask configureTask, AbstractTask startTask) {

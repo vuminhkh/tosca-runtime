@@ -3,8 +3,8 @@ package com.toscaruntime.sdk.workflow.tasks;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
+import com.toscaruntime.util.CodeGeneratorUtil;
 
 import tosca.nodes.Root;
 
@@ -15,11 +15,14 @@ import tosca.nodes.Root;
  */
 public class MockRelationshipTask extends AbstractRelationshipTask {
 
-    private String mockedTaskName;
+    private String interfaceName;
 
-    public MockRelationshipTask(String mockedTaskName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.mockedTaskName = mockedTaskName;
+    private String operationName;
+
+    public MockRelationshipTask(String interfaceName, String operationName, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        super(nodeInstances, relationshipInstances, relationshipInstance);
+        this.interfaceName = interfaceName;
+        this.operationName = operationName;
     }
 
     @Override
@@ -28,26 +31,38 @@ public class MockRelationshipTask extends AbstractRelationshipTask {
     }
 
     @Override
+    public String getInterfaceName() {
+        return interfaceName;
+    }
+
+    @Override
+    public String getOperationName() {
+        return operationName;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         if (!super.equals(o)) return false;
 
-        MockRelationshipTask mockTask = (MockRelationshipTask) o;
+        MockRelationshipTask that = (MockRelationshipTask) o;
 
-        return mockedTaskName != null ? mockedTaskName.equals(mockTask.mockedTaskName) : mockTask.mockedTaskName == null;
+        if (!getInterfaceName().equals(that.getInterfaceName())) return false;
+        return getOperationName().equals(that.getOperationName());
 
     }
 
     @Override
     public int hashCode() {
         int result = super.hashCode();
-        result = 31 * result + (mockedTaskName != null ? mockedTaskName.hashCode() : 0);
+        result = 31 * result + getInterfaceName().hashCode();
+        result = 31 * result + getOperationName().hashCode();
         return result;
     }
 
     @Override
     public String toString() {
-        return "Mock " + this.mockedTaskName + " for " + relationshipInstance;
+        return "Mock " + CodeGeneratorUtil.getGeneratedMethodName(this.interfaceName, this.operationName) + " for " + relationshipInstance;
     }
 }

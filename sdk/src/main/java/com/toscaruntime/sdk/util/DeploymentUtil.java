@@ -26,6 +26,10 @@ public class DeploymentUtil {
         return null;
     }
 
+    public static Set<tosca.nodes.Root> getChildren(Map<String, tosca.nodes.Root> nodeInstances, tosca.nodes.Root ofInstance) {
+        return nodeInstances.values().stream().filter(nodeInstance -> nodeInstance.getParent() != null && nodeInstance.getParent().equals(ofInstance)).collect(Collectors.toSet());
+    }
+
     public static Set<DeploymentRelationshipNode> getRelationshipNodeBySourceName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName) {
         return relationshipNodes.stream().filter(relationshipNode ->
                 relationshipNode.getSourceNodeId().equals(sourceName)

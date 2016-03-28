@@ -49,7 +49,6 @@ public class DockerProviderHook extends AbstractProviderHook {
         } else {
             log.info("No overlay docker network detected, must be in non toscaruntime bootstrap context");
         }
-        postConstructInstances(deployment.getNodeInstances(), deployment.getRelationshipInstances());
     }
 
     @Override

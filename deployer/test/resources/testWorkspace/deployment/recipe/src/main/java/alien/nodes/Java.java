@@ -47,7 +47,8 @@ evaluateFunction("get_property","SELF","java_home")));
 
 public void create () {
   
-  operationOutputs.put("create", executeOperation("create", "tomcat-war-types/scripts/java_install.sh"));
+    java.util.Map<String, String> outputs = executeOperation("create", "tomcat-war-types/scripts/java_install.sh");
+    setOperationOutputs("Standard", "create", outputs);
   
   }
 

@@ -1,5 +1,7 @@
 package com.toscaruntime.cli.command
 
+import java.nio.file.Path
+
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.exception.client.BadRequestException
@@ -34,6 +36,8 @@ object AgentsCommand {
 
   private val stopOpt = "stop"
 
+  private val restartOpt = "restart"
+
   private val deleteOpt = "delete"
 
   private val forceOpt = "-f"
@@ -45,6 +49,8 @@ object AgentsCommand {
   private val resumeOpt = "resume"
 
   private val undeployOpt = "undeploy"
+
+  private val updateOpt = "update"
 
   private val scaleOpt = "scale"
 
@@ -94,6 +100,8 @@ object AgentsCommand {
       (token(startOpt) ~ (Space ~> token(StringBasic))) |
       (token(logOpt) ~ (Space ~> token(StringBasic))) |
       (token(stopOpt) ~ (Space ~> token(StringBasic))) |
+      (token(restartOpt) ~ (Space ~> token(StringBasic))) |
+      (token(updateOpt) ~ (Space ~> token(StringBasic))) |
       (token(deleteOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(deployOpt) ~ (Space ~> token(StringBasic))) |
       (token(cancelOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
@@ -121,6 +129,8 @@ object AgentsCommand {
        |              $infoOpt $executionInfoOpt <execution id>: show execution details
        |$startOpt    : start agent, agent will begin to manage deployment
        |$stopOpt     : stop agent, agent will stop to manage deployment
+       |$restartOpt  : restart the agent, it's useful to refresh the agent with new recipe content
+       |$updateOpt   : update the agent's deployment recipe with the one in 'work' directory
        |$deployOpt   : launch default deployment workflow
        |$pauseOpt    : pause current running execution by waiting for all running tasks to finish and not launching new tasks
        |              $pauseOpt <deployment id> $forceOpt try to interrupt current running tasks
@@ -150,11 +160,11 @@ object AgentsCommand {
   def undeploy(client: ToscaRuntimeClient, deploymentId: String, force: Boolean): (String, Future[_]) = {
     if (force) {
       deleteAgent(client, deploymentId)
-      (s"Deleted by force [$deploymentId]", Future.successful())
+      (s"Deleted by force [$deploymentId]", Future.successful(None))
     } else {
       val details = AgentUtil.getDeploymentDetails(client, deploymentId)
       if (details.executions.nonEmpty && details.executions.head.endTime.isEmpty) {
-        ("Deployment has unfinished execution, please wait or cancel execution first", Future.failed(throw new BadRequestException("Deployment has unfinished execution, please wait or cancel execution first")))
+        ("Deployment has unfinished execution, please wait or cancel execution first", Future.failed(new BadRequestException("Deployment has unfinished execution, please wait or cancel execution first")))
       } else if (AgentUtil.hasLivingNodes(details)) {
         AgentUtil.undeploy(client, deploymentId)
         val deleteFuture = client.waitForRunningExecutionToEnd(deploymentId).map { _ =>
@@ -163,7 +173,7 @@ object AgentsCommand {
         (s"Uninstall workflow has been launched, [$deploymentId] will be deleted once the execution finishes", deleteFuture)
       } else {
         deleteAgent(client, deploymentId)
-        (s"Deleted [$deploymentId]", Future.successful())
+        (s"Deleted [$deploymentId]", Future.successful(None))
       }
     }
   }
@@ -201,6 +211,11 @@ object AgentsCommand {
     AgentUtil.waitForDeploymentAgent(client, deploymentId)
   }
 
+  def restartAgent(client: ToscaRuntimeClient, deploymentId: String) = {
+    client.restartDeploymentAgent(deploymentId)
+    AgentUtil.waitForDeploymentAgent(client, deploymentId)
+  }
+
   def stopAgent(client: ToscaRuntimeClient, deploymentId: String) = {
     client.stopDeploymentAgent(deploymentId)
   }
@@ -223,6 +238,11 @@ object AgentsCommand {
 
   def getOutputsDetails(client: ToscaRuntimeClient, deploymentId: String) = {
     AgentUtil.getOutputsDetails(AgentUtil.getDeploymentDetails(client, deploymentId))
+  }
+
+  def updateDeploymentRecipe(client: ToscaRuntimeClient, deploymentId: String, basedir: Path) = {
+    val workDir = basedir.resolve("work")
+    AgentUtil.updateDeploymentRecipe(client, deploymentId, workDir.resolve(deploymentId))
   }
 
   lazy val instance = Command("agents", agentsActionsHelp)(_ => agentsArgsParser) { (state, args) =>
@@ -290,6 +310,12 @@ object AgentsCommand {
         case ("start", deploymentId: String) =>
           startAgent(client, deploymentId)
           println(s"Started $deploymentId")
+        case ("restart", deploymentId: String) =>
+          restartAgent(client, deploymentId)
+          println(s"Restarted $deploymentId")
+        case ("update", deploymentId: String) =>
+          val basedir = state.attributes.get(Attributes.basedirAttribute).get
+          println(updateDeploymentRecipe(client, deploymentId, basedir))
         case ("stop", deploymentId: String) =>
           stopAgent(client, deploymentId)
           println(s"Stopped $deploymentId")

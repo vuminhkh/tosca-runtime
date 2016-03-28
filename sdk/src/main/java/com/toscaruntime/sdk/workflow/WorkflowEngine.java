@@ -1,6 +1,7 @@
 package com.toscaruntime.sdk.workflow;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -12,10 +13,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
 import com.toscaruntime.sdk.ProviderHook;
 import com.toscaruntime.sdk.ProviderWorkflowProcessingResult;
 import com.toscaruntime.sdk.util.WorkflowUtil;
+import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
@@ -32,6 +35,8 @@ import tosca.relationships.HostedOn;
 public class WorkflowEngine {
 
     private ProviderHook providerHook;
+
+    private DeploymentPersister deploymentPersister;
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowEngine.class);
 
@@ -52,49 +57,49 @@ public class WorkflowEngine {
 
     private InstallLifeCycleTasksFactory mockInstallLifeCycleTasksFactory = new InstallLifeCycleTasksFactory() {
         @Override
-        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-            return WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+            return WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance);
         }
 
         @Override
-        public RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-            return WorkflowUtil.mockRelationshipInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+        public RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+            return WorkflowUtil.mockRelationshipInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance);
         }
     };
 
     private UninstallLifeCycleTasksFactory mockUninstallLifeCycleTasksFactory = new UninstallLifeCycleTasksFactory() {
         @Override
-        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-            return WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+            return WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance);
         }
 
         @Override
-        public RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-            return WorkflowUtil.mockRelationshipUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+        public RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+            return WorkflowUtil.mockRelationshipUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance);
         }
     };
 
     private InstallLifeCycleTasksFactory installLifeCycleTasksFactory = new InstallLifeCycleTasksFactory() {
         @Override
-        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-            return new InstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        public InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+            return new InstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance);
         }
 
         @Override
-        public RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-            return new RelationshipInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+        public RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+            return new RelationshipInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance);
         }
     };
 
     private UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory = new UninstallLifeCycleTasksFactory() {
         @Override
-        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-            return new UninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+        public UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+            return new UninstallLifeCycleTasks(nodeInstances, relationshipInstances, nodeInstance);
         }
 
         @Override
-        public RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-            return new RelationshipUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+        public RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+            return new RelationshipUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance);
         }
     };
 
@@ -106,7 +111,7 @@ public class WorkflowEngine {
                 log.error("Workflow did not finish: \n {}", dryRunWorkflowExecution.toString());
                 throw new InvalidWorkflowException("Workflow is invalid and did not finish");
             } else {
-                log.info("Workflow dry run execution finished, begin real execution");
+                log.info("Workflow dry run finished successfully");
             }
         } catch (InvalidWorkflowException e) {
             throw e;
@@ -115,46 +120,68 @@ public class WorkflowEngine {
         }
     }
 
+    private void augmentWorkflow(WorkflowExecution workflowExecution, List<AbstractTask> beforeTasks, List<AbstractTask> afterTasks) {
+        // Make all runnable task depends on before tasks, so that it will be run in the first place
+        workflowExecution.getTasksLeft().stream().filter(AbstractTask::canRun).forEach(task -> task.dependsOn(beforeTasks.toArray(new AbstractTask[beforeTasks.size()])));
+        // After tasks are run at the end
+        afterTasks.forEach(afterTask -> afterTask.dependsOn(workflowExecution.getTasksLeft().toArray(new AbstractTask[workflowExecution.getTasksLeft().size()])));
+        workflowExecution.addTasks(beforeTasks);
+        workflowExecution.addTasks(afterTasks);
+    }
+
     /**
-     * Perform installation of the given set of node instances and relationships instances
+     * Build an install workflow
      *
-     * @param nodeInstances         node instances to be installed
-     * @param relationshipInstances relationship instances to be installed
+     * @param beforeTasks           tasks that should have done before the install workflow
+     * @param nodeInstances         the concerned node instances
+     * @param relationshipInstances the concerned relationship instances
+     * @param workflowId            id of the workflow
+     * @return the built workflow execution
      */
-    public WorkflowExecution install(Map<String, Root> nodeInstances,
-                                     Set<tosca.relationships.Root> relationshipInstances) {
-        validateDryRun(doInstall(nodeInstances, relationshipInstances, mockInstallLifeCycleTasksFactory));
-        return doInstall(nodeInstances, relationshipInstances, installLifeCycleTasksFactory);
+    public WorkflowExecution buildInstallWorkflow(List<AbstractTask> beforeTasks,
+                                                  List<AbstractTask> afterTasks,
+                                                  Map<String, Root> nodeInstances,
+                                                  Set<tosca.relationships.Root> relationshipInstances,
+                                                  String workflowId) {
+        validateDryRun(doInstall(nodeInstances, relationshipInstances, mockInstallLifeCycleTasksFactory, () -> new WorkflowExecution(workflowId, createWorkflowExecutorService(), null)));
+        WorkflowExecution workflowExecution = doBuildInstallWorkflow(nodeInstances, relationshipInstances, installLifeCycleTasksFactory, () -> new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister));
+        augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
+        return workflowExecution;
     }
 
     private interface InstallLifeCycleTasksFactory {
 
-        InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution);
+        InstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance);
 
-        RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution);
+        RelationshipInstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance);
     }
 
     private interface UninstallLifeCycleTasksFactory {
 
-        UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution);
+        UninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance);
 
-        RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution);
+        RelationshipUninstallLifeCycleTasks create(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance);
     }
 
-    private WorkflowExecution doInstall(Map<String, Root> nodeInstances,
-                                        Set<tosca.relationships.Root> relationshipInstances,
-                                        InstallLifeCycleTasksFactory lifeCycleTasksFactory) {
-        WorkflowExecution workflowExecution = new WorkflowExecution(createWorkflowExecutorService());
+    private interface WorkflowExecutionFactory {
+        WorkflowExecution create();
+    }
+
+    private WorkflowExecution doBuildInstallWorkflow(Map<String, Root> nodeInstances,
+                                                     Set<tosca.relationships.Root> relationshipInstances,
+                                                     InstallLifeCycleTasksFactory lifeCycleTasksFactory,
+                                                     WorkflowExecutionFactory workflowExecutionFactory) {
+        WorkflowExecution workflowExecution = workflowExecutionFactory.create();
         Map<Root, InstallLifeCycleTasks> allNodesTasks = new HashMap<>();
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
-            InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+            InstallLifeCycleTasks installLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance);
             allNodesTasks.put(nodeInstance, installLifeCycleTasks);
             workflowExecution.addTasks(installLifeCycleTasks.getTasks());
         }
         Map<tosca.relationships.Root, RelationshipInstallLifeCycleTasks> allRelationshipsTasks = new HashMap<>();
         for (tosca.relationships.Root relationship : relationshipInstances) {
-            RelationshipInstallLifeCycleTasks relationshipInstallLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, relationship, workflowExecution);
+            RelationshipInstallLifeCycleTasks relationshipInstallLifeCycleTasks = lifeCycleTasksFactory.create(nodeInstances, relationshipInstances, relationship);
             allRelationshipsTasks.put(relationship, relationshipInstallLifeCycleTasks);
             workflowExecution.addTasks(relationshipInstallLifeCycleTasks.getTasks());
         }
@@ -162,14 +189,14 @@ public class WorkflowEngine {
             InstallLifeCycleTasks sourceInstallLifeCycleTasks = allNodesTasks.get(relationshipInstance.getSource());
             if (sourceInstallLifeCycleTasks == null) {
                 // Relationship which comes from a node out of the set of nodes (for example when we scale)
-                sourceInstallLifeCycleTasks = WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getSource(), workflowExecution);
+                sourceInstallLifeCycleTasks = WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getSource());
                 allNodesTasks.put(relationshipInstance.getSource(), sourceInstallLifeCycleTasks);
                 workflowExecution.addTasks(sourceInstallLifeCycleTasks.getTasks());
             }
             InstallLifeCycleTasks targetInstallLifeCycleTasks = allNodesTasks.get(relationshipInstance.getTarget());
             if (targetInstallLifeCycleTasks == null) {
                 // Relationship which comes out of the set of nodes (for example when we scale)
-                targetInstallLifeCycleTasks = WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), workflowExecution);
+                targetInstallLifeCycleTasks = WorkflowUtil.mockInstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getTarget());
                 allNodesTasks.put(relationshipInstance.getTarget(), targetInstallLifeCycleTasks);
                 workflowExecution.addTasks(targetInstallLifeCycleTasks.getTasks());
             }
@@ -197,36 +224,53 @@ public class WorkflowEngine {
                         WorkflowUtil.declareDependsOnInstallDependencies(taskEntry.getValue(), sourceInstallLifeCycleTasks, targetInstallLifeCycleTasks);
                     }
                 });
+        return workflowExecution;
+    }
+
+    private WorkflowExecution doInstall(Map<String, Root> nodeInstances,
+                                        Set<tosca.relationships.Root> relationshipInstances,
+                                        InstallLifeCycleTasksFactory lifeCycleTasksFactory,
+                                        WorkflowExecutionFactory workflowExecutionFactory) {
+        WorkflowExecution workflowExecution = doBuildInstallWorkflow(nodeInstances, relationshipInstances, lifeCycleTasksFactory, workflowExecutionFactory);
         workflowExecution.launch();
         return workflowExecution;
     }
 
     /**
-     * Perform un-installation of the given set of node instances and relationships instances
+     * Build an uninstall workflow without launching it
      *
-     * @param nodeInstances         node instances to be uninstalled
-     * @param relationshipInstances relationship instances to be uninstalled
+     * @param afterTasks            tasks that should be done after the uninstall workflow to cleanup resources
+     * @param nodeInstances         the concerned node instances
+     * @param relationshipInstances the concerned relationship instances
+     * @param workflowId            id of the workflow
+     * @return the built workflow execution
      */
-    public WorkflowExecution uninstall(Map<String, Root> nodeInstances,
-                                       Set<tosca.relationships.Root> relationshipInstances) {
-        validateDryRun(doUninstall(nodeInstances, relationshipInstances, mockUninstallLifeCycleTasksFactory));
-        return doUninstall(nodeInstances, relationshipInstances, uninstallLifeCycleTasksFactory);
+    public WorkflowExecution buildUninstallWorkflow(List<AbstractTask> beforeTasks,
+                                                    List<AbstractTask> afterTasks,
+                                                    Map<String, Root> nodeInstances,
+                                                    Set<tosca.relationships.Root> relationshipInstances,
+                                                    String workflowId) {
+        validateDryRun(doUninstall(nodeInstances, relationshipInstances, mockUninstallLifeCycleTasksFactory, () -> new WorkflowExecution(workflowId, createWorkflowExecutorService(), null)));
+        WorkflowExecution workflowExecution = doBuildUninstallWorkflow(nodeInstances, relationshipInstances, uninstallLifeCycleTasksFactory, () -> new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister));
+        augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
+        return workflowExecution;
     }
 
-    public WorkflowExecution doUninstall(Map<String, Root> nodeInstances,
-                                         Set<tosca.relationships.Root> relationshipInstances,
-                                         UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory) {
+    private WorkflowExecution doBuildUninstallWorkflow(Map<String, Root> nodeInstances,
+                                                       Set<tosca.relationships.Root> relationshipInstances,
+                                                       UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory,
+                                                       WorkflowExecutionFactory workflowExecutionFactory) {
         Map<Root, UninstallLifeCycleTasks> allNodesTasks = new HashMap<>();
-        WorkflowExecution workflowExecution = new WorkflowExecution(createWorkflowExecutorService());
+        WorkflowExecution workflowExecution = workflowExecutionFactory.create();
         for (Map.Entry<String, Root> nodeInstanceEntry : nodeInstances.entrySet()) {
             Root nodeInstance = nodeInstanceEntry.getValue();
-            UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+            UninstallLifeCycleTasks uninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, nodeInstance);
             allNodesTasks.put(nodeInstance, uninstallLifeCycleTasks);
             workflowExecution.addTasks(uninstallLifeCycleTasks.getTasks());
         }
         Map<tosca.relationships.Root, RelationshipUninstallLifeCycleTasks> allRelationshipsTasks = new HashMap<>();
         for (tosca.relationships.Root relationship : relationshipInstances) {
-            RelationshipUninstallLifeCycleTasks relationshipUninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, relationship, workflowExecution);
+            RelationshipUninstallLifeCycleTasks relationshipUninstallLifeCycleTasks = uninstallLifeCycleTasksFactory.create(nodeInstances, relationshipInstances, relationship);
             allRelationshipsTasks.put(relationship, relationshipUninstallLifeCycleTasks);
             workflowExecution.addTasks(relationshipUninstallLifeCycleTasks.getTasks());
         }
@@ -235,14 +279,14 @@ public class WorkflowEngine {
             UninstallLifeCycleTasks sourceInstallLifeCycleTasks = allNodesTasks.get(relationshipInstance.getSource());
             if (sourceInstallLifeCycleTasks == null) {
                 // Relationship which comes from a node out of the set of nodes (for example when we scale)
-                sourceInstallLifeCycleTasks = WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getSource(), workflowExecution);
+                sourceInstallLifeCycleTasks = WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getSource());
                 allNodesTasks.put(relationshipInstance.getSource(), sourceInstallLifeCycleTasks);
                 workflowExecution.addTasks(sourceInstallLifeCycleTasks.getTasks());
             }
             UninstallLifeCycleTasks targetInstallLifeCycleTasks = allNodesTasks.get(relationshipInstance.getTarget());
             if (targetInstallLifeCycleTasks == null) {
                 // Relationship which comes out of the set of nodes (for example when we scale)
-                targetInstallLifeCycleTasks = WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getTarget(), workflowExecution);
+                targetInstallLifeCycleTasks = WorkflowUtil.mockUninstallLifeCycleTasks(nodeInstances, relationshipInstances, relationshipInstance.getTarget());
                 allNodesTasks.put(relationshipInstance.getTarget(), targetInstallLifeCycleTasks);
                 workflowExecution.addTasks(targetInstallLifeCycleTasks.getTasks());
             }
@@ -268,11 +312,23 @@ public class WorkflowEngine {
                         WorkflowUtil.declareDependsOnUninstallDependencies(taskEntry.getValue(), sourceInstallLifeCycleTasks, targetInstallLifeCycleTasks);
                     }
                 });
+        return workflowExecution;
+    }
+
+    private WorkflowExecution doUninstall(Map<String, Root> nodeInstances,
+                                          Set<tosca.relationships.Root> relationshipInstances,
+                                          UninstallLifeCycleTasksFactory uninstallLifeCycleTasksFactory,
+                                          WorkflowExecutionFactory workflowExecutionFactory) {
+        WorkflowExecution workflowExecution = doBuildUninstallWorkflow(nodeInstances, relationshipInstances, uninstallLifeCycleTasksFactory, workflowExecutionFactory);
         workflowExecution.launch();
         return workflowExecution;
     }
 
     public void setProviderHook(ProviderHook providerHook) {
         this.providerHook = providerHook;
+    }
+
+    public void setDeploymentPersister(DeploymentPersister deploymentPersister) {
+        this.deploymentPersister = deploymentPersister;
     }
 }

@@ -60,19 +60,22 @@ java.util.Map<String, com.toscaruntime.sdk.model.OperationInputDefinition> input
 
 public void create () {
   
-  operationOutputs.put("create", executeOperation("create", "apache-load-balancer-type/scripts/install_apache_load_balancer.sh"));
+    java.util.Map<String, String> outputs = executeOperation("create", "apache-load-balancer-type/scripts/install_apache_load_balancer.sh");
+    setOperationOutputs("Standard", "create", outputs);
   
   }
 
 public void start () {
   
-  operationOutputs.put("start", executeOperation("start", "apache-load-balancer-type/scripts/start_apache_load_balancer.sh"));
+    java.util.Map<String, String> outputs = executeOperation("start", "apache-load-balancer-type/scripts/start_apache_load_balancer.sh");
+    setOperationOutputs("Standard", "start", outputs);
   
   }
 
 public void stop () {
   
-  operationOutputs.put("stop", executeOperation("stop", "apache-load-balancer-type/scripts/stop_apache_load_balancer.sh"));
+    java.util.Map<String, String> outputs = executeOperation("stop", "apache-load-balancer-type/scripts/stop_apache_load_balancer.sh");
+    setOperationOutputs("Standard", "stop", outputs);
   
   }
 

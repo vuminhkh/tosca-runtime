@@ -6,8 +6,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
@@ -16,8 +16,8 @@ public class RemoveTargetTask extends AbstractRelationshipTask {
 
     private static final Logger log = LoggerFactory.getLogger(RemoveTargetTask.class);
 
-    public RemoveTargetTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public RemoveTargetTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        super(nodeInstances, relationshipInstances, relationshipInstance);
     }
 
     @Override
@@ -30,6 +30,16 @@ public class RemoveTargetTask extends AbstractRelationshipTask {
             }
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.UNLINKING, RelationshipInstanceState.POST_CONFIGURED);
         }
+    }
+
+    @Override
+    public String getInterfaceName() {
+        return ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE;
+    }
+
+    @Override
+    public String getOperationName() {
+        return ToscaInterfaceConstant.REMOVE_TARGET_OPERATION;
     }
 
     @Override

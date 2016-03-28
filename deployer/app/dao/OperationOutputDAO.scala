@@ -8,12 +8,12 @@ import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 
-trait OperationOutputsComponent extends InstancesComponent {
+trait OperationOutputsComponent extends OperationsComponent {
   self: HasDatabaseConfigProvider[JdbcProfile] =>
 
   import driver.api._
 
-  private val Instances = TableQuery[InstanceTable]
+  private val Operations = TableQuery[OperationTable]
 
   class OperationOutputTable(tag: Tag) extends Table[OperationOutputEntity](tag, "OPERATION_OUTPUT") {
 
@@ -29,7 +29,8 @@ trait OperationOutputsComponent extends InstancesComponent {
 
     def value = column[String]("VALUE")
 
-    def instance = foreignKey("OPERATION_OUTPUT_INSTANCE_FK", instanceId, Instances)(_.id, onUpdate = ForeignKeyAction.Cascade, onDelete = ForeignKeyAction.Cascade)
+    def operation =
+      foreignKey("OPERATION_OUTPUT_OPERATION_FK", (instanceId, interfaceName, operationName), Operations)(op => (op.instanceId, op.interfaceName, op.operationName), onUpdate = ForeignKeyAction.Cascade, onDelete = ForeignKeyAction.Cascade)
 
     def * = (instanceId, interfaceName, operationName, key, value) <>(OperationOutputEntity.tupled, OperationOutputEntity.unapply)
   }

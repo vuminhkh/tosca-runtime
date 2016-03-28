@@ -3,16 +3,16 @@ package com.toscaruntime.sdk.workflow.tasks.relationships;
 import java.util.Map;
 import java.util.Set;
 
+import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class AddSourceTask extends AbstractRelationshipTask {
 
-    public AddSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public AddSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        super(nodeInstances, relationshipInstances, relationshipInstance);
     }
 
     @Override
@@ -22,6 +22,16 @@ public class AddSourceTask extends AbstractRelationshipTask {
             relationshipInstance.addSource();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.ESTABLISHING, RelationshipInstanceState.ESTABLISHED);
         }
+    }
+
+    @Override
+    public String getInterfaceName() {
+        return ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE;
+    }
+
+    @Override
+    public String getOperationName() {
+        return ToscaInterfaceConstant.ADD_SOURCE_OPERATION;
     }
 
     @Override

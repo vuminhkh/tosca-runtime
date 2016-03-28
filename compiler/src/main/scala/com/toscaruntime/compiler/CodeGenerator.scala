@@ -166,8 +166,6 @@ object CodeGenerator extends LazyLogging {
             } else if (TypeLoader.isRelationshipInstanceOf(relationshipType.get.name.value, classOf[AttachTo].getName, csarPath)) {
               sourceNode.parent = Some(targetNode)
               targetNode.children = targetNode.children :+ sourceNode
-            } else {
-              sourceNode.dependencies = sourceNode.dependencies :+ targetNode
             }
             val properties = parseProperties(requirement.properties, relationshipType.flatMap(_.properties))
             new runtime.Relationship(sourceNode, targetNode, relationshipType.get.name.value, properties)

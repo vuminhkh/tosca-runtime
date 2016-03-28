@@ -1,13 +1,14 @@
 package com.toscaruntime.cli.util
 
+import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
+import _root_.tosca.constants.{InstanceState, RelationshipInstanceState}
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.rest.model.{AbstractInstanceDTO, DeploymentDTO}
 import com.toscaruntime.util.FailSafeUtil
 import com.toscaruntime.util.FailSafeUtil.Action
 import com.typesafe.scalalogging.LazyLogging
-import tosca.constants.{InstanceState, RelationshipInstanceState}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -39,33 +40,36 @@ object AgentUtil extends LazyLogging {
     }
   }
 
+  def updateDeploymentRecipe(client: ToscaRuntimeClient, deploymentId: String, recipePath: Path) = {
+    Await.result(client.updateDeploymentAgentRecipe(deploymentId, recipePath), forEver)
+  }
 
   def scaleExecution(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, newInstancesCount: Int) = {
-    Await.result(client.scale(deploymentId, nodeName, newInstancesCount), forEver)
+    Await.result(client.executeScaleWorkflow(deploymentId, nodeName, newInstancesCount), forEver)
   }
 
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.deploy(deploymentId), forEver)
+    Await.result(client.executeInstallWorkflow(deploymentId), forEver)
   }
 
   def undeploy(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.undeploy(deploymentId), forEver)
+    Await.result(client.executeUninstallWorkflow(deploymentId), forEver)
   }
 
   def teardownInfrastructure(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.teardownInfrastructure(deploymentId), forEver)
+    Await.result(client.executeTeardownInfrastructureWorkflow(deploymentId), forEver)
   }
 
   def cancelExecution(client: ToscaRuntimeClient, deploymentId: String, force: Boolean) = {
-    Await.result(client.cancel(deploymentId, force), forEver)
+    Await.result(client.cancelExecution(deploymentId, force), forEver)
   }
 
   def resumeExecution(client: ToscaRuntimeClient, deploymentId: String) = {
-    Await.result(client.resume(deploymentId), forEver)
+    Await.result(client.resumeExecution(deploymentId), forEver)
   }
 
   def stopExecution(client: ToscaRuntimeClient, deploymentId: String, force: Boolean) = {
-    Await.result(client.stop(deploymentId, force), forEver)
+    Await.result(client.stopExecution(deploymentId, force), forEver)
   }
 
   def bootstrap(client: ToscaRuntimeClient, provider: String, target: String) = {

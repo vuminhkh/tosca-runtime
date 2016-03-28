@@ -42,14 +42,40 @@ public abstract class AbstractRuntimeType {
         return state;
     }
 
+    /**
+     * This method is called to set the state of the instance, it will trigger the persistence of the state
+     *
+     * @param state new state to persist
+     */
     public abstract void setState(String state);
 
+    /**
+     * This method is called to set the operation outputs of the instance, it will trigger the persistence of those outputs
+     *
+     * @param interfaceName interface name
+     * @param operationName operation name
+     * @param outputs       outputs of the operation
+     */
     public abstract void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs);
 
+    /**
+     * This method is called to set the attribute of the instance, it will trigger the persistence of the attribute
+     *
+     * @param key   key of the attribute
+     * @param value new value of the attribute
+     */
     public abstract void setAttribute(String key, Object value);
 
+    /**
+     * This method is called to remove the attribute of the instance, it will trigger the deletion in the persistence layer
+     *
+     * @param key key of the attribute
+     */
     public abstract void removeAttribute(String key);
 
+    /**
+     * This method is called at the initialization of the instance to restore the instance's state
+     */
     public abstract void initialLoad();
 
     public Map<String, Object> getProperties() {

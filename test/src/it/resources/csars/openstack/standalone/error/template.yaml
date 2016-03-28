@@ -1,0 +1,67 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: A topology that contains component that simply sleeps for testing purpose
+template_name: sleep-docker-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - openstack-provider-types:*
+  - test-type:*
+
+topology_template:
+
+  inputs:
+    image:
+      type: string
+    flavor:
+      type: string
+    key_pair_name:
+      type: string
+    login:
+      type: string
+    key_path:
+      type: string
+    security_group_names:
+      type: list
+      entry_schema:
+        type: string
+    external_network_name:
+      type: string
+
+  node_templates:
+
+    Server:
+      type: com.toscaruntime.openstack.nodes.Compute
+      properties:
+        image: { get_input: image }
+        flavor: { get_input: flavor }
+        login: { get_input: login }
+        key_pair_name: { get_input: key_pair_name }
+        key_path: { get_input: key_path }
+        security_group_names: { get_input: security_group_names }
+        user_data: |
+          #!/bin/sh
+          sudo cp /etc/hosts /tmp/hosts
+          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
+          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+      requirements:
+        - network: publicNetwork
+        - network: Network
+
+    Error:
+      type: com.toscaruntime.nodes.Error
+      properties:
+        start_throw_error: true
+      requirements:
+        - host: Server
+
+    Network:
+      type: com.toscaruntime.openstack.nodes.Network
+      properties:
+        network_name: errorStandAlone
+        cidr: "192.168.1.0/24"
+
+    publicNetwork:
+      type: com.toscaruntime.openstack.nodes.ExternalNetwork
+      properties:
+        network_name: { get_input: external_network_name}

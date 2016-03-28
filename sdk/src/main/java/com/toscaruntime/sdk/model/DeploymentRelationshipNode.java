@@ -54,6 +54,10 @@ public class DeploymentRelationshipNode {
         return relationshipType;
     }
 
+    public String getRelationshipName() {
+        return relationshipType.getName();
+    }
+
     public void setRelationshipType(Class<? extends tosca.relationships.Root> relationshipType) {
         this.relationshipType = relationshipType;
     }

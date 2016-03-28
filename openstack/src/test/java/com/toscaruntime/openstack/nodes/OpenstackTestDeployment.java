@@ -14,7 +14,7 @@ import com.toscaruntime.util.PropertyUtil;
 public class OpenstackTestDeployment extends Deployment {
 
     @Override
-    protected void initializeNodes() {
+    protected void addNodes() {
         Map<String, Object> propertiesCompute = new HashMap<>();
         propertiesCompute.put("image", "cb6b7936-d2c5-4901-8678-c88b3a6ed84c");
         propertiesCompute.put("flavor", "3");
@@ -34,7 +34,7 @@ public class OpenstackTestDeployment extends Deployment {
         openstackFailSafeConfig.put("wait_between_operation_retry", "5 s");
         propertiesCompute.put("openstack_fail_safe", openstackFailSafeConfig);
         propertiesCompute.put("compute_fail_safe", failSafeConfig);
-        initializeNode("Compute", Compute.class, null, null, propertiesCompute, new HashMap<>());
+        addNode("Compute", Compute.class, null, null, propertiesCompute, new HashMap<>());
 
 
         Map<String, Object> propertiesNetwork = new HashMap<>();
@@ -42,51 +42,17 @@ public class OpenstackTestDeployment extends Deployment {
         propertiesNetwork.put("cidr", "192.168.1.0/24");
         propertiesNetwork.put("dns_name_servers", PropertyUtil.toList("[\"8.8.8.8\"]"));
         propertiesNetwork.put("openstack_fail_safe", openstackFailSafeConfig);
-        initializeNode("Network", Network.class, null, null, propertiesNetwork, new HashMap<>());
+        addNode("Network", Network.class, null, null, propertiesNetwork, new HashMap<>());
 
         Map<String, Object> propertiesExternalNetwork = new HashMap<>();
         propertiesExternalNetwork.put("network_name", "public");
-        initializeNode("ExternalNetwork", ExternalNetwork.class, null, null, propertiesExternalNetwork, new HashMap<>());
+        addNode("ExternalNetwork", ExternalNetwork.class, null, null, propertiesExternalNetwork, new HashMap<>());
 
         Map<String, Object> propertiesVolume = new HashMap<>();
         propertiesVolume.put("size", "1 GIB");
         propertiesVolume.put("openstack_fail_safe", openstackFailSafeConfig);
         propertiesVolume.put("device", "/dev/vdc");
-        initializeNode("Volume", DeletableVolume.class, "Compute", null, propertiesVolume, new HashMap<>());
-
-        setDependencies("Compute", "Network");
-        setDependencies("Compute", "ExternalNetwork");
-        setDependencies("Volume", "Compute");
-    }
-
-    @Override
-    protected void initializeInstances() {
-
-        for (int computeIndex = 1; computeIndex <= 1; computeIndex++) {
-            Compute compute = new Compute();
-            initializeInstance(compute, "Compute", computeIndex, null, null);
-            for (int volumeIndex = 1; volumeIndex <= 1; volumeIndex++) {
-                DeletableVolume volume = new DeletableVolume();
-                initializeInstance(volume, "Volume", volumeIndex, compute, null);
-            }
-        }
-
-        for (int networkIndex = 1; networkIndex <= 1; networkIndex++) {
-            Network network = new Network();
-            initializeInstance(network, "Network", networkIndex, null, null);
-        }
-
-        for (int externalNetworkIndex = 1; externalNetworkIndex <= 1; externalNetworkIndex++) {
-            ExternalNetwork externalNetwork = new ExternalNetwork();
-            initializeInstance(externalNetwork, "ExternalNetwork", externalNetworkIndex, null, null);
-        }
-    }
-
-    @Override
-    protected void initializeRelationshipInstances() {
-        generateRelationshipInstances("Compute", "Network", tosca.relationships.Network.class);
-        generateRelationshipInstances("Compute", "ExternalNetwork", tosca.relationships.Network.class);
-        generateRelationshipInstances("Volume", "Compute", tosca.relationships.AttachTo.class);
+        addNode("Volume", DeletableVolume.class, "Compute", null, propertiesVolume, new HashMap<>());
     }
 
     @Override
@@ -95,10 +61,10 @@ public class OpenstackTestDeployment extends Deployment {
     }
 
     @Override
-    public void initializeRelationships() {
-        generateRelationships("Compute", "Network", new HashMap<>(), tosca.relationships.Network.class);
-        generateRelationships("Compute", "ExternalNetwork", new HashMap<>(), tosca.relationships.Network.class);
-        generateRelationships("Volume", "Compute", new HashMap<>(), tosca.relationships.AttachTo.class);
+    public void addRelationships() {
+        addRelationship("Compute", "Network", new HashMap<>(), tosca.relationships.Network.class);
+        addRelationship("Compute", "ExternalNetwork", new HashMap<>(), tosca.relationships.Network.class);
+        addRelationship("Volume", "Compute", new HashMap<>(), tosca.relationships.AttachTo.class);
     }
 
     public java.util.Map<String, Object> getOutputs() {

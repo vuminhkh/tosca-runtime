@@ -12,6 +12,7 @@ import play.api.test.FakeApplication
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
+import  com.toscaruntime.constant.ExecutionConstant._
 
 class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with ScalaFutures {
 
@@ -79,6 +80,7 @@ class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with Scal
       }
       whenReady(deploymentDAO.saveInstanceAttribute("Compute_error", "public_ip_address", "0.0.0.2").failed) { result => result.isInstanceOf[SQLException] must be(true) }
 
+      whenReady(deploymentDAO.saveOperation("Compute_1", "Standard", "create")) { result => result must be(1) }
       whenReady(deploymentDAO.saveOutput("Compute_1", "Standard", "create", "openstack_id", "great_id")) { result => result must be(1) }
       whenReady(deploymentDAO.getOutputs("Compute_1", "Standard", "create")) { allAttributes =>
         allAttributes must have size 1
@@ -161,6 +163,8 @@ class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with Scal
       }
       whenReady(deploymentDAO.saveRelationshipAttribute("Software_1", "Compute_error", "HostedOn", "install_dir", "/root").failed) { result => result.isInstanceOf[SQLException] must be(true) }
       whenReady(deploymentDAO.saveRelationshipAttribute("Software_error", "Compute_1", "HostedOn", "install_dir", "/root").failed) { result => result.isInstanceOf[SQLException] must be(true) }
+
+      whenReady(deploymentDAO.saveRelationshipOperation("Software_1", "Compute_1", "HostedOn", "Configure", "add_source")) { result => result must be(1)}
       whenReady(deploymentDAO.saveAllRelationshipOutputs("Software_1", "Compute_1", "HostedOn", "Configure", "add_source", Map("install_dir" -> "/opt", "log_dir" -> "/var/log/test"))) { result => result must be(Some(2))}
       whenReady(deploymentDAO.getRelationshipOutputs("Software_1", "Compute_1", "HostedOn", "Configure", "add_source")) { allOutputs =>
         allOutputs must have size 2
@@ -191,7 +195,7 @@ class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with Scal
         allExecutions.head.endTime must be(empty)
         allExecutions.head.error must be(empty)
         allExecutions.head.workflowId must be("install")
-        allExecutions.head.status must be("RUNNING")
+        allExecutions.head.status must be(RUNNING)
         allExecutions.head.id must not be empty
         allExecutions.head.id
       }
@@ -202,7 +206,7 @@ class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with Scal
         allExecutions.head.endTime must not be empty
         allExecutions.head.error must be(empty)
         allExecutions.head.workflowId must be("install")
-        allExecutions.head.status must be("SUCCESS")
+        allExecutions.head.status must be(SUCCESS)
         allExecutions.head.id must not be empty
       }
       val anotherId = whenReady(deploymentDAO.startExecution("custom")) { result =>
@@ -215,8 +219,23 @@ class DAOSpec extends PlaySpec with OneAppPerSuite with BeforeAndAfter with Scal
         allExecutions.head.endTime must not be empty
         allExecutions.head.error must be(empty)
         allExecutions.head.workflowId must be("custom")
-        allExecutions.head.status must be("CANCELED")
+        allExecutions.head.status must be(CANCELED)
         allExecutions.head.id must not be empty
+      }
+    }
+  }
+
+  "DAO" must {
+    "be able to insert and list tasks" in {
+      whenReady(deploymentDAO.insertNodeIfNotExist("Compute", 1)) { result => result must be(1) }
+      whenReady(deploymentDAO.insertInstanceIfNotExist("Compute_1", "Compute", "initial")) { result => result must be(1) }
+      whenReady(deploymentDAO.startExecution("install", Map.empty)) { result => result must not be empty }
+      whenReady(deploymentDAO.insertNewNodeTask("Compute_1", "Standard", "start")) { result => result must be(1) }
+      whenReady(deploymentDAO.getNodeTasks) { allTasks =>
+        allTasks must have size 1
+        allTasks.head.interfaceName must be("Standard")
+        allTasks.head.operationName must be("start")
+        allTasks.head.instanceId must be("Compute_1")
       }
     }
   }

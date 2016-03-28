@@ -38,35 +38,35 @@ public class DeploymentTest {
         try {
             ProviderHook providerHook = new MockProviderHook();
             mockDeployment.initializeConfig("test", Paths.get("."), new HashMap<>(), new HashMap<>(), new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
-            mockDeployment.install().waitForCompletion(2, TimeUnit.MINUTES);
+            mockDeployment.run(mockDeployment.install()).waitForCompletion(2, TimeUnit.MINUTES);
             Set<Root> allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
             Set<Root> allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
             Assert.assertEquals(2, allWebServers.size());
             Assert.assertEquals(2, allJavas.size());
             assertDeployment(mockDeployment);
 
-            mockDeployment.scale("WebServer", 1).waitForCompletion(2, TimeUnit.MINUTES);
+            mockDeployment.run(mockDeployment.scale("WebServer", 1)).waitForCompletion(2, TimeUnit.MINUTES);
             allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
             allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
             Assert.assertEquals(1, allWebServers.size());
             Assert.assertEquals(1, allJavas.size());
             assertDeployment(mockDeployment);
 
-            mockDeployment.scale("WebServer", 3).waitForCompletion(2, TimeUnit.MINUTES);
+            mockDeployment.run(mockDeployment.scale("WebServer", 3)).waitForCompletion(2, TimeUnit.MINUTES);
             allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
             allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
             Assert.assertEquals(3, allWebServers.size());
             Assert.assertEquals(3, allJavas.size());
             assertDeployment(mockDeployment);
 
-            mockDeployment.scale("WebServer", 1).waitForCompletion(2, TimeUnit.MINUTES);
+            mockDeployment.run(mockDeployment.scale("WebServer", 1)).waitForCompletion(2, TimeUnit.MINUTES);
             allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
             allJavas = mockDeployment.getNodeInstancesByNodeName("Java");
             Assert.assertEquals(1, allWebServers.size());
             Assert.assertEquals(1, allJavas.size());
             assertDeployment(mockDeployment);
         } finally {
-            mockDeployment.uninstall().waitForCompletion(2, TimeUnit.MINUTES);
+            mockDeployment.run(mockDeployment.uninstall()).waitForCompletion(2, TimeUnit.MINUTES);
             Assert.assertTrue(mockDeployment.getNodeInstances().isEmpty());
             Assert.assertTrue(mockDeployment.getRelationshipInstances().isEmpty());
         }

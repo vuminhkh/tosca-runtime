@@ -89,7 +89,8 @@ evaluateFunction("get_property","HOST","tomcat_port")));
 
 public void customUpdateWarFile () {
   
-  operationOutputs.put("custom_update_war_file", executeOperation("custom_update_war_file", "tomcat-war-types/scripts/tomcat_install_war.sh"));
+    java.util.Map<String, String> outputs = executeOperation("custom_update_war_file", "tomcat-war-types/scripts/tomcat_install_war.sh");
+    setOperationOutputs("custom", "update_war_file", outputs);
   
   }
 

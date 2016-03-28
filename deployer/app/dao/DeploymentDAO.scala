@@ -5,13 +5,15 @@ import java.util
 import java.util.UUID
 import javax.inject.{Inject, Singleton}
 
-import com.toscaruntime.deployment.DeploymentPersister
+import com.toscaruntime.constant.ExecutionConstant._
+import com.toscaruntime.deployment._
+import com.toscaruntime.util.JavaScalaConversionUtil
 import models._
 import play.api.libs.concurrent.Execution.Implicits.defaultContext
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 import scala.language.postfixOps
 
 @Singleton
@@ -25,7 +27,12 @@ class DeploymentDAO @Inject()(schema: Schema,
                               relationshipAttributeDAO: RelationshipAttributeDAO,
                               relationshipOutputDAO: RelationshipOutputDAO,
                               executionDAO: ExecutionDAO,
-                              executionInputDAO: ExecutionInputDAO) extends DeploymentPersister {
+                              executionInputDAO: ExecutionInputDAO,
+                              operationDAO: OperationDAO,
+                              relationshipOperationDAO: RelationshipOperationDAO,
+                              nodeTaskDAO: NodeTaskDAO,
+                              relationshipTaskDAO: RelationshipTaskDAO,
+                              taskDAO: TaskDAO) extends DeploymentPersister {
 
   private val forever = 365 days
 
@@ -108,6 +115,11 @@ class DeploymentDAO @Inject()(schema: Schema,
   def saveRelationshipOutput(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, key: String, value: String) =
     relationshipOutputDAO.save(RelationshipOperationOutputEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, key, value))
 
+  def saveRelationshipOperation(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String) = {
+    val relationshipOperationEntity = RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName)
+    relationshipOperationDAO.save(relationshipOperationEntity)
+  }
+
   def saveAllRelationshipOutputs(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, outputs: Map[String, String]) =
     relationshipOutputDAO.saveAll(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, outputs)
 
@@ -124,11 +136,17 @@ class DeploymentDAO @Inject()(schema: Schema,
 
   def getExecutionInputs(executionId: String) = executionInputDAO.get(executionId)
 
+  def insertExecutionInputs(inputs: Map[String, Any]) = getRunningExecution.map {
+    case Some(executionEntity) => executionInputDAO.insert(executionEntity.id, inputs)
+  }
+
   def getExecution(executionId: String) = executionDAO.get(executionId)
+
+  def getRunningExecution = executionDAO.getRunningExecution
 
   def startExecution(workflowId: String, inputs: Map[String, Any] = Map.empty) = {
     val uuid = UUID.randomUUID().toString
-    executionDAO.insert(ExecutionEntity(uuid, workflowId, new Timestamp(System.currentTimeMillis()), None, None, "RUNNING"))
+    executionDAO.insert(ExecutionEntity(uuid, workflowId, new Timestamp(System.currentTimeMillis()), None, None, RUNNING))
       .map { _ =>
         executionInputDAO.insert(uuid, inputs)
         uuid
@@ -137,13 +155,69 @@ class DeploymentDAO @Inject()(schema: Schema,
 
   def stopExecution(error: Option[String]) = executionDAO.stop(error)
 
-  def finishRunningExecution() = executionDAO.finish("SUCCESS", None)
+  def finishRunningExecution() = executionDAO.finish(SUCCESS, None)
 
   def resumeRunningExecution() = executionDAO.resume()
 
-  def failRunningExecution(error: String) = executionDAO.finish("FAILURE", Some(error))
+  def failRunningExecution(error: String) = executionDAO.finish(FAILURE, Some(error))
 
-  def cancelRunningExecution() = executionDAO.finish("CANCELED", None)
+  def cancelRunningExecution() = executionDAO.finish(CANCELED, None)
+
+  def saveOperation(instanceId: String, interfaceName: String, operationName: String) = {
+    operationDAO.save(OperationEntity(instanceId, interfaceName, operationName))
+  }
+
+  def insertNewNodeTask(instanceId: String, interfaceName: String, operationName: String): Future[Int] = {
+    val operation = OperationEntity(instanceId, interfaceName, operationName)
+    operationDAO.save(operation).flatMap { _ =>
+      nodeTaskDAO.insertNewTask(operation)
+    }
+  }
+
+  def startNodeTask(instanceId: String, interfaceName: String, operationName: String) = {
+    nodeTaskDAO.startTask(OperationEntity(instanceId, interfaceName, operationName))
+  }
+
+  def finishNodeTask(instanceId: String, interfaceName: String, operationName: String) = {
+    nodeTaskDAO.finishTask(OperationEntity(instanceId, interfaceName, operationName))
+  }
+
+  def stopNodeTask(instanceId: String, interfaceName: String, operationName: String, error: String) = {
+    nodeTaskDAO.stopTask(OperationEntity(instanceId, interfaceName, operationName), error)
+  }
+
+  def insertNewTask(taskId: String): Future[Int] = taskDAO.insertNewTask(taskId)
+
+  def startTask(taskId: String) = taskDAO.startTask(taskId)
+
+  def finishTask(taskId: String) = taskDAO.finishTask(taskId)
+
+  def stopTask(taskId: String, error: String) = taskDAO.stopTask(taskId, error)
+
+  def insertNewRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String) = {
+    val operation = RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName)
+    relationshipOperationDAO.save(operation).map { _ =>
+      relationshipTaskDAO.insertNewTask(operation)
+    }
+  }
+
+  def startRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String) = {
+    relationshipTaskDAO.startTask(RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName))
+  }
+
+  def finishRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String) = {
+    relationshipTaskDAO.finishTask(RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName))
+  }
+
+  def stopRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, error: String) = {
+    relationshipTaskDAO.stopTask(RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName), error)
+  }
+
+  def getNodeTasks = nodeTaskDAO.getRunningExecutionTasks
+
+  def getRelationshipTasks = relationshipTaskDAO.getRunningExecutionTasks
+
+  def getTasks = taskDAO.getRunningExecutionTasks
 
   override def syncInsertNodeIfNotExist(id: String, instancesCount: Int): Unit = Await.result(insertNodeIfNotExist(id, instancesCount), forever)
 
@@ -198,4 +272,65 @@ class DeploymentDAO @Inject()(schema: Schema,
   override def syncDeleteInstanceAttribute(instanceId: String, key: String): Unit = Await.result(attributeDAO.delete(instanceId, key), forever)
 
   override def syncDeleteRelationshipAttribute(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, key: String): Unit = Await.result(relationshipAttributeDAO.delete(sourceInstanceId, targetInstanceId, relationshipType, key), forever)
+
+  override def syncInsertNewNodeTask(instanceId: String, interfaceName: String, operationName: String): Unit = Await.result(insertNewNodeTask(instanceId, interfaceName, operationName), forever)
+
+  override def syncStopNodeTask(instanceId: String, interfaceName: String, operationName: String, error: String): Unit = Await.result(stopNodeTask(instanceId, interfaceName, operationName, error), forever)
+
+  override def syncFinishNodeTask(instanceId: String, interfaceName: String, operationName: String): Unit = Await.result(finishNodeTask(instanceId, interfaceName, operationName), forever)
+
+  override def syncStartNodeTask(instanceId: String, interfaceName: String, operationName: String): Unit = Await.result(startNodeTask(instanceId, interfaceName, operationName), forever)
+
+  override def syncInsertNewRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String): Unit = Await.result(insertNewRelationshipTask(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName), forever)
+
+  override def syncFinishRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String): Unit = Await.result(finishRelationshipTask(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName), forever)
+
+  override def syncStopRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, error: String): Unit = Await.result(stopRelationshipTask(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, error), forever)
+
+  override def syncStartRelationshipTask(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String): Unit = Await.result(startRelationshipTask(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName), forever)
+
+  override def syncGetRunningExecution(): RunningExecutionDTO = Await.result(getRunningExecution.flatMap {
+    _.map { executionEntity =>
+      val workflowId = executionEntity.workflowId
+      executionInputDAO.get(executionEntity.id).map { inputs =>
+        new RunningExecutionDTO(workflowId, JavaScalaConversionUtil.toJavaMap(inputs))
+      }
+    }.getOrElse(Future.successful(null))
+  }, forever)
+
+  override def syncGetRunningExecutionNodeTasks(): util.Map[NodeTaskDTO, String] = Await.result(getNodeTasks.map { nodeTasks =>
+    nodeTasks.map { nodeTask =>
+      (new NodeTaskDTO(nodeTask.instanceId, nodeTask.interfaceName, nodeTask.operationName), nodeTask.status)
+    }.toMap.asJava
+  }, forever)
+
+  override def syncGetRunningExecutionRelationshipTasks(): util.Map[RelationshipTaskDTO, String] = Await.result(getRelationshipTasks.map { relationshipTasks =>
+    relationshipTasks.map { relationshipTask =>
+      (new RelationshipTaskDTO(relationshipTask.sourceInstanceId, relationshipTask.targetInstanceId, relationshipTask.relationshipType, relationshipTask.interfaceName, relationshipTask.operationName), relationshipTask.status)
+    }.toMap.asJava
+  }, forever)
+
+  override def syncInsertNewTask(taskId: String): Unit = Await.result(insertNewTask(taskId), forever)
+
+  override def syncFinishTask(taskId: String): Unit = Await.result(finishTask(taskId), forever)
+
+  override def syncStopTask(taskId: String, error: String): Unit = Await.result(stopTask(taskId, error), forever)
+
+  override def syncStartTask(taskId: String): Unit = Await.result(startTask(taskId), forever)
+
+  override def syncGetRunningExecutionTasks(): util.Map[TaskDTO, String] = Await.result(getTasks.map { tasks =>
+    tasks.map { task =>
+      (new TaskDTO(task.taskId), task.status)
+    }.toMap.asJava
+  }, forever)
+
+  override def syncInsertExecutionInputs(inputs: util.Map[String, AnyRef]): Unit = Await.result(insertExecutionInputs(JavaScalaConversionUtil.toScalaMap(inputs)), forever)
+
+  override def syncFinishRunningExecution(): Unit = Await.result(finishRunningExecution(), forever)
+
+  override def syncStopRunningExecution(error: String): Unit = Await.result(stopExecution(Some(error)), forever)
+
+  override def syncStopRunningExecution(): Unit = Await.result(stopExecution(None), forever)
+
+  override def syncCancelRunningExecution(): Unit = Await.result(cancelRunningExecution(), forever)
 }

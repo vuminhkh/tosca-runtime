@@ -35,7 +35,8 @@ evaluateFunction("get_property","TARGET","tomcat_port")));
 
 public void postConfigureSource () {
   
-  operationOutputs.put("post_configure_source", executeOperation("post_configure_source", "tomcat-war-types/scripts/tomcat_install_war.sh"));
+    java.util.Map<String, String> outputs = executeOperation("post_configure_source", "tomcat-war-types/scripts/tomcat_install_war.sh");
+    setOperationOutputs("Configure", "post_configure_source", outputs);
   
   }
 

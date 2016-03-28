@@ -11,7 +11,7 @@ import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException
 import com.toscaruntime.rest.model._
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.sdk.Deployment
-import com.toscaruntime.sdk.workflow.WorkflowExecutionListener
+import com.toscaruntime.sdk.workflow.Listener
 import com.toscaruntime.util.JavaScalaConversionUtil
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
@@ -79,15 +79,16 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
               case "uninstall" => deployment.uninstall()
               case "teardown_infrastructure" => deployment.teardown()
               case "scale" =>
-                if (workflowExecutionRequest.inputs.get("nodeId").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for scale workflow")
-                if (workflowExecutionRequest.inputs.get("newInstancesCount").isEmpty) throw new InvalidWorkflowException("Missing 'newInstancesCount' input for scale workflow")
-                val nodeId = workflowExecutionRequest.inputs("nodeId")
+                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for scale workflow")
+                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowException("Missing 'newInstancesCount' input for scale workflow")
+                val nodeId = workflowExecutionRequest.inputs("node_id")
                 if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowException("'nodeId' input is not of type string for scale workflow")
-                val newInstancesCount = workflowExecutionRequest.inputs("newInstancesCount")
+                val newInstancesCount = workflowExecutionRequest.inputs("new_instances_count")
                 if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowException("'newInstancesCount' input is not of type integer for scale workflow")
                 deployment.scale(nodeId.asInstanceOf[String], newInstancesCount.asInstanceOf[BigDecimal].toInt)
               case _ => throw new InvalidWorkflowException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
             }
+            deployment.run(workflowExecution)
             (executionId, workflowExecution)
           } catch {
             case e: Exception =>
@@ -97,30 +98,6 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
         }.map {
           case (executionId, workflowExecution) =>
             log.info(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
-            workflowExecution.addListener(new WorkflowExecutionListener {
-              override def onFinish(): Unit = {
-                deploymentDAO.finishRunningExecution()
-                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has finished successfully")
-              }
-
-              override def onFailure(errors: java.util.Collection[Throwable]): Unit = {
-                val errorMessages = errors.asScala.map(e => {
-                  log.info(s"Execution $executionId has been stopped for ${workflowExecutionRequest.workflowId} workflow due to error", e)
-                  e.getMessage
-                })
-                deploymentDAO.stopExecution(Some(errorMessages.mkString(",")))
-              }
-
-              override def onStop(): Unit = {
-                deploymentDAO.stopExecution(None)
-                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has been paused successfully")
-              }
-
-              override def onCancel(): Unit = {
-                deploymentDAO.cancelRunningExecution()
-                log.info(s"Execution $executionId for ${workflowExecutionRequest.workflowId} workflow has been cancelled successfully")
-              }
-            })
             Ok(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
         }.recoverWith {
           case e: BadUsageException =>
@@ -139,7 +116,9 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
       deployment.cancel(force)
       Ok(s"Execution has been cancelled")
     } catch {
-      case e: RunningExecutionNotFound => BadRequest("No running execution is found to be cancelled")
+      case e: RunningExecutionNotFound =>
+        deploymentDAO.cancelRunningExecution()
+        BadRequest("No running execution is found to be cancelled")
     }
   }
 
@@ -161,6 +140,15 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
     try {
       deployment.stop(force)
       Ok("Execution has been stopped")
+    } catch {
+      case e: RunningExecutionNotFound => BadRequest("No running execution is found to be stopped")
+    }
+  }
+
+  def updateRecipe() = Action { implicit request =>
+    try {
+      deployment.updateRecipe()
+      Ok("Recipe has been updated")
     } catch {
       case e: RunningExecutionNotFound => BadRequest("No running execution is found to be stopped")
     }

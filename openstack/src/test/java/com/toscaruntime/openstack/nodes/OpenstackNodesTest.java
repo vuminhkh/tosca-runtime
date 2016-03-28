@@ -36,7 +36,7 @@ public class OpenstackNodesTest {
                 .put("tenant", "facebook1389662728").build();
         testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
         try {
-            testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
+            testDeployment.run(testDeployment.install()).waitForCompletion(15, TimeUnit.MINUTES);
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();
             Assert.assertNotNull(compute.getAttributeAsString("public_ip_address"));
             Assert.assertNotNull(compute.getAttributeAsString("ip_address"));
@@ -72,7 +72,7 @@ public class OpenstackNodesTest {
                 // It's what's expected
             }
         } finally {
-            testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
+            testDeployment.run(testDeployment.uninstall()).waitForCompletion(15, TimeUnit.MINUTES);
         }
     }
 }

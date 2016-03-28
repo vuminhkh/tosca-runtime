@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.relationships.RemoveSourceTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.RemoveTargetTask;
 
@@ -17,9 +16,9 @@ public class RelationshipUninstallLifeCycleTasks extends AbstractLifeCycleTasks 
 
     private AbstractTask removeTargetTask;
 
-    public RelationshipUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        this.removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
-        this.removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public RelationshipUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        this.removeSourceTask = new RemoveSourceTask(nodeInstances, relationshipInstances, relationshipInstance);
+        this.removeTargetTask = new RemoveTargetTask(nodeInstances, relationshipInstances, relationshipInstance);
     }
 
     public RelationshipUninstallLifeCycleTasks(AbstractTask removeSourceTask, AbstractTask removeTargetTask) {

@@ -23,10 +23,6 @@ public class DeploymentNode {
 
     private Set<String> children = new HashSet<>();
 
-    private Set<String> dependsOnNodes = new HashSet<>();
-
-    private Set<String> dependedByNodes = new HashSet<>();
-
     private Map<String, Object> properties = new HashMap<>();
 
     private Map<String, Map<String, Object>> capabilitiesProperties = new HashMap<>();
@@ -135,22 +131,6 @@ public class DeploymentNode {
 
     public void setChildren(Set<String> children) {
         this.children = children;
-    }
-
-    public Set<String> getDependsOnNodes() {
-        return dependsOnNodes;
-    }
-
-    public void setDependsOnNodes(Set<String> dependsOnNodes) {
-        this.dependsOnNodes = dependsOnNodes;
-    }
-
-    public Set<String> getDependedByNodes() {
-        return dependedByNodes;
-    }
-
-    public void setDependedByNodes(Set<String> dependedByNodes) {
-        this.dependedByNodes = dependedByNodes;
     }
 
     public void setDeployment(Deployment deployment) {

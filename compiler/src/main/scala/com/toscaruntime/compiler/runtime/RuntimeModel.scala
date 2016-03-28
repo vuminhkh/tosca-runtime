@@ -66,12 +66,13 @@ case class ListValue(value: String) extends StaticValue
 
 case class ComplexValue(value: String) extends StaticValue
 
-case class Method(interface: String,
+case class Method(interfaceName: String,
                   operation: String,
                   // One of StaticValue, Function or CompositeFunction
                   inputs: Map[String, Value],
                   implementation: Option[String]) {
-  def name = CodeGeneratorUtil.getGeneratedMethodName(interface, operation)
+  val interface = CodeGeneratorUtil.normalizeInterfaceName(interfaceName)
+  val name = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operation)
 }
 
 case class Deployment(nodes: Seq[Node],
@@ -89,10 +90,8 @@ class Node(var name: String,
            var capabilityProperties: Map[String, Map[String, Value]],
            var host: Option[Node] = None,
            var parent: Option[Node] = None,
-           var children: Seq[Node] = Seq.empty,
-           var dependencies: Seq[Node] = Seq.empty) {
-
-  def javaIdentifier = CompilerUtil.escapeJavaIdentifier(name)
+           var children: Seq[Node] = Seq.empty) {
+  val javaIdentifier = CompilerUtil.escapeJavaIdentifier(name)
 }
 
 class Relationship(var source: Node,

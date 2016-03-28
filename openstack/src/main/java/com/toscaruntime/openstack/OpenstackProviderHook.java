@@ -132,7 +132,6 @@ public class OpenstackProviderHook extends AbstractProviderHook {
          */
         networkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, false);
         externalNetworkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, true);
-        postConstructInstances(deployment.getNodeInstances(), deployment.getRelationshipInstances());
     }
 
     @Override

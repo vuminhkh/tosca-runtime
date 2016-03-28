@@ -40,8 +40,6 @@ public abstract class Root extends AbstractRuntimeType {
 
     private Map<String, Map<String, Object>> capabilitiesProperties;
 
-    private Set<Root> children = new HashSet<>();
-
     private Set<DeploymentRelationshipNode> preConfiguredRelationshipNodes = Collections.synchronizedSet(new HashSet<>());
 
     private Set<DeploymentRelationshipNode> postConfiguredRelationshipNodes = Collections.synchronizedSet(new HashSet<>());
@@ -60,14 +58,6 @@ public abstract class Root extends AbstractRuntimeType {
 
     public void setCapabilitiesProperties(Map<String, Map<String, Object>> capabilitiesProperties) {
         this.capabilitiesProperties = capabilitiesProperties;
-    }
-
-    public Set<Root> getChildren() {
-        return children;
-    }
-
-    public void setChildren(Set<Root> children) {
-        this.children = children;
     }
 
     public void setName(String name) {

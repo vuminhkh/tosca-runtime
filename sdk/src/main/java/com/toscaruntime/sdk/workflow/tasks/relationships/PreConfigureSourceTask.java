@@ -3,16 +3,16 @@ package com.toscaruntime.sdk.workflow.tasks.relationships;
 import java.util.Map;
 import java.util.Set;
 
+import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class PreConfigureSourceTask extends AbstractRelationshipTask {
 
-    public PreConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance, WorkflowExecution workflowExecution) {
-        super(nodeInstances, relationshipInstances, relationshipInstance, workflowExecution);
+    public PreConfigureSourceTask(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
+        super(nodeInstances, relationshipInstances, relationshipInstance);
     }
 
     @Override
@@ -21,6 +21,16 @@ public class PreConfigureSourceTask extends AbstractRelationshipTask {
             relationshipInstance.preConfigureSource();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.PRE_CONFIGURING, RelationshipInstanceState.PRE_CONFIGURED);
         }
+    }
+
+    @Override
+    public String getInterfaceName() {
+        return ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE;
+    }
+
+    @Override
+    public String getOperationName() {
+        return ToscaInterfaceConstant.PRE_CONFIGURE_SOURCE_OPERATION;
     }
 
     @Override

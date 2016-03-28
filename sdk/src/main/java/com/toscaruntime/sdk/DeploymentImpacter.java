@@ -22,20 +22,6 @@ public class DeploymentImpacter {
 
     private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
 
-    private Root createNewInstance(Deployment deployment, DeploymentNode node, Root newInstanceParent, int index) {
-        try {
-            Root newInstance = node.getType().newInstance();
-            Root newInstanceHost = null;
-            if (newInstanceParent != null && node.getHost() != null && newInstanceParent.getName().equals(node.getHost())) {
-                newInstanceHost = newInstanceParent;
-            }
-            deploymentInitializer.initializeInstance(newInstance, deployment, node.getId(), index, newInstanceParent, newInstanceHost);
-            return newInstance;
-        } catch (Exception e) {
-            throw new InvalidDeploymentStateException("Could not create new instance of type " + node.getType(), e);
-        }
-    }
-
     private Root getDeletedInstance(Set<Root> instances, String name, int index) {
         for (Root instance : instances) {
             if (instance.getIndex() == index) {
@@ -50,7 +36,7 @@ public class DeploymentImpacter {
         deploymentModification.getInstancesToDelete().put(toBeDeleted.getId(), toBeDeleted);
         deploymentModification.getRelationshipInstancesToDelete().addAll(deployment.getRelationshipInstanceBySourceId(toBeDeleted.getId()));
         deploymentModification.getRelationshipInstancesToDelete().addAll(deployment.getRelationshipInstanceByTargetId(toBeDeleted.getId()));
-        for (Root child : toBeDeleted.getChildren()) {
+        for (Root child : deployment.getChildren(toBeDeleted)) {
             deploymentModification.merge(deleteInstanceTree(child, deployment));
         }
         return deploymentModification;
@@ -59,7 +45,7 @@ public class DeploymentImpacter {
     private DeploymentAddInstancesModification createNewInstanceTree(Deployment deployment, DeploymentNode node, Root parentInstance, int index) {
         DeploymentAddInstancesModification deploymentModification = new DeploymentAddInstancesModification();
         deploymentModification.getImpactedNodesByAddition().add(node);
-        Root newInstance = createNewInstance(deployment, node, parentInstance, index);
+        Root newInstance = deploymentInitializer.createInstance(deployment, node, parentInstance, index);
         deploymentModification.getInstancesToAdd().put(newInstance.getId(), newInstance);
 
         // Get all relationship nodes which have the node as source

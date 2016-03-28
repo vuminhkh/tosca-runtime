@@ -78,19 +78,22 @@ evaluateFunction("get_property","SELF","tomcat_home")));
 
 public void create () {
   
-  operationOutputs.put("create", executeOperation("create", "tomcat-war-types/scripts/tomcat_install.sh"));
+    java.util.Map<String, String> outputs = executeOperation("create", "tomcat-war-types/scripts/tomcat_install.sh");
+    setOperationOutputs("Standard", "create", outputs);
   
   }
 
 public void start () {
   
-  operationOutputs.put("start", executeOperation("start", "tomcat-war-types/scripts/tomcat_start.sh"));
+    java.util.Map<String, String> outputs = executeOperation("start", "tomcat-war-types/scripts/tomcat_start.sh");
+    setOperationOutputs("Standard", "start", outputs);
   
   }
 
 public void stop () {
   
-  operationOutputs.put("stop", executeOperation("stop", "tomcat-war-types/scripts/tomcat_stop.sh"));
+    java.util.Map<String, String> outputs = executeOperation("stop", "tomcat-war-types/scripts/tomcat_stop.sh");
+    setOperationOutputs("Standard", "stop", outputs);
   
   }
 

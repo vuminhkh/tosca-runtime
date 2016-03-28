@@ -69,7 +69,12 @@ public class Container extends Compute {
         this.containerId = getAttributeAsString("provider_resource_id");
         this.ipAddress = getAttributeAsString("ip_address");
         this.dockerHostIP = getAttributeAsString("public_ip_address");
-        dockerExecutor = new DockerExecutor(dockerClient, containerId);
+        this.dockerExecutor = new DockerExecutor(dockerClient, containerId);
+    }
+
+    @Override
+    public void uploadRecipe() {
+        dockerExecutor.upload(this.config.getArtifactsPath().toString(), getPropertyAsString("recipe_location", RECIPE_LOCATION));
     }
 
     private String getImageId() {
@@ -180,7 +185,7 @@ public class Container extends Compute {
         for (Map.Entry<java.lang.String, NetworkSettings.Network> networkEntry : response.getNetworkSettings().getNetworks().entrySet()) {
             ipAddresses.put(networkEntry.getKey(), networkEntry.getValue().getIpAddress());
         }
-        dockerExecutor.upload(this.config.getArtifactsPath().toString(), getPropertyAsString("recipe_location", RECIPE_LOCATION));
+        uploadRecipe();
         setAttribute("ip_addresses", ipAddresses);
         setAttribute("ip_address", ipAddress);
         setAttribute("public_ip_address", dockerHostIP);

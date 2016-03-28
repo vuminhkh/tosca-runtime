@@ -3,6 +3,7 @@ package dao
 import java.sql.Timestamp
 import javax.inject.{Inject, Singleton}
 
+import com.toscaruntime.constant.ExecutionConstant._
 import com.toscaruntime.exception.deployment.execution.ConcurrentWorkflowExecutionException
 import models.ExecutionEntity
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
@@ -46,6 +47,10 @@ class ExecutionDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvi
 
   def all(): Future[Seq[ExecutionEntity]] = db.run(Executions.sortBy(_.endTime.desc.nullsFirst).result)
 
+  def getRunningExecution: Future[Option[ExecutionEntity]] = {
+    db.run(Executions.filter(_.endTime.isEmpty).result.headOption)
+  }
+
   def insert(executionEntity: ExecutionEntity): Future[Int] = {
     val insertAction = Executions.filter { execution =>
       execution.endTime.isEmpty
@@ -60,11 +65,11 @@ class ExecutionDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvi
   }
 
   def stop(error: Option[String]) = {
-    db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update(("STOPPED", error)))
+    db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update((STOPPED, error)))
   }
 
   def resume() = {
-    db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update(("RUNNING", None)))
+    db.run(Executions.filter(_.endTime.isEmpty).map { ex => (ex.status, ex.error) }.update((RUNNING, None)))
   }
 
   def finish(status: String, error: Option[String]) = {

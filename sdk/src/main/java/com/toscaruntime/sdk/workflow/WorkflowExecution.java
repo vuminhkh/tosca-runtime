@@ -19,13 +19,27 @@ import org.apache.commons.lang.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.toscaruntime.constant.ExecutionConstant;
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.deployment.NodeTaskDTO;
+import com.toscaruntime.deployment.RelationshipTaskDTO;
+import com.toscaruntime.deployment.TaskDTO;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowCommandException;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
+import com.toscaruntime.sdk.workflow.tasks.AbstractGenericTask;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
+import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
+import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
+
+import tosca.relationships.Root;
 
 public class WorkflowExecution {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecution.class);
+
+    private String workflowId;
+
+    private Set<AbstractTask> totalTasks = new HashSet<>();
 
     private Set<AbstractTask> tasksLeft = new HashSet<>();
 
@@ -43,28 +57,77 @@ public class WorkflowExecution {
 
     private boolean isStoppedByError = false;
 
-    private List<WorkflowExecutionListener> listeners = new ArrayList<>();
+    private List<Listener> listeners = new ArrayList<>();
 
     private ExecutorService executorService;
 
-    public WorkflowExecution(ExecutorService executorService) {
+    private DeploymentPersister deploymentPersister;
+
+    public WorkflowExecution(String workflowId, ExecutorService executorService, DeploymentPersister deploymentPersister) {
+        this.workflowId = workflowId;
         this.executorService = executorService;
+        this.deploymentPersister = deploymentPersister;
+    }
+
+    public String getWorkflowId() {
+        return workflowId;
     }
 
     public ReentrantLock getLock() {
         return lock;
     }
 
+    /**
+     * Perform initial loads from persistence to take into account only non executed tasks
+     *
+     * @param nodeTaskDTOs         map of node task to task status
+     * @param relationshipTaskDTOs map of relationship task to task status
+     * @param taskDTOs             map of generic task to task status
+     */
+    public void initialLoad(Map<NodeTaskDTO, String> nodeTaskDTOs, Map<RelationshipTaskDTO, String> relationshipTaskDTOs, Map<TaskDTO, String> taskDTOs) {
+        // Filter already finished tasks
+        Set<AbstractTask> allToBeRun = tasksLeft.stream().filter(task -> {
+            if (task instanceof AbstractNodeTask) {
+                AbstractNodeTask nodeTask = (AbstractNodeTask) task;
+                return !nodeTaskDTOs.get(new NodeTaskDTO(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName())).equals(ExecutionConstant.SUCCESS);
+            } else if (task instanceof AbstractRelationshipTask) {
+                AbstractRelationshipTask relationshipTask = (AbstractRelationshipTask) task;
+                Root relationship = relationshipTask.getRelationshipInstance();
+                return !relationshipTaskDTOs.get(new RelationshipTaskDTO(relationship.getSource().getId(), relationship.getTarget().getId(), relationship.getNode().getRelationshipName(), relationshipTask.getInterfaceName(), relationshipTask.getOperationName())).equals(ExecutionConstant.SUCCESS);
+            } else {
+                AbstractGenericTask genericTask = (AbstractGenericTask) task;
+                return !taskDTOs.get(new TaskDTO(genericTask.getTaskId())).equals(ExecutionConstant.SUCCESS);
+            }
+        }).collect(Collectors.toSet());
+        allToBeRun.stream().forEach(toBeRun -> {
+            // Filter out tasks that has already finished from the dependencies
+            Set<AbstractTask> toBeRunDependencies = toBeRun.getDependsOnTasks().stream().filter(allToBeRun::contains).collect(Collectors.toSet());
+            toBeRun.setDependsOnTasks(toBeRunDependencies);
+        });
+        tasksLeft = allToBeRun;
+    }
+
     public void onTaskFailure(AbstractTask errorTask, Throwable t) {
         try {
             lock.lock();
-            if (errorTask != null) {
-                if (tasksRunning.remove(errorTask) == null) {
-                    log.warn("Notified of errors of unknown task {}", errorTask);
+            if (tasksRunning.remove(errorTask) == null) {
+                log.warn("Notified of errors of unknown task {}", errorTask);
+            } else {
+                if (deploymentPersister != null) {
+                    if (errorTask instanceof AbstractNodeTask) {
+                        AbstractNodeTask nodeTask = (AbstractNodeTask) errorTask;
+                        deploymentPersister.syncStopNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName(), t.getMessage());
+                    } else if (errorTask instanceof AbstractRelationshipTask) {
+                        AbstractRelationshipTask relationshipTask = (AbstractRelationshipTask) errorTask;
+                        Root relationship = relationshipTask.getRelationshipInstance();
+                        deploymentPersister.syncStopRelationshipTask(relationship.getSource().getId(), relationship.getTarget().getId(), relationship.getNode().getRelationshipName(), relationshipTask.getInterfaceName(), relationshipTask.getOperationName(), t.getMessage());
+                    } else {
+                        deploymentPersister.syncStopTask(((AbstractGenericTask) errorTask).getTaskId(), t.getMessage());
+                    }
                 }
-                if (tasksInError.put(errorTask, t) != null) {
-                    log.warn("Notified more than once of errors task {}", errorTask);
-                }
+            }
+            if (tasksInError.put(errorTask, t) != null) {
+                log.warn("Notified more than once of errors task {}", errorTask);
             }
             if (tryFinishingExecution()) {
                 finishedCondition.signalAll();
@@ -79,6 +142,19 @@ public class WorkflowExecution {
             lock.lock();
             if (tasksRunning.remove(completedTask) == null) {
                 log.warn("Notified of completion of unknown task {}", completedTask);
+            } else {
+                if (deploymentPersister != null) {
+                    if (completedTask instanceof AbstractNodeTask) {
+                        AbstractNodeTask nodeTask = (AbstractNodeTask) completedTask;
+                        deploymentPersister.syncFinishNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName());
+                    } else if (completedTask instanceof AbstractRelationshipTask) {
+                        AbstractRelationshipTask relationshipTask = (AbstractRelationshipTask) completedTask;
+                        Root relationship = relationshipTask.getRelationshipInstance();
+                        deploymentPersister.syncFinishRelationshipTask(relationship.getSource().getId(), relationship.getTarget().getId(), relationship.getNode().getRelationshipName(), relationshipTask.getInterfaceName(), relationshipTask.getOperationName());
+                    } else {
+                        deploymentPersister.syncFinishTask(((AbstractGenericTask) completedTask).getTaskId());
+                    }
+                }
             }
             if (tryFinishingExecution()) {
                 finishedCondition.signalAll();
@@ -102,13 +178,13 @@ public class WorkflowExecution {
             return true;
         } else if (isInterrupted) {
             long numberOfTasksInterrupted = tasksInError.values().stream().filter(error -> ExceptionUtils.indexOfType(error, InterruptedException.class) > -1).count();
-            log.info("Execution has been stopped, number of tasks not executed {}, number of tasks interrupted {}, number of tasks in error {}", tasksLeft.size(), numberOfTasksInterrupted, tasksInError.values().size() - numberOfTasksInterrupted);
+            log.info("Execution of workflow {} has been stopped, number of tasks not executed {}, number of tasks interrupted {}, number of tasks in error {}, total number of tasks {}", workflowId, tasksLeft.size(), numberOfTasksInterrupted, tasksInError.values().size() - numberOfTasksInterrupted, totalTasks.size());
             listeners.forEach(this::notifyInterruptedToListener);
             tasksLeft.addAll(tasksInError.keySet());
             tasksInError.clear();
             return true;
         } else if (!tasksInError.isEmpty()) {
-            log.info("Execution has been stopped by error, number of tasks not executed {}, number of tasks in error {}", tasksLeft.size(), tasksInError.values().size());
+            log.info("Execution of workflow {} has been stopped by error, number of tasks not executed {}, number of tasks in error {}, total number of tasks {}", workflowId, tasksLeft.size(), tasksInError.values().size(), totalTasks.size());
             listeners.forEach(listener -> notifyErrorToListener(listener, tasksInError.values()));
             isStoppedByError = true;
             tasksLeft.addAll(tasksInError.keySet());
@@ -123,7 +199,7 @@ public class WorkflowExecution {
         }
     }
 
-    private void notifyCompletionToListener(WorkflowExecutionListener listener) {
+    private void notifyCompletionToListener(Listener listener) {
         try {
             listener.onFinish();
         } catch (Throwable e) {
@@ -131,7 +207,7 @@ public class WorkflowExecution {
         }
     }
 
-    private void notifyErrorToListener(WorkflowExecutionListener listener, Collection<Throwable> errors) {
+    private void notifyErrorToListener(Listener listener, Collection<Throwable> errors) {
         try {
             listener.onFailure(errors);
         } catch (Throwable fe) {
@@ -139,7 +215,7 @@ public class WorkflowExecution {
         }
     }
 
-    private void notifyInterruptedToListener(WorkflowExecutionListener listener) {
+    private void notifyInterruptedToListener(Listener listener) {
         try {
             listener.onStop();
         } catch (Throwable fe) {
@@ -147,7 +223,7 @@ public class WorkflowExecution {
         }
     }
 
-    private void notifyCancelledToListener(WorkflowExecutionListener listener) {
+    private void notifyCancelledToListener(Listener listener) {
         try {
             listener.onCancel();
         } catch (Throwable fe) {
@@ -155,7 +231,7 @@ public class WorkflowExecution {
         }
     }
 
-    public void addListener(WorkflowExecutionListener listener) {
+    public void addListener(Listener listener) {
         try {
             lock.lock();
             listeners.add(listener);
@@ -191,6 +267,12 @@ public class WorkflowExecution {
 
     public void addTasks(List<AbstractTask> tasks) {
         tasksLeft.addAll(tasks);
+        totalTasks.addAll(tasks);
+        tasks.stream().forEach(task -> task.setWorkflowExecution(this));
+    }
+
+    public Set<AbstractTask> getTasksLeft() {
+        return tasksLeft;
     }
 
     private void doLaunch(Set<AbstractTask> tasksToRun) {
@@ -215,6 +297,18 @@ public class WorkflowExecution {
                 }
             } else {
                 tasksCanBeRun.stream().forEach(task -> {
+                    if (deploymentPersister != null) {
+                        if (task instanceof AbstractNodeTask) {
+                            AbstractNodeTask nodeTask = (AbstractNodeTask) task;
+                            deploymentPersister.syncStartNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName());
+                        } else if (task instanceof AbstractRelationshipTask) {
+                            AbstractRelationshipTask relationshipTask = (AbstractRelationshipTask) task;
+                            Root relationship = relationshipTask.getRelationshipInstance();
+                            deploymentPersister.syncStartRelationshipTask(relationship.getSource().getId(), relationship.getTarget().getId(), relationship.getNode().getRelationshipName(), relationshipTask.getInterfaceName(), relationshipTask.getOperationName());
+                        } else {
+                            deploymentPersister.syncStartTask(((AbstractGenericTask) task).getTaskId());
+                        }
+                    }
                     if (!tasksLeft.remove(task)) {
                         log.error("Running unknown task {}", task);
                     }
@@ -228,6 +322,24 @@ public class WorkflowExecution {
         }
     }
 
+    public void persist() {
+        // Persist tasks when they are added to the execution
+        if (deploymentPersister != null) {
+            for (AbstractTask task : totalTasks) {
+                if (task instanceof AbstractNodeTask) {
+                    AbstractNodeTask nodeTask = (AbstractNodeTask) task;
+                    deploymentPersister.syncInsertNewNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName());
+                } else if (task instanceof AbstractRelationshipTask) {
+                    AbstractRelationshipTask relationshipTask = (AbstractRelationshipTask) task;
+                    Root relationship = relationshipTask.getRelationshipInstance();
+                    deploymentPersister.syncInsertNewRelationshipTask(relationship.getSource().getId(), relationship.getTarget().getId(), relationship.getNode().getRelationshipName(), relationshipTask.getInterfaceName(), relationshipTask.getOperationName());
+                } else {
+                    deploymentPersister.syncInsertNewTask(((AbstractGenericTask) task).getTaskId());
+                }
+            }
+        }
+    }
+
     public void launch() {
         doLaunch(tasksLeft);
     }
@@ -235,7 +347,7 @@ public class WorkflowExecution {
     public void resume() {
         try {
             lock.lock();
-            log.info("Trying to resume execution of workflow");
+            log.info("Trying to resume execution of workflow {}", workflowId);
             isInterrupted = false;
             isStoppedByError = false;
             launch();

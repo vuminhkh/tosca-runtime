@@ -11,7 +11,7 @@ import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContaine
 import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
 import com.toscaruntime.exception.UnexpectedException
-import com.toscaruntime.exception.client.{AgentNotRunningException, DaemonResourcesNotFoundException}
+import com.toscaruntime.exception.client.{AgentNotRunningException, DaemonResourcesNotFoundException, InvalidArgumentException}
 import com.toscaruntime.rest.model.DeploymentInfoDTO
 import com.toscaruntime.util.{DockerUtil, FileUtil, JavaScalaConversionUtil, PathUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
@@ -130,6 +130,16 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
     dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(s"toscaruntime/deployment_$deploymentId").withNoCache(true).exec(new BuildImageResultCallback)
   }
 
+  def updateAgentRecipe(deploymentId: String, recipePath: Path) = {
+    val containerId = getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId
+    if (!Files.isDirectory(recipePath)) throw new InvalidArgumentException("Can only handle directory as input to update agent's recipe")
+    dockerClient.copyArchiveToContainerCmd(containerId)
+      .withDirChildrenOnly(true)
+      .withHostResource(recipePath.toString)
+      .withRemotePath("/var/lib/toscaruntime/deployment/recipe")
+      .exec()
+  }
+
   def getAgentImage(deploymentId: String) = {
     val images = dockerClient.listImagesCmd().withLabelFilter(Map(RuntimeConstant.DEPLOYMENT_ID_LABEL -> deploymentId).asJava).exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
@@ -205,6 +215,10 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
 
   def stop(deploymentId: String) = {
     dockerClient.stopContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId).exec()
+  }
+
+  def restart(deploymentId: String) = {
+    dockerClient.restartContainerCmd(getAgent(deploymentId).getOrElse(throw new AgentNotRunningException(s"Deployment agent $deploymentId is not running")).getId).exec()
   }
 
   def delete(deploymentId: String) = {

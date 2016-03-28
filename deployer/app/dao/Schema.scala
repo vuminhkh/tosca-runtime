@@ -20,7 +20,12 @@ class Schema @Inject()(protected val dbConfigProvider: DatabaseConfigProvider)
     with RelationshipsComponents
     with RelationshipInstancesComponents
     with RelationshipAttributesComponent
+    with OperationsComponent
+    with RelationshipOperationsComponent
     with RelationshipOutputsComponent
+    with RelationshipTasksComponent
+    with NodeTasksComponent
+    with TasksComponent
     with LazyLogging {
 
   import driver.api._
@@ -33,19 +38,29 @@ class Schema @Inject()(protected val dbConfigProvider: DatabaseConfigProvider)
   private val RelationshipInstances = TableQuery[RelationshipInstanceTable]
   private val RelationshipAttributes = TableQuery[RelationshipAttributeTable]
   private val RelationshipOutputs = TableQuery[RelationshipOutputTable]
+  private val Operations = TableQuery[OperationTable]
+  private val RelationshipOperations = TableQuery[RelationshipOperationTable]
   private val Executions = TableQuery[ExecutionTable]
   private val ExecutionInputs = TableQuery[ExecutionInputTable]
+  private val NodeTasks = TableQuery[NodeTaskTable]
+  private val RelationshipTasks = TableQuery[RelationshipTaskTable]
+  private val Tasks = TableQuery[TaskTable]
 
   private val schema = Nodes.schema ++
     Instances.schema ++
-    Attributes.schema ++
-    OperationOutputs.schema ++
     Relationships.schema ++
     RelationshipInstances.schema ++
+    Operations.schema ++
+    RelationshipOperations.schema ++
+    Attributes.schema ++
     RelationshipAttributes.schema ++
+    OperationOutputs.schema ++
     RelationshipOutputs.schema ++
     Executions.schema ++
-    ExecutionInputs.schema
+    ExecutionInputs.schema ++
+    NodeTasks.schema ++
+    RelationshipTasks.schema ++
+    Tasks.schema
 
   def isSchemaCreated = db.run(MTable.getTables.headOption.map(_.isDefined))
 

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.nodes.DeleteTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.StopTask;
 
@@ -17,9 +16,9 @@ public class UninstallLifeCycleTasks extends AbstractLifeCycleTasks {
 
     private AbstractTask deleteTask;
 
-    public UninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance, WorkflowExecution workflowExecution) {
-        this.stopTask = new StopTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
-        this.deleteTask = new DeleteTask(nodeInstances, relationshipInstances, nodeInstance, workflowExecution);
+    public UninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
+        this.stopTask = new StopTask(nodeInstances, relationshipInstances, nodeInstance);
+        this.deleteTask = new DeleteTask(nodeInstances, relationshipInstances, nodeInstance);
     }
 
     public UninstallLifeCycleTasks(AbstractTask stopTask, AbstractTask deleteTask) {

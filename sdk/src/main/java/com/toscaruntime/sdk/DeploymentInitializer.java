@@ -1,6 +1,5 @@
 package com.toscaruntime.sdk;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -21,58 +20,45 @@ import tosca.relationships.ManyToMany;
  */
 public class DeploymentInitializer {
 
-    public void setDependencies(Map<String, DeploymentNode> allNodes, String nodeName, String... dependencies) {
-        DeploymentNode node = allNodes.get(nodeName);
-        node.setDependsOnNodes(new HashSet<>(Arrays.asList(dependencies)));
-        for (String dependency : dependencies) {
-            allNodes.get(dependency).getDependedByNodes().add(nodeName);
-        }
-    }
-
-    public DeploymentNode initializeNode(String nodeName,
-                                         Class<? extends Root> type,
-                                         String parentName,
-                                         String hostName,
-                                         Deployment deployment,
-                                         Map<String, Object> properties,
-                                         Map<String, Map<String, Object>> capabilitiesProperties,
-                                         Map<String, DeploymentNode> existingNodes) {
+    public DeploymentNode createNode(String nodeName,
+                                     Class<? extends Root> type,
+                                     String parentName,
+                                     String hostName,
+                                     Deployment deployment,
+                                     Map<String, Object> properties,
+                                     Map<String, Map<String, Object>> capabilitiesProperties) {
         DeploymentNode deploymentNode = new DeploymentNode();
         deploymentNode.setId(nodeName);
         deploymentNode.setType(type);
         deploymentNode.setHost(hostName);
         deploymentNode.setDeployment(deployment);
         deploymentNode.setParent(parentName);
-        if (parentName != null) {
-            existingNodes.get(parentName).getChildren().add(nodeName);
-        }
         deploymentNode.setProperties(properties);
         deploymentNode.setCapabilitiesProperties(capabilitiesProperties);
         deploymentNode.setInstancesCount(deploymentNode.getDefaultInstancesCount());
-        existingNodes.put(nodeName, deploymentNode);
         return deploymentNode;
     }
 
-    public void initializeInstance(tosca.nodes.Root instance,
-                                   Deployment deployment,
-                                   String name,
-                                   int index,
-                                   tosca.nodes.Root parent,
-                                   tosca.nodes.Root host) {
-        instance.setName(name);
-        instance.setIndex(index);
-        instance.setHost(host);
-        instance.setParent(parent);
-        DeploymentNode node = deployment.getNodeMap().get(name);
-        node.getInstances().add(instance);
-        instance.setNode(node);
-        instance.setProperties(node.getProperties());
-        instance.setCapabilitiesProperties(node.getCapabilitiesProperties());
-        if (parent != null) {
-            parent.getChildren().add(instance);
+    public Root createInstance(Deployment deployment, DeploymentNode node, Root parent, int index) {
+        try {
+            Root instance = node.getType().newInstance();
+            Root host = null;
+            if (parent != null && node.getHost() != null && parent.getName().equals(node.getHost())) {
+                host = parent;
+            }
+            instance.setName(node.getId());
+            instance.setIndex(index);
+            instance.setHost(host);
+            instance.setParent(parent);
+            instance.setNode(node);
+            instance.setProperties(node.getProperties());
+            instance.setCapabilitiesProperties(node.getCapabilitiesProperties());
+            instance.setDeployment(deployment);
+            instance.setConfig(deployment.getConfig());
+            return instance;
+        } catch (Exception e) {
+            throw new InvalidDeploymentStateException("Could not create new instance of type " + node.getType(), e);
         }
-        instance.setDeployment(deployment);
-        instance.setConfig(deployment.getConfig());
     }
 
     public boolean shouldFilterRelationship(tosca.nodes.Root sourceInstance, tosca.nodes.Root targetInstance, Class<? extends tosca.relationships.Root> relationshipType) {
@@ -97,36 +83,22 @@ public class DeploymentInitializer {
     }
 
 
-    public void generateRelationships(String sourceName,
-                                      String targetName,
-                                      Map<String, Object> properties,
-                                      Class<? extends tosca.relationships.Root> relationshipType,
-                                      Set<DeploymentRelationshipNode> relationshipNodes) {
+    public DeploymentRelationshipNode createRelationship(String sourceName,
+                                                         String targetName,
+                                                         Map<String, Object> properties,
+                                                         Class<? extends tosca.relationships.Root> relationshipType) {
         DeploymentRelationshipNode relationshipNode = new DeploymentRelationshipNode();
         relationshipNode.setProperties(properties);
         relationshipNode.setSourceNodeId(sourceName);
         relationshipNode.setTargetNodeId(targetName);
         relationshipNode.setRelationshipType(relationshipType);
-        relationshipNodes.add(relationshipNode);
+        return relationshipNode;
     }
 
-    public void generateRelationshipsInstances(String sourceName,
-                                               String targetName,
-                                               Map<String, DeploymentNode> nodes,
-                                               Set<DeploymentRelationshipNode> relationshipNodes,
-                                               Class<? extends tosca.relationships.Root> relationshipType,
-                                               Set<tosca.relationships.Root> relationshipInstances,
-                                               Deployment deployment) {
-        DeploymentRelationshipNode relationshipNode = DeploymentUtil.getRelationshipNodeBySourceNameTargetName(relationshipNodes, sourceName, targetName, relationshipType);
-        if (relationshipNode == null) {
-            throw new InvalidDeploymentStateException("Relationship node with source " + sourceName + " and target " + targetName + " and type " + relationshipType.getName() + " cannot be found");
-        }
-        Set<Root> sourceInstances = nodes.get(relationshipNode.getSourceNodeId()).getInstances();
-        Set<Root> targetInstances = nodes.get(relationshipNode.getTargetNodeId()).getInstances();
-        relationshipInstances.addAll(generateRelationshipsInstances(sourceInstances, targetInstances, relationshipNode, deployment));
-    }
-
-    public Set<tosca.relationships.Root> generateRelationshipsInstances(Set<Root> sourceInstances, Set<Root> targetInstances, DeploymentRelationshipNode relationshipNode, Deployment deployment) {
+    public Set<tosca.relationships.Root> generateRelationshipsInstances(Set<Root> sourceInstances,
+                                                                        Set<Root> targetInstances,
+                                                                        DeploymentRelationshipNode relationshipNode,
+                                                                        Deployment deployment) {
         Set<tosca.relationships.Root> newRelationshipInstances = new HashSet<>();
         for (tosca.nodes.Root sourceInstance : sourceInstances) {
             for (tosca.nodes.Root targetInstance : targetInstances) {

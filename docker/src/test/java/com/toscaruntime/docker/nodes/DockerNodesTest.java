@@ -32,7 +32,7 @@ public class DockerNodesTest {
                 .build();
         testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
         try {
-            testDeployment.install().waitForCompletion(15, TimeUnit.MINUTES);
+            testDeployment.run(testDeployment.install()).waitForCompletion(15, TimeUnit.MINUTES);
             Container compute = testDeployment.getNodeInstancesByType(Container.class).iterator().next();
             Assert.assertNotNull(compute.getAttributeAsString("public_ip_address"));
             Assert.assertNotNull(compute.getAttributeAsString("ip_address"));
@@ -56,7 +56,7 @@ public class DockerNodesTest {
             Map<String, String> outputs = compute.execute("testWriteToVolume", "testWriteToVolume.sh", ImmutableMap.<String, Object>builder().put("FILE_CONTENT", "A great content").build(), new HashMap<>());
             Assert.assertEquals("A great content", outputs.get("WRITTEN"));
         } finally {
-            testDeployment.uninstall().waitForCompletion(15, TimeUnit.MINUTES);
+            testDeployment.run(testDeployment.uninstall()).waitForCompletion(15, TimeUnit.MINUTES);
         }
     }
 }

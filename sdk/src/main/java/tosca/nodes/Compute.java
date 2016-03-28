@@ -8,6 +8,11 @@ import java.util.Map;
 public abstract class Compute extends Root {
 
     /**
+     * Upload the recipe's content to the compute, this method is used to force a compute to refresh its recipe
+     */
+    public abstract void uploadRecipe();
+
+    /**
      * Run operation on the compute instance
      *
      * @param nodeId                id of the node that the operation will be run for
