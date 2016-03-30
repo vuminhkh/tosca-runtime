@@ -49,7 +49,7 @@ Getting Started
   docker-machine upgrade default
   ```
 
-* Download [tosca-runtime](https://fastconnect.org/owncloud/public.php?service=files&t=b50fcd56e52724b25774e30a4c3ffbd7), uncompress
+* Download [tosca-runtime](https://fastconnect.org/owncloud/public.php?service=files&t=b50fcd56e52724b25774e30a4c3ffbd7&download), uncompress
 
 ### Play with Tosca Runtime in local with docker
 
