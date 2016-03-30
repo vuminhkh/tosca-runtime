@@ -42,13 +42,13 @@ object AgentsCommand {
 
   private val forceOpt = "-f"
 
-  private val deployOpt = "deploy"
+  private val installOpt = "install"
 
   private val cancelOpt = "cancel"
 
   private val resumeOpt = "resume"
 
-  private val undeployOpt = "undeploy"
+  private val uninstallOpt = "uninstall"
 
   private val updateOpt = "update"
 
@@ -103,17 +103,17 @@ object AgentsCommand {
       (token(restartOpt) ~ (Space ~> token(StringBasic))) |
       (token(updateOpt) ~ (Space ~> token(StringBasic))) |
       (token(deleteOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
-      (token(deployOpt) ~ (Space ~> token(StringBasic))) |
+      (token(installOpt) ~ (Space ~> token(StringBasic))) |
       (token(cancelOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(resumeOpt) ~ (Space ~> token(StringBasic))) |
       (token(pauseOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
-      (token(undeployOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
+      (token(uninstallOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
 
   private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent asynchronously, execute 'help $commandName' for more details"),
     s"""
-       |$commandName [$listOpt| [$createOpt|$startOpt|$stopOpt|$deleteOpt|$deployOpt$cancelOpt$resumeOpt|$undeployOpt|$scaleOpt|$infoOpt|$logOpt] <deployment id> [other options]
+       |$commandName [$listOpt| [$createOpt|$startOpt|$stopOpt|$deleteOpt|$installOpt$cancelOpt$resumeOpt|$uninstallOpt|$scaleOpt|$infoOpt|$logOpt] <deployment id> [other options]
        |$listOpt     : list all agents
        |$createOpt   : create an agent to manage the given deployment and run immediately install workflow to deploy it
        |$logOpt      : show the agent's log
@@ -131,17 +131,17 @@ object AgentsCommand {
        |$stopOpt     : stop agent, agent will stop to manage deployment
        |$restartOpt  : restart the agent, it's useful to refresh the agent with new recipe content
        |$updateOpt   : update the agent's deployment recipe with the one in 'work' directory
-       |$deployOpt   : launch default deployment workflow
+       |$installOpt  : launch default install workflow
        |$pauseOpt    : pause current running execution by waiting for all running tasks to finish and not launching new tasks
        |              $pauseOpt <deployment id> $forceOpt try to interrupt current running tasks
        |$cancelOpt   : cancel current running execution
        |              $cancelOpt <deployment id> $forceOpt cancel without waiting for running tasks to finish
        |$resumeOpt   : resume current running execution (which was stopped due to error)
-       |$undeployOpt : launch default un-deployment workflow
-       |              $undeployOpt <deployment id> $forceOpt : undeploy by launching only uninstall life cycle of IAAS resources
+       |$uninstallOpt: launch default uninstall workflow
+       |              $uninstallOpt <deployment id> $forceOpt : uninstall only IAAS resources
        |$scaleOpt    : launch default scale workflow on the given node
        |              $scaleOpt <deployment id> $nodeNameOpt <node name> $instancesCountOpt <instances count>
-       |$deleteOpt   : delete agent, if the deployment has living nodes, '$undeployOpt $forceOpt' will be called before the deletion
+       |$deleteOpt   : delete agent, if the deployment has living nodes, '$uninstallOpt $forceOpt' will be called before the deletion
        |              $deleteOpt <deployment id> $forceOpt : force the delete of the agent without un-deploying application first
     """.stripMargin
   )
@@ -284,7 +284,7 @@ object AgentsCommand {
             println(scaleExecution(client, deploymentId, nodeName.get.asInstanceOf[String], newInstancesCount.get.asInstanceOf[Int]))
             println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
           }
-        case ("deploy", deploymentId: String) =>
+        case ("install", deploymentId: String) =>
           println(launchInstallWorkflow(client, deploymentId))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case (("cancel", deploymentId: String), force: Option[String]) =>
@@ -304,7 +304,7 @@ object AgentsCommand {
           } finally {
             logCallback.close()
           }
-        case (("undeploy", deploymentId: String), force: Option[String]) =>
+        case (("uninstall", deploymentId: String), force: Option[String]) =>
           println(launchUninstallWorkflow(client, deploymentId, force.nonEmpty))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case ("start", deploymentId: String) =>

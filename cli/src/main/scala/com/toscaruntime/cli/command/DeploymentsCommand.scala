@@ -104,7 +104,7 @@ object DeploymentsCommand {
                             deploymentId: String,
                             client: ToscaRuntimeClient,
                             providerConf: Path,
-                            bootstrapMode: Boolean): Boolean = {
+                            bootstrapMode: Option[Boolean]): Boolean = {
     val compilationResult = Compiler.assembly(topologyPath, deploymentWorkDir, repository, inputsPath)
     if (compilationResult.isSuccessful) {
       client.createDeploymentImage(deploymentId, deploymentWorkDir, inputsPath, providerConf, bootstrapMode).awaitImageId()
@@ -174,7 +174,7 @@ object DeploymentsCommand {
             val providerName = createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String]
             val providerTarget = createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String]
             val basedir = state.attributes.get(Attributes.basedirAttribute).get
-            val bootstrapMode = createArgs.getOrElse(bootstrapOpt, false).asInstanceOf[Boolean]
+            val bootstrapMode = createArgs.get(bootstrapOpt).asInstanceOf[Option[Boolean]]
             val providerConf = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(providerTarget)
             if (Files.exists(providerConf)) {
               fail = !createDeploymentImage(

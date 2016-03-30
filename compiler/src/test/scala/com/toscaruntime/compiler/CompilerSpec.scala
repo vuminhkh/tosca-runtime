@@ -44,6 +44,20 @@ class CompilerSpec extends AbstractSpec {
   }
 
   "Compiler" must {
+    "be able to show error when abstract type is used in a topology for deployment" in {
+      val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
+      GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)
+      installAndAssertCompilationResult(normativeTypesOutput)
+      installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
+      val topologyPath = ClassLoaderUtil.getPathForResource("csars/typeAbstract/")
+      val compilationResult = Compiler.assembly(topologyPath, assemblyPath.resolve(topologyPath.getFileName.toString), csarsPath, None)
+      showCompilationErrors(compilationResult)
+      compilationResult.isSuccessful must be(false)
+      compilationResult.errors.head._2.size must be(1)
+    }
+  }
+
+  "Compiler" must {
     "be able to compile alien extended types" in {
       val normativeTypesOutput = gitPath.resolve("tosca-normative-types")
       GitClient.clone("https://github.com/alien4cloud/tosca-normative-types.git", normativeTypesOutput)

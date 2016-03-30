@@ -56,6 +56,9 @@ node_types:
       recipe_location:
         type: string
         required: false
+      elevate_privilege:
+        type: boolean
+        default: false
 
   com.toscaruntime.docker.nodes.Network:
     derived_from: tosca.nodes.Network

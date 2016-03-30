@@ -26,3 +26,9 @@ topology_template:
         port_mappings:
           - from: 8080
             to: 51000
+
+    Network:
+      type: com.toscaruntime.docker.nodes.Network
+      properties:
+        network_name: nodecellarNet
+        cidr: 10.67.79.0/24

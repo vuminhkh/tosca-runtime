@@ -140,6 +140,20 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
+  def waitForRunningExecutionToReachStatus(deploymentId: String, status: String): Future[DeploymentDTO] = {
+    getDeploymentAgentInfo(deploymentId).flatMap { deploymentInfo =>
+      if (deploymentInfo.executions.head.status.nonEmpty) {
+        if (deploymentInfo.executions.head.status == status) {
+          Future(deploymentInfo)
+        } else {
+          Future.failed(new WorkflowExecutionFailureException(s"Expected to have $status as status but instead had ${deploymentInfo.executions.head.status}"))
+        }
+      } else {
+        after(2 seconds, system.scheduler)(waitForRunningExecutionToEnd(deploymentId))
+      }
+    }
+  }
+
   def waitForBootstrapToFinish(provider: String, target: String) = waitForRunningExecutionToEnd(generateDeploymentIdForBootstrap(provider, target))
 
   def bootstrap(provider: String, target: String): Future[DeploymentDTO] = {
@@ -184,10 +198,11 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrap: Boolean = false) = {
+  def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrap: Option[Boolean]) = {
     // TODO asynchronous
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(deploymentId, bootstrap, recipePath, inputsPath, providerConfigPath, bootstrapContext)
+    // By default if the proxy url is empty then we are not in a bootstrap context, then it means we are bootstrapping
+    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, inputsPath, providerConfigPath, bootstrapContext)
   }
 
   def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String) = {

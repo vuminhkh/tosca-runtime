@@ -20,6 +20,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
 import com.github.dockerjava.api.command.InspectExecResponse;
+import com.github.dockerjava.api.model.StreamType;
 import com.github.dockerjava.core.async.ResultCallbackTemplate;
 import com.toscaruntime.artifact.ArtifactExecutor;
 import com.toscaruntime.artifact.ArtifactExecutorUtil;
@@ -40,9 +41,12 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
 
     private String containerId;
 
-    public DockerExecutor(DockerClient dockerClient, String containerId) {
+    private boolean elevatePrivilege;
+
+    public DockerExecutor(DockerClient dockerClient, String containerId, boolean elevatePrivilege) {
         this.dockerClient = dockerClient;
         this.containerId = containerId;
+        this.elevatePrivilege = elevatePrivilege;
     }
 
     @Override
@@ -59,7 +63,7 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
         String sheBang;
         try {
             sheBang = ArtifactExecutorUtil.readSheBang(localArtifactPath);
-            Path artifactWrapper = ArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, false);
+            Path artifactWrapper = ArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
             remotePath = REMOTE_TEMP_DIR + artifactWrapper.getFileName().toString();
             dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(artifactWrapper.toString()).withRemotePath(REMOTE_TEMP_DIR).exec();
         } catch (IOException e) {
@@ -97,9 +101,22 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
         return dockerStdOutLogger.getCapturedEnvVars();
     }
 
+    private String getStreamType(StreamType streamType) {
+        switch (streamType) {
+            case RAW:
+            case STDOUT:
+                return "stdout";
+            default:
+                return "stderr";
+        }
+    }
+
     public void runCommand(String operationName, String command, Logger log) {
         Logger loggerToUse = log != null ? log : DockerExecutor.log;
-        Integer exitStatus = runCommand("/bin/sh", line -> loggerToUse.info("[" + operationName + "][" + line.getStreamType() + "]: " + line.getData()), new ByteArrayInputStream(command.getBytes(StandardCharsets.UTF_8)));
+        if (elevatePrivilege) {
+            command = "sudo -s\n" + command + "\nexit\n";
+        }
+        Integer exitStatus = runCommand("/bin/sh", line -> loggerToUse.info("[" + operationName + "][" + getStreamType(line.getStreamType()) + "]: " + line.getData()), new ByteArrayInputStream(command.getBytes(StandardCharsets.UTF_8)));
         if (exitStatus != null && exitStatus != 0) {
             throw new ArtifactExecutionException("Script " + command + " exec has exited with error status " + exitStatus + " for container " + containerId);
         }
@@ -140,7 +157,7 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
 
     @Override
     public void upload(String localPath, String remotePath) {
-        String prepareCommand = ArtifactExecutorUtil.getPrepareUploadArtifactCommand(remotePath, false);
+        String prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; mkdir -p \"" + remotePath + "\"; else mkdir -p \"" + remotePath + "\"; fi";
         runCommand("Prepare recipe dir for upload", prepareCommand, log);
         dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(localPath).withDirChildrenOnly(true).withRemotePath(remotePath).exec();
     }

@@ -9,7 +9,6 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -98,24 +97,6 @@ public class ArtifactExecutorUtil {
             }
             // Not found return a default value
             return "#!/bin/sh";
-        }
-    }
-
-    public static String getPrepareUploadArtifactCommand(String remotePath, boolean createParent) {
-        String pathToCreateDirectory = remotePath;
-        if (createParent) {
-            Path parentPath = Paths.get(remotePath).getParent();
-            if (parentPath != null) {
-                pathToCreateDirectory = parentPath.toString();
-            } else {
-                pathToCreateDirectory = null;
-            }
-        }
-        if (pathToCreateDirectory != null) {
-            // Delete if already exists and create the parent if given remote path has parent
-            return "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; else mkdir -p \"" + pathToCreateDirectory + "\"; fi";
-        } else {
-            return "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; fi";
         }
     }
 }

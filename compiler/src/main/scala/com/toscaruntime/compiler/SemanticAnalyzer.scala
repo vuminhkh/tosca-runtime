@@ -517,6 +517,17 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
+  def analyzeTopologyBeforeDeployment(topologyTemplate: TopologyTemplate, csarPath: List[Csar]) = {
+    val compilationErrors = ListBuffer[CompilationError]()
+    topologyTemplate.nodeTemplates.getOrElse(Map.empty).values.foreach { nodeTemplate =>
+      // Type not found should be detected long before reaching here
+      TypeLoader.loadNodeType(nodeTemplate.typeName.get.value, csarPath).map { nodeType =>
+        if(nodeType.isAbstract.value) compilationErrors += CompilationError(s"Type ${nodeTemplate.typeName.get.value} is abstract and cannot be used in a deployment topology", nodeTemplate.typeName.get.pos, nodeTemplate.typeName.map(_.value))
+      }
+    }
+    compilationErrors.toList
+  }
+
   def analyzeDefinition(definition: Definition, recipePath: Path, csarPath: List[Csar]) = {
     val compilationErrors = ListBuffer[CompilationError]()
     definition.nodeTypes.map { nodeTypes =>

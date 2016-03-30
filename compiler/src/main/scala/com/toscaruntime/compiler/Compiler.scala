@@ -252,7 +252,8 @@ object Compiler extends LazyLogging {
       val definitionWithMergedTopology = definitionWithTopology.copy(topologyTemplate = Some(mergedTopology))
       val definitionsWithMergedTopology = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithMergedTopology)
       val semanticErrors = SemanticAnalyzer.analyze(topologyCompilationResult.csar.copy(definitions = definitionsWithMergedTopology), topologyPath, topologyCompilationResult.dependencies.values.toList)
-      if (inputErrors.isEmpty && semanticErrors.isEmpty) {
+      val beforeDeploymentSemanticErrors = SemanticAnalyzer.analyzeTopologyBeforeDeployment(mergedTopology, topologyCompilationResult.dependencies.values.toList)
+      if (inputErrors.isEmpty && semanticErrors.isEmpty && beforeDeploymentSemanticErrors.isEmpty) {
         val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
         val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
         CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
@@ -264,7 +265,7 @@ object Compiler extends LazyLogging {
         CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
         topologyCompilationResult.copy(csar = mergedCsar)
       } else {
-        val errorsWithInput = inputErrors ++ topologyCompilationResult.errors.getOrElse(definitionWithTopologyEntry.get._1, List.empty)
+        val errorsWithInput = beforeDeploymentSemanticErrors ++ inputErrors ++ topologyCompilationResult.errors.getOrElse(definitionWithTopologyEntry.get._1, List.empty)
         val errorsWithInputAndSemantic = semanticErrors + (definitionWithTopologyEntry.get._1 -> (semanticErrors.getOrElse(definitionWithTopologyEntry.get._1, List.empty) ++ errorsWithInput))
         topologyCompilationResult.copy(errors = errorsWithInputAndSemantic)
       }

@@ -51,13 +51,13 @@ public class FailSafeUtil {
                 return action.doAction();
             } catch (Throwable t) {
                 if (isRecoverableError(t.getClass(), recoverableErrors) && currentTimes < times) {
-                    // Retry if it's recoverable error
-                    Thread.sleep(timeUnit.toMillis(coolDownPeriod));
                     if (t.getMessage() == null) {
                         log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry ", t);
                     } else {
                         log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry " + t.getMessage());
                     }
+                    // Retry if it's recoverable error
+                    Thread.sleep(timeUnit.toMillis(coolDownPeriod));
                 } else {
                     throw t;
                 }
@@ -81,15 +81,15 @@ public class FailSafeUtil {
                 return action.doAction();
             } catch (RuntimeException e) {
                 if (currentTimes < times) {
-                    try {
-                        Thread.sleep(timeUnit.toMillis(coolDownPeriod));
-                    } catch (InterruptedException ie) {
-                        log.warn("Retry interrupted at " + currentTimes, e);
-                    }
                     if (e.getMessage() == null) {
                         log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry ", e);
                     } else {
                         log.warn(currentTimes + " attempt to execute " + name + ", sleep " + coolDownPeriod + " " + timeUnit + " and retry " + e.getMessage());
+                    }
+                    try {
+                        Thread.sleep(timeUnit.toMillis(coolDownPeriod));
+                    } catch (InterruptedException ie) {
+                        log.warn("Retry interrupted at " + currentTimes, e);
                     }
                 } else {
                     throw e;

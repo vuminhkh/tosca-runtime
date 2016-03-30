@@ -1,0 +1,25 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: A topology that contains component that simply sleeps for testing purpose
+template_name: sleep-docker-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - openstack-provider-types:*
+  - test-type:*
+
+topology_template:
+
+  node_templates:
+
+    Server:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+
+    Error:
+      type: com.toscaruntime.nodes.Error
+      properties:
+        start_throw_error: true
+      requirements:
+        - host: Server

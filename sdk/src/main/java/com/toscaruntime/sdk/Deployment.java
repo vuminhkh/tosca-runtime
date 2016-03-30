@@ -438,7 +438,7 @@ public abstract class Deployment {
      * Trigger upload of the recipe on all computes in order to refresh the deployment's recipe on the remote servers
      */
     public void updateRecipe() {
-        getNodeInstancesByType(Compute.class).stream().forEach(Compute::uploadRecipe);
+        getNodeInstancesByType(Compute.class).stream().parallel().forEach(Compute::uploadRecipe);
     }
 
     private WorkflowExecution createInstallWorkflow(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances) {

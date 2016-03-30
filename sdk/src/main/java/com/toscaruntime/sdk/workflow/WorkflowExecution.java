@@ -367,9 +367,9 @@ public class WorkflowExecution {
             }
             isInterrupted = true;
             if (force) {
-                log.info("Trying to stop execution");
+                log.info("Trying to stop execution, any running tasks will be interrupted");
             } else {
-                log.info("Trying to stop execution gracefully");
+                log.info("Trying to stop execution gracefully, all running tasks will continue to run, but no new tasks will be submitted");
             }
             if (!tasksRunning.isEmpty()) {
                 tasksRunning.values().forEach(task -> task.cancel(force));

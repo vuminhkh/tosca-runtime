@@ -95,9 +95,9 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
             sshClient.connect(ip, port);
             sshClient.authPublickey(user, pemPath);
         } catch (UserAuthException e) {
-            throw new ArtifactAuthenticationFailureException("Authentication failure, must be bad key file or bad user name", e);
+            throw new ArtifactAuthenticationFailureException("User authentication failure : " + e.getMessage(), e);
         } catch (IOException e) {
-            throw new ArtifactConnectException("Cannot connect to the host", e);
+            throw new ArtifactConnectException("IO failure : " + e.getMessage(), e);
         }
     }
 
@@ -201,11 +201,27 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
         }
     }
 
+    private static String getPrepareUploadArtifactCommand(String remotePath) {
+        String pathToCreateDirectory;
+        Path parentPath = Paths.get(remotePath).getParent();
+        if (parentPath != null) {
+            pathToCreateDirectory = parentPath.toString();
+        } else {
+            pathToCreateDirectory = null;
+        }
+        if (pathToCreateDirectory != null) {
+            // Delete if already exists and create the parent if given remote path has parent
+            return "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; mkdir -p \"" + pathToCreateDirectory + "\"; else mkdir -p \"" + pathToCreateDirectory + "\"; fi";
+        } else {
+            return "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; fi";
+        }
+    }
+
     @Override
     public void upload(String localPath, String remotePath) {
         checkConnection();
         try {
-            String prepareCommand = ArtifactExecutorUtil.getPrepareUploadArtifactCommand(remotePath, true);
+            String prepareCommand = getPrepareUploadArtifactCommand(remotePath);
             try (Session session = sshClient.startSession()) {
                 prepareUpload(session, prepareCommand);
             }

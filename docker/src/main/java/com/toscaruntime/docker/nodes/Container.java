@@ -69,7 +69,7 @@ public class Container extends Compute {
         this.containerId = getAttributeAsString("provider_resource_id");
         this.ipAddress = getAttributeAsString("ip_address");
         this.dockerHostIP = getAttributeAsString("public_ip_address");
-        this.dockerExecutor = new DockerExecutor(dockerClient, containerId);
+        this.dockerExecutor = new DockerExecutor(dockerClient, containerId, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
     }
 
     @Override
@@ -144,7 +144,7 @@ public class Container extends Compute {
             createContainerCmd.withCmd(commands);
         }
         containerId = createContainerCmd.exec().getId();
-        dockerExecutor = new DockerExecutor(dockerClient, containerId);
+        dockerExecutor = new DockerExecutor(dockerClient, containerId, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
         log.info("Container [" + getId() + "] : Created container with id " + containerId);
     }
 

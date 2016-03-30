@@ -6,9 +6,12 @@
 2.Tosca support:
   - Authorize space in yaml key
   - Authorize null yaml key ?
+  - Implement macro
+  - Implement error / warning / info level in semantic analyzer
+  - Allow in non strict mode key which is not recognized
+  - Verify dsl version to throw error if necessary
   - Semantic analyzer completion
     + Input should be compatible with property that perform get_input
-    + Validate all types non abstract before deployment
     + Validate scaling policy
     + Requirement satisfaction validation
     + Node filter
@@ -20,9 +23,6 @@
 
 3.Core:
   - Review class loading model
-  - CLI handle correctly errors in rest call
-  - Refactoring
-  - Ability to cancel running execution
 
 4.Provider:
   - Openstack:
@@ -34,7 +34,6 @@
     + Test exit with error
 
 5.Runtime:
-  - Agent State Persistence
   - Custom command
   - Policy handling (auto-healing, dynamic scaling ... )
   - WinRMI + Batch script
@@ -42,12 +41,5 @@
   - Chef recipe
   - Ansible recipe
 
-6.Testing:
-  - Integration end to end test
-  - Perform cli test on linux system (Ubuntu)
-
 7.Security:
   - Https bootstrap for proxy and docker
-
-8. Performance optimization:
-  - Bulk set attribute

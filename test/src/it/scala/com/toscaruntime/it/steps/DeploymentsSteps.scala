@@ -23,7 +23,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       name,
       Context.client,
       Context.providerConfigPaths(provider),
-      config == standalone
+      Some(config == standalone)
     )
   }
 
