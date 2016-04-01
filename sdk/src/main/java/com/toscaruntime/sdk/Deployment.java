@@ -405,6 +405,7 @@ public abstract class Deployment {
                     concernedInstances.stream().forEach(instance -> {
                                 Map<String, OperationInputDefinition> operationInputs = new HashMap<>(currentOperationInputs.get(instance.getId()));
                                 operationInputs.putAll(convertedInputs);
+                                instance.getOperationInputs().put(javaMethodName, operationInputs);
                             }
                     );
                 }

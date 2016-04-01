@@ -42,7 +42,7 @@ class ExecutionInputDAO @Inject()(protected val dbConfigProvider: DatabaseConfig
   def get(executionId: String) = {
     db.run(ExecutionInputs.filter(_.executionId === executionId).result).map {
       _.map {
-        case executionInputEntity => (executionInputEntity.key, JSONUtil.toObject(executionInputEntity.value))
+        case executionInputEntity => (executionInputEntity.key, JavaScalaConversionUtil.toScala(JSONUtil.toObject(executionInputEntity.value)))
       }.toMap
     }
   }

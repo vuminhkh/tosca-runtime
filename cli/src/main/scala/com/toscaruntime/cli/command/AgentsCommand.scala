@@ -309,7 +309,6 @@ object AgentsCommand {
           val interface = executeArgs.get(interfaceOpt).asInstanceOf[Option[String]]
           val operation = executeArgs(operationOpt).asInstanceOf[String]
           val inputs = executeArgs.get(inputsOpt).asInstanceOf[Option[Seq[(String, String)]]].map(_.toMap)
-          println(s"$deploymentId $nodeName $instanceId $interface $operation $inputs")
           println(executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case ("install", deploymentId: String) =>
