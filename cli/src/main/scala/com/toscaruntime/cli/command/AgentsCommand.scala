@@ -11,7 +11,6 @@ import sbt.{Command, Help}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.postfixOps
 
@@ -21,8 +20,6 @@ import scala.language.postfixOps
   * @author Minh Khang VU
   */
 object AgentsCommand {
-
-  private val forEver = 365 day
 
   val commandName = "agents"
 
@@ -56,7 +53,7 @@ object AgentsCommand {
 
   private val infoOpt = "info"
 
-  private val nodeNameOpt = "node"
+  private val nodeOpt = "node"
 
   private val instancesCountOpt = "to"
 
@@ -72,21 +69,35 @@ object AgentsCommand {
 
   private val relationshipsInfoOpt = "relationships"
 
-  private val nodeInfoOpt = "node"
-
   private val relationshipInfoOpt = "relationship"
 
-  private val instanceInfoOpt = "instance"
+  private val instanceOpt = "instance"
+
+  private val interfaceOpt = "interface"
 
   private val relationshipInstanceInfoOpt = "relationshipInstance"
 
-  private lazy val scaleArgsParser = Space ~> ((token(nodeNameOpt) ~ (Space ~> token(StringBasic))) | (token(instancesCountOpt) ~ (Space ~> token(IntBasic)))) +
+  private val executeOpt = "execute"
 
-  private lazy val infoNodeArgsParser = token(nodeInfoOpt) ~ (Space ~> token(StringBasic))
+  private val operationOpt = "operation"
+
+  private val inputsOpt = "-i"
+
+  private lazy val scaleArgsParser = Space ~> ((token(nodeOpt) ~ (Space ~> token(StringBasic))) | (token(instancesCountOpt) ~ (Space ~> token(IntBasic)))) +
+
+  private lazy val inputsArgsParser = (Space ~> (token(StringBasic) ~ ("=" ~> token(StringBasic)))) +
+
+  private lazy val executeArgsParser = Space ~> ((token(nodeOpt) ~ (Space ~> token(StringBasic)))
+    | token(instanceOpt) ~ (Space ~> token(StringBasic))
+    | token(interfaceOpt) ~ (Space ~> token(StringBasic))
+    | (token(operationOpt) ~ (Space ~> token(StringBasic)))
+    | (token(inputsOpt) ~ inputsArgsParser)) +
+
+  private lazy val infoNodeArgsParser = token(nodeOpt) ~ (Space ~> token(StringBasic))
 
   private lazy val relationshipArgsParser = token(relationshipInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
 
-  private lazy val infoInstanceArgsParser = token(instanceInfoOpt) ~ (Space ~> token(StringBasic))
+  private lazy val infoInstanceArgsParser = token(instanceOpt) ~ (Space ~> token(StringBasic))
 
   private lazy val relationshipInstanceArgsParser = token(relationshipInstanceInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
 
@@ -108,6 +119,7 @@ object AgentsCommand {
       (token(resumeOpt) ~ (Space ~> token(StringBasic))) |
       (token(pauseOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
+      (token(executeOpt) ~ (Space ~> token(StringBasic)) ~ executeArgsParser) |
       (token(uninstallOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
 
@@ -122,8 +134,8 @@ object AgentsCommand {
        |              $infoOpt $nodesInfoOpt: show only nodes details
        |              $infoOpt $relationshipsInfoOpt: show only relationships details
        |              $infoOpt $executionsInfoOpt: show only executions details
-       |              $infoOpt $nodeInfoOpt <node id>: show node details
-       |              $infoOpt $instanceInfoOpt <instance id>: show instance details
+       |              $infoOpt $nodeOpt <node id>: show node details
+       |              $infoOpt $instanceOpt <instance id>: show instance details
        |              $infoOpt $relationshipInfoOpt <source> <target>: show relationship node details
        |              $infoOpt $relationshipInstanceInfoOpt <source instance> <target instance>: show relationship instance details
        |              $infoOpt $executionInfoOpt <execution id>: show execution details
@@ -140,7 +152,9 @@ object AgentsCommand {
        |$uninstallOpt: launch default uninstall workflow
        |              $uninstallOpt <deployment id> $forceOpt : uninstall only IAAS resources
        |$scaleOpt    : launch default scale workflow on the given node
-       |              $scaleOpt <deployment id> $nodeNameOpt <node name> $instancesCountOpt <instances count>
+       |              $scaleOpt <deployment id> $nodeOpt <node name> $instancesCountOpt <instances count>
+       |$executeOpt  : launch a particular operation on a particular node or instance
+       |              $executeOpt <deployment id> $nodeOpt <node name> $instanceOpt <instance id> $interfaceOpt <interface> $operationOpt <operation>
        |$deleteOpt   : delete agent, if the deployment has living nodes, '$uninstallOpt $forceOpt' will be called before the deletion
        |              $deleteOpt <deployment id> $forceOpt : force the delete of the agent without un-deploying application first
     """.stripMargin
@@ -204,6 +218,10 @@ object AgentsCommand {
 
   def scaleExecution(client: ToscaRuntimeClient, deploymentId: String, nodeToScale: String, newInstancesCount: Int) = {
     AgentUtil.scaleExecution(client, deploymentId, nodeToScale, newInstancesCount)
+  }
+
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
+    AgentUtil.executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs)
   }
 
   def startAgent(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -272,7 +290,7 @@ object AgentsCommand {
           }
         case (("scale", deploymentId: String), scaleOpts: Seq[(String, _)]) =>
           val scaleArgs = scaleOpts.toMap
-          val nodeName = scaleArgs.get(nodeNameOpt)
+          val nodeName = scaleArgs.get(nodeOpt)
           val newInstancesCount = scaleArgs.get(instancesCountOpt)
           if (nodeName.isEmpty) {
             println("Node name is mandatory for scale workflow")
@@ -284,6 +302,16 @@ object AgentsCommand {
             println(scaleExecution(client, deploymentId, nodeName.get.asInstanceOf[String], newInstancesCount.get.asInstanceOf[Int]))
             println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
           }
+        case (("execute", deploymentId: String), executeOpts: Seq[(String, _)]) =>
+          val executeArgs = executeOpts.toMap
+          val nodeName = executeArgs(nodeOpt).asInstanceOf[String]
+          val instanceId = executeArgs.get(instanceOpt).asInstanceOf[Option[String]]
+          val interface = executeArgs.get(interfaceOpt).asInstanceOf[Option[String]]
+          val operation = executeArgs(operationOpt).asInstanceOf[String]
+          val inputs = executeArgs.get(inputsOpt).asInstanceOf[Option[Seq[(String, String)]]].map(_.toMap)
+          println(s"$deploymentId $nodeName $instanceId $interface $operation $inputs")
+          println(executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs))
+          println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case ("install", deploymentId: String) =>
           println(launchInstallWorkflow(client, deploymentId))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
@@ -316,6 +344,7 @@ object AgentsCommand {
         case ("update", deploymentId: String) =>
           val basedir = state.attributes.get(Attributes.basedirAttribute).get
           println(updateDeploymentRecipe(client, deploymentId, basedir))
+          println(s"Changes in scripts are immediately recognized, changes in yaml need agent restart with 'agents restart $deploymentId'")
         case ("stop", deploymentId: String) =>
           stopAgent(client, deploymentId)
           println(s"Stopped $deploymentId")

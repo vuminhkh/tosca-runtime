@@ -53,7 +53,7 @@ public abstract class AbstractTask implements Runnable {
         }
     }
 
-    protected abstract void doRun();
+    protected abstract void doRun() throws Throwable;
 
     @Override
     public void run() {

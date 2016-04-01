@@ -8,11 +8,20 @@ import play.api.libs.ws.WSResponse
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 
 object URLChecker extends LazyLogging {
 
   def checkURL(url: String, expectedStatus: Int, ignoredStatuses: Set[Int], timeout: Duration): WSResponse = {
     Await.result(doCheckURL(url, expectedStatus, ignoredStatuses, timeout), 5 minutes)
+  }
+
+  def checkURLNonAvailable(url: String) = {
+    Context.client.wsClient.url(url).get().flatMap { response =>
+      Future.failed(new AssertionError("Don't expect URL to be available"))
+    }.recoverWith {
+      case e: Exception => Future.successful(s"URL is not available as expected ${e.getMessage}")
+    }
   }
 
   def doCheckURL(url: String, expectedStatus: Int, ignoredStatuses: Set[Int], timeout: Duration): Future[WSResponse] = {

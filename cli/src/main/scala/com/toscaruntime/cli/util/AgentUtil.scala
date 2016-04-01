@@ -48,6 +48,10 @@ object AgentUtil extends LazyLogging {
     Await.result(client.executeScaleWorkflow(deploymentId, nodeName, newInstancesCount), forEver)
   }
 
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
+    Await.result(client.executeNodeOperation(deploymentId, nodeName, instanceId, interface, operation, inputs), forEver)
+  }
+
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
     Await.result(client.executeInstallWorkflow(deploymentId), forEver)
   }

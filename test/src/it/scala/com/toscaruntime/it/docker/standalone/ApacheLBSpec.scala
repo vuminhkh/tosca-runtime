@@ -36,6 +36,18 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       And("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
 
+      When("I stop the load balancer")
+      executeNodeOperation("apache-lb", "ApacheLoadBalancer", "stop")
+
+      Then("The url should not be reachable anymore")
+      checkURLNonAvailable(url)
+
+      When("I start the load balancer")
+      executeNodeOperation("apache-lb", "ApacheLoadBalancer", "start")
+
+      Then("A request on the application's url should return a response 200 OK")
+      checkURL(url, 200, Set.empty, 5 minutes)
+
       When("I stop the manager daemon to test container state persistence")
       stopAgent("apache-lb")
 

@@ -9,6 +9,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
+import com.toscaruntime.sdk.workflow.tasks.nodes.GenericNodeTask;
 
 import tosca.nodes.Root;
 import tosca.relationships.HostedOn;
@@ -233,6 +235,21 @@ public class WorkflowEngine {
                                         WorkflowExecutionFactory workflowExecutionFactory) {
         WorkflowExecution workflowExecution = doBuildInstallWorkflow(nodeInstances, relationshipInstances, lifeCycleTasksFactory, workflowExecutionFactory);
         workflowExecution.launch();
+        return workflowExecution;
+    }
+
+    public WorkflowExecution buildExecuteNodeOperationWorkflow(List<AbstractTask> beforeTasks,
+                                                               List<AbstractTask> afterTasks,
+                                                               Map<String, Root> nodeInstances,
+                                                               Set<tosca.relationships.Root> relationshipInstances,
+                                                               Set<Root> concernedInstances,
+                                                               String interfaceName,
+                                                               String operationName,
+                                                               String workflowId) {
+        List<AbstractTask> nodeTasks = concernedInstances.stream().map(instance -> new GenericNodeTask(nodeInstances, relationshipInstances, instance, interfaceName, operationName)).collect(Collectors.toList());
+        WorkflowExecution workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+        workflowExecution.addTasks(nodeTasks);
+        augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
         return workflowExecution;
     }
 

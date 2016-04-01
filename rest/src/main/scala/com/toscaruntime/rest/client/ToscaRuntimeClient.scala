@@ -105,6 +105,19 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
       .map(handleWSResponse)
   }
 
+  def executeNodeOperation(deploymentId: String, nodeName: String, instanceId: Option[String], interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]] = None) = {
+    var operationInputs = Map[String, Any](
+      "node_id" -> nodeName,
+      "operation_name" -> operationName)
+    if (interfaceName.isDefined) operationInputs += ("interface_name" -> interfaceName.get)
+    if (instanceId.isDefined) operationInputs += ("instance_id" -> instanceId.get)
+    if (inputs.isDefined) operationInputs += ("inputs" -> inputs.get)
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("execute_node_operation", operationInputs)))
+      .map(handleWSResponse)
+  }
+
   def cancelExecution(deploymentId: String, force: Boolean) = {
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions/cancel")

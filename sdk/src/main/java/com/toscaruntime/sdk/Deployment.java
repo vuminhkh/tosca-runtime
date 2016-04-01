@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,11 +29,13 @@ import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import com.toscaruntime.sdk.model.OperationInputDefinition;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.workflow.DefaultListener;
 import com.toscaruntime.sdk.workflow.WorkflowEngine;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractGenericTask;
+import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 
 import tosca.nodes.Compute;
@@ -165,18 +168,26 @@ public abstract class Deployment {
                     case "uninstall":
                         execution = createUninstallWorkflow(nodeInstances, relationshipInstances);
                         break;
+                    case "execute_node_operation":
+                        String executedNodeId = (String) runningExecution.getInputs().get("node_id");
+                        String executedInstanceId = (String) runningExecution.getInputs().get("instance_id");
+                        String interfaceName = (String) runningExecution.getInputs().get("interface_name");
+                        String operationName = (String) runningExecution.getInputs().get("operation_name");
+                        Map<String, Object> executedInputs = (Map<String, Object>) runningExecution.getInputs().get("inputs");
+                        execution = executeNodeOperation(executedNodeId, executedInstanceId, interfaceName, operationName, executedInputs);
+                        break;
                     case "scale":
                         Set<String> concernedNodeInstanceIds = nodeTaskDTOs.keySet().stream().map(NodeTaskDTO::getNodeInstanceId).collect(Collectors.toSet());
                         Set<RelationshipTaskDTO.Relationship> concernedRelationshipInstanceIds = relationshipTaskDTOs.keySet().stream().map(RelationshipTaskDTO::getRelationship).collect(Collectors.toSet());
                         Map<String, Root> concernedNodeInstances = nodeInstances.entrySet().stream().filter(entry -> concernedNodeInstanceIds.contains(entry.getKey())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
                         Set<tosca.relationships.Root> concernedRelationshipInstances = relationshipInstances.stream().filter(relIns -> concernedRelationshipInstanceIds.contains(new RelationshipTaskDTO.Relationship(relIns.getSource().getId(), relIns.getTarget().getId(), relIns.getNode().getRelationshipName()))).collect(Collectors.toSet());
-                        String nodeId = (String) runningExecution.getInputs().get("node_id");
+                        String scaledNodeId = (String) runningExecution.getInputs().get("node_id");
                         Integer newNodeInstancesCount = (Integer) runningExecution.getInputs().get("new_instances_count");
                         Integer originalNodeInstancesCount = (Integer) runningExecution.getInputs().get("original_instances_count");
                         if (newNodeInstancesCount > originalNodeInstancesCount) {
-                            execution = createScaleUpWorkflow(concernedNodeInstances, concernedRelationshipInstances, nodes.get(nodeId), newNodeInstancesCount);
+                            execution = createScaleUpWorkflow(concernedNodeInstances, concernedRelationshipInstances, nodes.get(scaledNodeId), newNodeInstancesCount);
                         } else {
-                            execution = createScaleDownWorkflow(concernedNodeInstances, concernedRelationshipInstances, nodes.get(nodeId), newNodeInstancesCount);
+                            execution = createScaleDownWorkflow(concernedNodeInstances, concernedRelationshipInstances, nodes.get(scaledNodeId), newNodeInstancesCount);
                         }
                         break;
                     default:
@@ -361,6 +372,55 @@ public abstract class Deployment {
             DeploymentDeleteInstancesModification modification = deploymentImpacter.deleteNodeInstances(this, node, node.getInstancesCount() - newInstancesCount);
             return createScaleDownWorkflow(modification.getInstancesToDelete(), modification.getRelationshipInstancesToDelete(), node, newInstancesCount);
         }
+    }
+
+    public WorkflowExecution executeNodeOperation(String nodeName, String instanceId, String interfaceName, String operationName, Map<String, Object> inputs) {
+        DeploymentNode node = nodes.get(nodeName);
+        if (node == null) {
+            throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
+        }
+        Set<Root> concernedInstances;
+        if (StringUtils.isBlank(instanceId)) {
+            concernedInstances = node.getInstances();
+        } else {
+            concernedInstances = node.getInstances().stream().filter(instance -> instance.getId().equals(instanceId)).collect(Collectors.toSet());
+        }
+        if (concernedInstances.isEmpty()) {
+            throw new NodeNotFoundException("No instances are found to perform operation for node [" + nodeName + "] and instance [" + instanceId + "]");
+        }
+        String javaMethodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName);
+        final Map<String, Map<String, OperationInputDefinition>> currentOperationInputs;
+        if (inputs != null && !inputs.isEmpty()) {
+            currentOperationInputs = concernedInstances.stream().collect(Collectors.toMap(Root::getId, instance -> instance.getOperationInputs().get(javaMethodName)));
+        } else {
+            currentOperationInputs = null;
+        }
+        AbstractGenericTask persistTask = new AbstractGenericTask("persistence") {
+            @Override
+            protected void doRun() {
+                if (currentOperationInputs != null) {
+                    Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
+                            Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
+                    ));
+                    concernedInstances.stream().forEach(instance -> {
+                                Map<String, OperationInputDefinition> operationInputs = new HashMap<>(currentOperationInputs.get(instance.getId()));
+                                operationInputs.putAll(convertedInputs);
+                            }
+                    );
+                }
+                getWorkflowExecution().persist();
+            }
+        };
+        AbstractGenericTask postInstallTask = new AbstractGenericTask("post_execute") {
+            @Override
+            protected void doRun() {
+                if (currentOperationInputs != null) {
+                    concernedInstances.stream().forEach(instance -> instance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(instance.getId())));
+                }
+                runningWorkflowExecution.set(null);
+            }
+        };
+        return workflowEngine.buildExecuteNodeOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, relationshipInstances, concernedInstances, interfaceName, operationName, "execute_node_operation");
     }
 
     private Map<String, Root> createInstanceTree(DeploymentNode node, Root parent, int index) {

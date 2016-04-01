@@ -34,22 +34,23 @@ class SyntaxAnalyzerSpec extends AbstractSpec {
     "be able to handle list of primitive type" in {
       val topology =
         """node_types:
-          |  test.node_type:
-          |    properties:
-          |      list_prop:
-          |        type: list
-          |        entry_schema:
-          |          type: integer
-          |topology_template:
-          |  node_templates:
-          |    test_node:
-          |      properties:
-          |        list_prop:
-          |          - 1
-          |          - 2
+          |  test.node_type: # ABC
+          |    properties: # ABC
+          |     # ABC
+          |      list_prop: # ABC
+          |        type: list # ABC
+          |        entry_schema: # ABC
+          |          type: integer # ABC
+          |topology_template: # ABC
+          |  node_templates: # ABC
+          |    test_node: # ABC
+          |      properties: # ABC
+          |        list_prop: # ABC
+          |          - 1 # ABC
+          |          - 2 # ABC
           |    test_node2:
           |      properties:
-          |        list_prop: [1, 2, 3]
+          |        list_prop: [1, 2, 3] # ABC
           |          """.stripMargin
       val parseResult = SyntaxAnalyzer.parse(SyntaxAnalyzer.definition, topology)
       TestUtil.printResult(parseResult)

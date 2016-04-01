@@ -21,7 +21,7 @@ import tosca.nodes.Root;
 public class WorkflowUtil {
 
 
-    private static void refreshAttributes(Map<String, Root> nodeInstances,
+    public static void refreshAttributes(Map<String, Root> nodeInstances,
                                           Set<tosca.relationships.Root> relationshipInstances) {
         nodeInstances.values().forEach(Root::refreshAttributes);
         relationshipInstances.forEach(tosca.relationships.Root::refreshAttributes);

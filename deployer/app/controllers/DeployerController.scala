@@ -2,16 +2,16 @@ package controllers
 
 import java.io.File
 import java.nio.file.{Files, Paths}
+import java.util
 import javax.inject.Inject
 
-import com.toscaruntime.constant.DeployerConstant
+import com.toscaruntime.constant.{DeployerConstant, ToscaInterfaceConstant}
 import com.toscaruntime.exception.BadUsageException
 import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException
 import com.toscaruntime.rest.model._
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.sdk.Deployment
-import com.toscaruntime.sdk.workflow.Listener
 import com.toscaruntime.util.JavaScalaConversionUtil
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
@@ -78,13 +78,23 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
               case "install" => deployment.install()
               case "uninstall" => deployment.uninstall()
               case "teardown_infrastructure" => deployment.teardown()
+              case "execute_node_operation" =>
+                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for execute_node_operation workflow")
+                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowException("Missing 'operation_name' input for execute_node_operation workflow")
+                deployment.executeNodeOperation(
+                  workflowExecutionRequest.inputs("node_id").asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("instance_id", null).asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.NODE_STANDARD_INTERFACE).asInstanceOf[String],
+                  workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
+                  JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]])
+                )
               case "scale" =>
-                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for scale workflow")
-                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowException("Missing 'newInstancesCount' input for scale workflow")
+                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'node_id' input for scale workflow")
+                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowException("Missing 'new_instances_count' input for scale workflow")
                 val nodeId = workflowExecutionRequest.inputs("node_id")
-                if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowException("'nodeId' input is not of type string for scale workflow")
+                if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowException("'node_id' input is not of type string for scale workflow")
                 val newInstancesCount = workflowExecutionRequest.inputs("new_instances_count")
-                if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowException("'newInstancesCount' input is not of type integer for scale workflow")
+                if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowException("'new_instances_count' input is not of type integer for scale workflow")
                 deployment.scale(nodeId.asInstanceOf[String], newInstancesCount.asInstanceOf[BigDecimal].toInt)
               case _ => throw new InvalidWorkflowException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
             }

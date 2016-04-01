@@ -177,6 +177,7 @@ object DeploymentsCommand {
             val bootstrapMode = createArgs.get(bootstrapOpt).asInstanceOf[Option[Boolean]]
             val providerConf = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(providerTarget)
             if (Files.exists(providerConf)) {
+              println(s"Creating deployment image [$deploymentId], it'll take some minutes ...")
               fail = !createDeploymentImage(
                 realTopologyPath,
                 inputsPath,

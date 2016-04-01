@@ -6,4 +6,8 @@ public class InvalidWorkflowCommandException extends BadUsageException {
     public InvalidWorkflowCommandException(String message) {
         super(message);
     }
+
+    public InvalidWorkflowCommandException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

@@ -41,6 +41,7 @@ object JSONMapStringAnyFormat {
       case list: List[Any] => convertListToJsValue(list)
       case string: String => JsString(string)
       case bool: Boolean => JsBoolean(bool)
+      case None => JsNull
       case other => JsNumber(BigDecimal(other.toString))
     }
   }

@@ -10,7 +10,7 @@ import com.toscaruntime.util.SSHJExecutor;
 public class Test {
 
     public static void main(String[] args) throws Exception {
-        try (SSHJExecutor sshjExecutor = new SSHJExecutor("root", "129.185.67.66", 22, "/Users/vuminhkh/Projects/tosca-runtime/cli/src/main/resources/bootstrap/openstack/swarm/archive/toscaruntime.pem", false)) {
+        try (SSHJExecutor sshjExecutor = new SSHJExecutor("centos", "129.185.67.66", 22, "/Users/vuminhkh/Projects/tosca-runtime/cli/src/main/resources/bootstrap/openstack/swarm/archive/toscaruntime.pem", false)) {
             sshjExecutor.initialize();
             sshjExecutor.upload("/Users/vuminhkh/Projects/tosca-runtime/common/ssh-util/src/test/resources", "/tmp/recipe");
             Map<String, String> envVars = sshjExecutor.executeArtifact("test_129.185.67.107", Paths.get("/Users/vuminhkh/Projects/tosca-runtime/common/ssh-util/src/test/resources/test.sh"), "/tmp/recipe/test.sh", new HashMap<>());

@@ -1,5 +1,6 @@
 import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport._
 import sbt.Keys._
+import sbtfilter.Plugin.FilterKeys._
 
 emojiLogs
 
@@ -131,8 +132,11 @@ lazy val restModel = project.in(file("common/rest-model"))
 
 lazy val rest = project.in(file("rest"))
   .settings(commonSettings: _*)
+  .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-rest",
+    filterDirectoryName := "src/main/resources",
+    includeFilter in(Compile, filterResources) ~= { f => f || "Dockerfile" },
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.6",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
   ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)
@@ -168,7 +172,6 @@ lazy val deployer = project.in(file("deployer"))
     libraryDependencies += "com.typesafe.play" %% "play-slick-evolutions" % "1.1.1",
     libraryDependencies += "org.scalatestplus" %% "play" % "1.4.0" % "test",
     packageName in Docker := "toscaruntime/deployer",
-    version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(runtime, restModel, mockProvider, sdk).enablePlugins(PlayScala, DockerPlugin)
@@ -181,48 +184,55 @@ lazy val proxy = project.in(file("proxy"))
     libraryDependencies += ws,
     routesGenerator := InjectedRoutesGenerator,
     libraryDependencies += cache,
-    version in Docker := "latest",
     dockerExposedPorts in Docker := Seq(9000, 9443),
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(dockerUtil, rest).enablePlugins(PlayScala, DockerPlugin)
 
 val providerSettings: Seq[Setting[_]] = commonSettings ++ Seq(
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
-    val dir = base / "src" / "main"
-    dir.*** pair relativeTo(base)
+    val java = base / "src" / "main" / "java"
+    java.*** pair relativeTo(base)
   })
 
 lazy val docker = project.in(file("docker"))
   .settings(providerSettings: _*)
+  .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-docker",
-    libraryDependencies ++= testDependencies
+    libraryDependencies ++= testDependencies,
+    filterDirectoryName := "src/main/resources/docker-provider-types",
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yml" },
+    mappings in Universal <++= (packageBin in Compile, target) map { (_, target) =>
+      val classes = target / "classes"
+      val resources = classes / "docker-provider-types"
+      (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
+    }
   ).dependsOn(sdk, dockerUtil).enablePlugins(JavaAppPackaging)
 
 lazy val mockProvider = project.in(file("mock-provider"))
   .settings(providerSettings: _*)
   .settings(
     name := "toscaruntime-mock-provider",
-    libraryDependencies ++= testDependencies,
-    mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
-      val dir = base / "src" / "main"
-      dir.*** pair relativeTo(base)
-    }
+    libraryDependencies ++= testDependencies
   ).dependsOn(sdk).enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.in(file("openstack"))
   .settings(providerSettings: _*)
+  .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-openstack",
+    filterDirectoryName := "src/main/resources/openstack-provider-types",
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yml" },
     libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-keystone" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-nova" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-cinder" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1",
     libraryDependencies ++= testDependencies,
-    mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
-      val dir = base / "src" / "main"
-      dir.*** pair relativeTo(base)
+    mappings in Universal <++= (packageBin in Compile, target) map { (_, target) =>
+      val classes = target / "classes"
+      val resources = classes / "openstack-provider-types"
+      (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
     }
   ).dependsOn(sdk, sshUtil).enablePlugins(JavaAppPackaging)
 
