@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import com.toscaruntime.sdk.workflow.tasks.relationships.GenericRelationshipTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -249,6 +250,21 @@ public class WorkflowEngine {
         List<AbstractTask> nodeTasks = concernedInstances.stream().map(instance -> new GenericNodeTask(nodeInstances, relationshipInstances, instance, interfaceName, operationName)).collect(Collectors.toList());
         WorkflowExecution workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
         workflowExecution.addTasks(nodeTasks);
+        augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
+        return workflowExecution;
+    }
+
+    public WorkflowExecution buildExecuteRelationshipOperationWorkflow(List<AbstractTask> beforeTasks,
+                                                               List<AbstractTask> afterTasks,
+                                                               Map<String, Root> nodeInstances,
+                                                               Set<tosca.relationships.Root> relationshipInstances,
+                                                               Set<tosca.relationships.Root> concernedRelationshipInstances,
+                                                               String interfaceName,
+                                                               String operationName,
+                                                               String workflowId) {
+        List<AbstractTask> relationshipTasks = concernedRelationshipInstances.stream().map(relationshipInstance -> new GenericRelationshipTask(nodeInstances, relationshipInstances, relationshipInstance, interfaceName, operationName)).collect(Collectors.toList());
+        WorkflowExecution workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+        workflowExecution.addTasks(relationshipTasks);
         augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
         return workflowExecution;
     }

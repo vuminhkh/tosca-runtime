@@ -33,10 +33,6 @@ object CompilerUtil {
     outputFile
   }
 
-  def toCamelCase(text: String) = {
-    CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, text)
-  }
-
   private def convertObject(item: Any): Any = {
     item match {
       case map: ComplexValue => convertMap(map.value)

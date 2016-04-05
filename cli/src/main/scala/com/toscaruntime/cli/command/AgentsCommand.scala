@@ -57,25 +57,25 @@ object AgentsCommand {
 
   private val instancesCountOpt = "to"
 
-  private val nodesInfoOpt = "nodes"
+  private val nodesOpt = "nodes"
 
-  private val executionsInfoOpt = "executions"
+  private val executionsOpt = "executions"
 
-  private val executionInfoOpt = "execution"
+  private val executionOpt = "execution"
 
   private val pauseOpt = "pause"
 
-  private val outputsInfoOpt = "outputs"
+  private val outputsOpt = "outputs"
 
-  private val relationshipsInfoOpt = "relationships"
+  private val relationshipsOpt = "relationships"
 
-  private val relationshipInfoOpt = "relationship"
+  private val relationshipOpt = "relationship"
 
   private val instanceOpt = "instance"
 
   private val interfaceOpt = "interface"
 
-  private val relationshipInstanceInfoOpt = "relationshipInstance"
+  private val relationshipInstanceOpt = "relationshipInstance"
 
   private val executeOpt = "execute"
 
@@ -87,23 +87,21 @@ object AgentsCommand {
 
   private lazy val inputsArgsParser = (Space ~> (token(StringBasic) ~ ("=" ~> token(StringBasic)))) +
 
-  private lazy val executeArgsParser = Space ~> ((token(nodeOpt) ~ (Space ~> token(StringBasic)))
-    | token(instanceOpt) ~ (Space ~> token(StringBasic))
-    | token(interfaceOpt) ~ (Space ~> token(StringBasic))
-    | (token(operationOpt) ~ (Space ~> token(StringBasic)))
-    | (token(inputsOpt) ~ inputsArgsParser)) +
+  private lazy val operationExecutionArgsParser = Space ~> ((token(interfaceOpt) ~ (Space ~> token(StringBasic))) | (token(operationOpt) ~ (Space ~> token(StringBasic))) | (token(inputsOpt) ~ inputsArgsParser))
 
-  private lazy val infoNodeArgsParser = token(nodeOpt) ~ (Space ~> token(StringBasic))
+  private lazy val executeArgsParser = Space ~> ((nodeArgsParser | instanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser) ~ (operationExecutionArgsParser +))
 
-  private lazy val relationshipArgsParser = token(relationshipInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+  private lazy val nodeArgsParser = token(nodeOpt) ~ (Space ~> token(StringBasic))
 
-  private lazy val infoInstanceArgsParser = token(instanceOpt) ~ (Space ~> token(StringBasic))
+  private lazy val relationshipArgsParser = token(relationshipOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
 
-  private lazy val relationshipInstanceArgsParser = token(relationshipInstanceInfoOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+  private lazy val instanceArgsParser = token(instanceOpt) ~ (Space ~> token(StringBasic))
 
-  private lazy val executionArgsParser = token(executionInfoOpt) ~ (Space ~> token(StringBasic))
+  private lazy val relationshipInstanceArgsParser = token(relationshipInstanceOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
 
-  private lazy val infoExtraArgsParser = (Space ~> (token(nodesInfoOpt) | token(relationshipsInfoOpt) | token(outputsInfoOpt) | token(executionsInfoOpt) | infoNodeArgsParser | infoInstanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser | executionArgsParser)) ?
+  private lazy val executionArgsParser = token(executionOpt) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoExtraArgsParser = (Space ~> (token(nodesOpt) | token(relationshipsOpt) | token(outputsOpt) | token(executionsOpt) | nodeArgsParser | instanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser | executionArgsParser)) ?
 
   private lazy val agentsArgsParser = Space ~>
     (token(listOpt) |
@@ -119,7 +117,7 @@ object AgentsCommand {
       (token(resumeOpt) ~ (Space ~> token(StringBasic))) |
       (token(pauseOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
-      (token(executeOpt) ~ (Space ~> token(StringBasic)) ~ executeArgsParser) |
+      (token(executeOpt) ~ (Space ~> token(StringBasic) ~ executeArgsParser)) |
       (token(uninstallOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
       (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
 
@@ -130,15 +128,15 @@ object AgentsCommand {
        |$createOpt   : create an agent to manage the given deployment and run immediately install workflow to deploy it
        |$logOpt      : show the agent's log
        |$infoOpt     : show the agent's deployment details
-       |              $infoOpt $outputsInfoOpt: show only outputs details
-       |              $infoOpt $nodesInfoOpt: show only nodes details
-       |              $infoOpt $relationshipsInfoOpt: show only relationships details
-       |              $infoOpt $executionsInfoOpt: show only executions details
+       |              $infoOpt $outputsOpt: show only outputs details
+       |              $infoOpt $nodesOpt: show only nodes details
+       |              $infoOpt $relationshipsOpt: show only relationships details
+       |              $infoOpt $executionsOpt: show only executions details
        |              $infoOpt $nodeOpt <node id>: show node details
        |              $infoOpt $instanceOpt <instance id>: show instance details
-       |              $infoOpt $relationshipInfoOpt <source> <target>: show relationship node details
-       |              $infoOpt $relationshipInstanceInfoOpt <source instance> <target instance>: show relationship instance details
-       |              $infoOpt $executionInfoOpt <execution id>: show execution details
+       |              $infoOpt $relationshipOpt <source> <target> <relationship_type>: show relationship node details
+       |              $infoOpt $relationshipInstanceOpt <source instance> <target instance> <relationship_type>: show relationship instance details
+       |              $infoOpt $executionOpt <execution id>: show execution details
        |$startOpt    : start agent, agent will begin to manage deployment
        |$stopOpt     : stop agent, agent will stop to manage deployment
        |$restartOpt  : restart the agent, it's useful to refresh the agent with new recipe content
@@ -220,8 +218,12 @@ object AgentsCommand {
     AgentUtil.scaleExecution(client, deploymentId, nodeToScale, newInstancesCount)
   }
 
-  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
     AgentUtil.executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs)
+  }
+
+  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]]) = {
+    AgentUtil.executeRelationshipOperation(client, deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs)
   }
 
   def startAgent(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -283,9 +285,9 @@ object AgentsCommand {
             case Some("executions") => AgentUtil.printExecutionsDetails(deploymentId, getExecutionsDetails(client, deploymentId))
             case Some(("execution", executionId: String)) => AgentUtil.printExecutionDetails(client, deploymentId, executionId)
             case Some(("node", nodeId: String)) => AgentUtil.printNodeDetails(client, deploymentId, nodeId)
-            case Some((("relationship", source: String), target: String)) => AgentUtil.printRelationshipDetails(client, deploymentId, source, target)
+            case Some(((("relationship", source: String), target: String), relationshipType: String)) => AgentUtil.printRelationshipDetails(client, deploymentId, source, target, relationshipType)
             case Some(("instance", instanceId: String)) => AgentUtil.printInstanceDetails(client, deploymentId, instanceId)
-            case Some((("relationshipInstance", source: String), target: String)) => AgentUtil.printRelationshipInstanceDetails(client, deploymentId, source, target)
+            case Some(((("relationshipInstance", source: String), target: String), relationshipType: String)) => AgentUtil.printRelationshipInstanceDetails(client, deploymentId, source, target, relationshipType)
             case _ => AgentUtil.printDetails(client, deploymentId)
           }
         case (("scale", deploymentId: String), scaleOpts: Seq[(String, _)]) =>
@@ -302,14 +304,21 @@ object AgentsCommand {
             println(scaleExecution(client, deploymentId, nodeName.get.asInstanceOf[String], newInstancesCount.get.asInstanceOf[Int]))
             println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
           }
-        case (("execute", deploymentId: String), executeOpts: Seq[(String, _)]) =>
-          val executeArgs = executeOpts.toMap
-          val nodeName = executeArgs(nodeOpt).asInstanceOf[String]
-          val instanceId = executeArgs.get(instanceOpt).asInstanceOf[Option[String]]
+        case ("execute", (deploymentId: String, (executionTargetArgs: Any, executionOpts: Seq[(String, Any)]))) =>
+          val executeArgs = executionOpts.toMap
           val interface = executeArgs.get(interfaceOpt).asInstanceOf[Option[String]]
           val operation = executeArgs(operationOpt).asInstanceOf[String]
           val inputs = executeArgs.get(inputsOpt).asInstanceOf[Option[Seq[(String, String)]]].map(_.toMap)
-          println(executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs))
+          executionTargetArgs match {
+            case ("node", nodeId: String) =>
+              println(executeNodeOperation(client, deploymentId, Some(nodeId), None, interface, operation, inputs))
+            case ("instance", instanceId: String) =>
+              println(executeNodeOperation(client, deploymentId, None, Some(instanceId), interface, operation, inputs))
+            case ((("relationship", source: String), target: String), relationshipType: String) =>
+              println(executeRelationshipOperation(client, deploymentId, Some(source), None, Some(target), None, relationshipType, interface, operation, inputs))
+            case ((("relationshipInstance", source: String), target: String), relationshipType: String) =>
+              println(executeRelationshipOperation(client, deploymentId, None, Some(source), None, Some(target), relationshipType, interface, operation, inputs))
+          }
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case ("install", deploymentId: String) =>
           println(launchInstallWorkflow(client, deploymentId))

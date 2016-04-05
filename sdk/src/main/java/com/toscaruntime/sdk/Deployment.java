@@ -1,35 +1,13 @@
 package com.toscaruntime.sdk;
 
-import java.nio.file.Path;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.toscaruntime.deployment.DeploymentPersister;
-import com.toscaruntime.deployment.NodeTaskDTO;
-import com.toscaruntime.deployment.RelationshipTaskDTO;
-import com.toscaruntime.deployment.RunningExecutionDTO;
-import com.toscaruntime.deployment.TaskDTO;
+import com.toscaruntime.deployment.*;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound;
 import com.toscaruntime.exception.deployment.workflow.InvalidInstancesCountException;
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowArgumentException;
 import com.toscaruntime.exception.deployment.workflow.NodeNotFoundException;
-import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
-import com.toscaruntime.sdk.model.DeploymentConfig;
-import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
-import com.toscaruntime.sdk.model.DeploymentNode;
-import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
-import com.toscaruntime.sdk.model.OperationInputDefinition;
+import com.toscaruntime.sdk.model.*;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.workflow.DefaultListener;
 import com.toscaruntime.sdk.workflow.WorkflowEngine;
@@ -37,9 +15,16 @@ import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractGenericTask;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
-
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.nodes.Compute;
 import tosca.nodes.Root;
+
+import java.nio.file.Path;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * This represents a topology at runtime which contains instances of nodes defined in the tosca topology and relationship instances between them.
@@ -175,6 +160,17 @@ public abstract class Deployment {
                         String operationName = (String) runningExecution.getInputs().get("operation_name");
                         Map<String, Object> executedInputs = (Map<String, Object>) runningExecution.getInputs().get("inputs");
                         execution = executeNodeOperation(executedNodeId, executedInstanceId, interfaceName, operationName, executedInputs);
+                        break;
+                    case "execute_relationship_operation":
+                        String executedSourceNodeId = (String) runningExecution.getInputs().get("source_node_id");
+                        String executedSourceInstanceId = (String) runningExecution.getInputs().get("source_instance_id");
+                        String executedTargetNodeId = (String) runningExecution.getInputs().get("source_target_id");
+                        String executedTargetInstanceId = (String) runningExecution.getInputs().get("target_instance_id");
+                        String relationshipType = (String) runningExecution.getInputs().get("relationship_type");
+                        String relationshipInterfaceName = (String) runningExecution.getInputs().get("interface_name");
+                        String relationshipOperationName = (String) runningExecution.getInputs().get("operation_name");
+                        Map<String, Object> relationshipExecutedInputs = (Map<String, Object>) runningExecution.getInputs().get("inputs");
+                        execution = executeRelationshipOperation(executedSourceNodeId, executedSourceInstanceId, executedTargetNodeId, executedTargetInstanceId, relationshipType, relationshipInterfaceName, relationshipOperationName, relationshipExecutedInputs);
                         break;
                     case "scale":
                         Set<String> concernedNodeInstanceIds = nodeTaskDTOs.keySet().stream().map(NodeTaskDTO::getNodeInstanceId).collect(Collectors.toSet());
@@ -374,19 +370,75 @@ public abstract class Deployment {
         }
     }
 
+    public WorkflowExecution executeRelationshipOperation(String sourceName, String sourceInstanceId, String targetName, String targetInstanceId, String relationshipType, String interfaceName, String operationName, Map<String, Object> inputs) {
+        Set<tosca.relationships.Root> concernedRelationshipInstances;
+        if (StringUtils.isNotBlank(sourceName) && StringUtils.isNotBlank(targetName)) {
+            DeploymentRelationshipNode relationshipNode = DeploymentUtil.getRelationshipNodeBySourceNameTargetName(relationshipNodes, sourceName, targetName, relationshipType);
+            if (relationshipNode == null) {
+                throw new NodeNotFoundException("Relationship with source [" + sourceName + "] and target [" + targetName + "] and type [" + relationshipType + "] do not exist in the deployment");
+            }
+            concernedRelationshipInstances = relationshipNode.getRelationshipInstances();
+        } else if (StringUtils.isNotBlank(sourceInstanceId) && StringUtils.isNotBlank(targetInstanceId)) {
+            concernedRelationshipInstances = relationshipInstances.stream().filter(instance -> instance.getSource().getId().equals(sourceInstanceId) && instance.getTarget().getId().equals(targetInstanceId) && instance.getNode().getRelationshipName().equals(relationshipType)).collect(Collectors.toSet());
+        } else {
+            throw new InvalidWorkflowArgumentException("source/target instance id or source/target node name are needed to launch the workflow");
+        }
+        String javaMethodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName);
+        final Map<tosca.relationships.Root, Map<String, OperationInputDefinition>> currentOperationInputs;
+        if (inputs != null && !inputs.isEmpty()) {
+            currentOperationInputs = concernedRelationshipInstances.stream().collect(Collectors.toMap(instance -> instance, instance -> instance.getOperationInputs().get(javaMethodName)));
+        } else {
+            currentOperationInputs = null;
+        }
+        AbstractGenericTask persistTask = new AbstractGenericTask("persistence") {
+            @Override
+            protected void doRun() {
+                if (currentOperationInputs != null) {
+                    Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
+                            Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
+                    ));
+                    concernedRelationshipInstances.stream().forEach(instance -> {
+                                Map<String, OperationInputDefinition> operationInputs = new HashMap<>(currentOperationInputs.get(instance));
+                                operationInputs.putAll(convertedInputs);
+                                instance.getOperationInputs().put(javaMethodName, operationInputs);
+                            }
+                    );
+                }
+                getWorkflowExecution().persist();
+            }
+        };
+        AbstractGenericTask postInstallTask = new AbstractGenericTask("post_execute") {
+            @Override
+            protected void doRun() {
+                if (currentOperationInputs != null) {
+                    concernedRelationshipInstances.stream().forEach(relationshipInstance -> relationshipInstance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(relationshipInstance)));
+                }
+                runningWorkflowExecution.set(null);
+            }
+        };
+        return workflowEngine.buildExecuteRelationshipOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, concernedRelationshipInstances, concernedRelationshipInstances, interfaceName, operationName, "execute_relationship_operation");
+    }
+
     public WorkflowExecution executeNodeOperation(String nodeName, String instanceId, String interfaceName, String operationName, Map<String, Object> inputs) {
-        DeploymentNode node = nodes.get(nodeName);
-        if (node == null) {
-            throw new NodeNotFoundException("Node with name [" + nodeName + "] do not exist in the deployment");
+        if (StringUtils.isBlank(nodeName) && StringUtils.isBlank(instanceId)) {
+            throw new InvalidWorkflowArgumentException("Both node and instance id are empty");
         }
         Set<Root> concernedInstances;
-        if (StringUtils.isBlank(instanceId)) {
-            concernedInstances = node.getInstances();
+        if (StringUtils.isNotBlank(instanceId)) {
+            Root instance = nodeInstances.get(instanceId);
+            if (instance == null) {
+                throw new NodeNotFoundException("Instance with id [" + instanceId + "] do not exist in the deployment");
+            }
+            concernedInstances = Collections.singleton(instance);
         } else {
-            concernedInstances = node.getInstances().stream().filter(instance -> instance.getId().equals(instanceId)).collect(Collectors.toSet());
-        }
-        if (concernedInstances.isEmpty()) {
-            throw new NodeNotFoundException("No instances are found to perform operation for node [" + nodeName + "] and instance [" + instanceId + "]");
+            DeploymentNode node = nodes.get(nodeName);
+            if (node == null) {
+                throw new NodeNotFoundException("Node with id [" + nodeName + "] do not exist in the deployment");
+            }
+            concernedInstances = node.getInstances();
+            if (concernedInstances.isEmpty()) {
+                throw new NodeNotFoundException("Node [" + nodeName + "] do not have any living instance");
+            }
         }
         String javaMethodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName);
         final Map<String, Map<String, OperationInputDefinition>> currentOperationInputs;
@@ -645,14 +697,6 @@ public abstract class Deployment {
 
     public <T extends tosca.nodes.Root> Set<T> getNodeInstancesByType(Class<T> type) {
         return DeploymentUtil.getNodeInstancesByType(nodeInstances, type);
-    }
-
-    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getTargetInstancesOfRelationship(String sourceId, Class<U> relationshipType, Class<T> targetType) {
-        return DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, sourceId, relationshipType, targetType);
-    }
-
-    public <T extends tosca.nodes.Root, U extends tosca.relationships.Root> Set<T> getSourceInstancesOfRelationship(String targetId, Class<U> relationshipType, Class<T> sourceType) {
-        return DeploymentUtil.getSourceInstancesOfRelationship(relationshipInstances, targetId, relationshipType, sourceType);
     }
 
     public <T extends tosca.relationships.Root> Set<T> getRelationshipInstancesByNamesAndType(String sourceName, String targetName, Class<T> relationshipType) {

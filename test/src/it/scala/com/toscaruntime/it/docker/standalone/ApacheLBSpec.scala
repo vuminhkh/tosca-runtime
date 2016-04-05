@@ -37,13 +37,13 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       checkURL(url, 200, Set.empty, 5 minutes)
 
       When("I stop the load balancer")
-      executeNodeOperation("apache-lb", "ApacheLoadBalancer", "stop")
+      executeNodeOperation("apache-lb", Some("ApacheLoadBalancer"), "stop")
 
       Then("The url should not be reachable anymore")
       checkURLNonAvailable(url)
 
       When("I start the load balancer")
-      executeNodeOperation("apache-lb", "ApacheLoadBalancer", "start")
+      executeNodeOperation("apache-lb", Some("ApacheLoadBalancer"), "start")
 
       Then("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
@@ -94,7 +94,13 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       assertDeploymentHasNode("apache-lb", "War", 1)
 
       And("A request on the application's url should return a response 200 OK")
-      checkURL(url, 200, Set.empty, 5 minutes)
+      checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to Fastconnect !"))
+
+      When("I update the deployed war file")
+      executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Some(Map("WAR_URL" -> "https://github.com/alien4cloud/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war")))
+
+      And("A request on the application's url should return a response 200 OK")
+      checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to testDeployArtifactOverriddenTest !"))
 
       And("I should be able to undeploy it without error")
       launchUndeployment("apache-lb")

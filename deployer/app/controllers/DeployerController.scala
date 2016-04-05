@@ -2,13 +2,12 @@ package controllers
 
 import java.io.File
 import java.nio.file.{Files, Paths}
-import java.util
 import javax.inject.Inject
 
 import com.toscaruntime.constant.{DeployerConstant, ToscaInterfaceConstant}
 import com.toscaruntime.exception.BadUsageException
 import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound
-import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowArgumentException
 import com.toscaruntime.rest.model._
 import com.toscaruntime.runtime.Deployer
 import com.toscaruntime.sdk.Deployment
@@ -79,24 +78,36 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
               case "uninstall" => deployment.uninstall()
               case "teardown_infrastructure" => deployment.teardown()
               case "execute_node_operation" =>
-                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'nodeId' input for execute_node_operation workflow")
-                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowException("Missing 'operation_name' input for execute_node_operation workflow")
+                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_node_operation workflow")
                 deployment.executeNodeOperation(
-                  workflowExecutionRequest.inputs("node_id").asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("node_id", null).asInstanceOf[String],
                   workflowExecutionRequest.inputs.getOrElse("instance_id", null).asInstanceOf[String],
                   workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.NODE_STANDARD_INTERFACE).asInstanceOf[String],
                   workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
                   JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]])
                 )
+              case "execute_relationship_operation" =>
+                if (workflowExecutionRequest.inputs.get("relationship_type").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'relationship_type' input for execute_relationship_operation workflow")
+                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_relationship_operation workflow")
+                deployment.executeRelationshipOperation(
+                  workflowExecutionRequest.inputs.getOrElse("source_node_id", null).asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("source_instance_id", null).asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("target_node_id", null).asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("target_instance_id", null).asInstanceOf[String],
+                  workflowExecutionRequest.inputs("relationship_type").asInstanceOf[String],
+                  workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE).asInstanceOf[String],
+                  workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
+                  JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]])
+                )
               case "scale" =>
-                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowException("Missing 'node_id' input for scale workflow")
-                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowException("Missing 'new_instances_count' input for scale workflow")
+                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'node_id' input for scale workflow")
+                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'new_instances_count' input for scale workflow")
                 val nodeId = workflowExecutionRequest.inputs("node_id")
-                if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowException("'node_id' input is not of type string for scale workflow")
+                if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowArgumentException("'node_id' input is not of type string for scale workflow")
                 val newInstancesCount = workflowExecutionRequest.inputs("new_instances_count")
-                if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowException("'new_instances_count' input is not of type integer for scale workflow")
+                if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowArgumentException("'new_instances_count' input is not of type integer for scale workflow")
                 deployment.scale(nodeId.asInstanceOf[String], newInstancesCount.asInstanceOf[BigDecimal].toInt)
-              case _ => throw new InvalidWorkflowException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
+              case _ => throw new InvalidWorkflowArgumentException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
             }
             deployment.run(workflowExecution)
             (executionId, workflowExecution)
@@ -185,7 +196,7 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
         RelationshipInstanceDTO(relationshipInstance.getSource.getId, relationshipInstance.getTarget.getId, relationshipInstance.getState, relationshipInstanceAttributes)
       }.toList
       val relationshipNodeProperties = JavaScalaConversionUtil.toScalaMap(relationshipNode.getProperties)
-      RelationshipNodeDTO(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNodeProperties, relationshipInstances)
+      RelationshipNodeDTO(relationshipNode.getSourceNodeId, relationshipNode.getTargetNodeId, relationshipNode.getRelationshipName, relationshipNodeProperties, relationshipInstances)
     }.toList
     val executions = deploymentDAO.listExecutions().flatMap { executions =>
       Future.sequence(executions.map {

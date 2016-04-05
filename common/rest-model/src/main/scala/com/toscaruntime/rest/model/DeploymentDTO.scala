@@ -32,7 +32,7 @@ object NodeDTO {
   implicit val NodeFormat = Json.format[NodeDTO]
 }
 
-case class RelationshipNodeDTO(sourceNodeId: String, targetNodeId: String, properties: Map[String, Any], relationshipInstances: List[RelationshipInstanceDTO]) extends AbstractNodeDTO
+case class RelationshipNodeDTO(sourceNodeId: String, targetNodeId: String, relationshipType: String, properties: Map[String, Any], relationshipInstances: List[RelationshipInstanceDTO]) extends AbstractNodeDTO
 
 object RelationshipNodeDTO {
   implicit val RelationshipNodeFormat = Json.format[RelationshipNodeDTO]

@@ -1,5 +1,5 @@
 @import com.toscaruntime.compiler.runtime.RelationshipType
-@import com.toscaruntime.compiler.util.CompilerUtil
+@import com.toscaruntime.util.CaseUtil
 
 @(relationshipType: RelationshipType)
 package @relationshipType.packageName;
@@ -17,7 +17,7 @@ package @relationshipType.packageName;
 @Html("}")
 
 @relationshipType.methods.map { method =>
-public void @CompilerUtil.toCamelCase(method.name) @Html("() {")
+public void @CaseUtil.lowerUnderscoreToCamelCase(method.name) @Html("() {")
   @method.implementation.map { implementation =>
     @Html("java.util.Map<String, String> outputs = ")executeOperation("@method.name", "@relationshipType.csarName/@implementation");
     setOperationOutputs("@method.interface", "@method.operation", outputs);

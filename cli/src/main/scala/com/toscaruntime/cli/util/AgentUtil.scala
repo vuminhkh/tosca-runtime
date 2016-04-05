@@ -48,8 +48,12 @@ object AgentUtil extends LazyLogging {
     Await.result(client.executeScaleWorkflow(deploymentId, nodeName, newInstancesCount), forEver)
   }
 
-  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: String, instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
     Await.result(client.executeNodeOperation(deploymentId, nodeName, instanceId, interface, operation, inputs), forEver)
+  }
+
+  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]]) = {
+    Await.result(client.executeRelationshipOperation(deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs), forEver)
   }
 
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -133,6 +137,7 @@ object AgentUtil extends LazyLogging {
       List(
         relationship.sourceNodeId,
         relationship.targetNodeId,
+        relationship.relationshipType,
         relationship.relationshipInstances.length.toString,
         initialInstancesCount,
         preConfiguringInstancesCount,
@@ -148,7 +153,7 @@ object AgentUtil extends LazyLogging {
 
   def printRelationshipsDetails(name: String, relationshipsData: List[List[String]]): Unit = {
     println(name + " has " + relationshipsData.length + " relationships :")
-    val relationshipHeaders = List("Source", "Target", "Total Instance", "Initial", "Pre-Configuring", "Pre-Configured", "Post-Configuring", "Post-Configured", "Establishing", "Established", "Unlinking")
+    val relationshipHeaders = List("Source", "Target", "Type", "Total", "Initial", "Pre-Configuring", "Pre-Configured", "Post-Configuring", "Post-Configured", "Establishing", "Established", "Unlinking")
     println(TabulatorUtil.format(relationshipHeaders :: relationshipsData))
   }
 
@@ -179,7 +184,7 @@ object AgentUtil extends LazyLogging {
 
   def printNodesDetails(deploymentId: String, nodesData: List[List[String]]): Unit = {
     println(deploymentId + " has " + nodesData.length + " nodes :")
-    val nodeHeaders = List("Node", "Total Instances", "Initial", "Creating", "Created", "Configuring", "Configured", "Starting", "Started", "Stopping", "Deleting")
+    val nodeHeaders = List("Node", "Total", "Initial", "Creating", "Created", "Configuring", "Configured", "Starting", "Started", "Stopping", "Deleting")
     println(TabulatorUtil.format(nodeHeaders :: nodesData))
   }
 
@@ -242,39 +247,39 @@ object AgentUtil extends LazyLogging {
     }
   }
 
-  def printRelationshipInstanceDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String): Unit = {
+  def printRelationshipInstanceDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String, relationshipType: String): Unit = {
     val deploymentDetails = getDeploymentDetails(client, deploymentId)
-    deploymentDetails.relationships.flatMap { relationship =>
+    deploymentDetails.relationships.filter(relationship => relationship.relationshipType == relationshipType).flatMap { relationship =>
       relationship.relationshipInstances.find(relationshipInstance =>
         relationshipInstance.sourceInstanceId == source && relationshipInstance.targetInstanceId == target
       )
     }.headOption match {
       case Some(relationshipInstance) =>
-        println(s"The relationship instance from [$source] to [$target] is in state ${relationshipInstance.state}")
+        println(s"The relationship instance of type [$relationshipType] from [$source] to [$target] is in state ${relationshipInstance.state}")
         if (relationshipInstance.attributes.nonEmpty) {
-          println(s"The relationship instance from [$source] to [$target] has following attributes:")
+          println(s"The relationship instance of type [$relationshipType] from [$source] to [$target] has following attributes:")
           printProperties(relationshipInstance.attributes)
         }
       case None =>
-        println(s"The relationship instance from [$source] to [$target] is not found in the deployment [$deploymentId] ")
+        println(s"The relationship instance of type [$relationshipType] from [$source] to [$target] is not found in the deployment [$deploymentId] ")
     }
   }
 
-  def printRelationshipDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String): Unit = {
+  def printRelationshipDetails(client: ToscaRuntimeClient, deploymentId: String, source: String, target: String, relationshipType: String): Unit = {
     val deploymentDetails = getDeploymentDetails(client, deploymentId)
-    deploymentDetails.relationships.find(relationship => relationship.sourceNodeId == source && relationship.targetNodeId == target) match {
+    deploymentDetails.relationships.find(relationship => relationship.sourceNodeId == source && relationship.targetNodeId == target && relationship.relationshipType == relationshipType) match {
       case Some(relationship) =>
         if (relationship.properties.nonEmpty) {
-          println(s"The relationship from [$source] to [$target] has following properties:")
+          println(s"The relationship of type [$relationshipType] from [$source] to [$target] has following properties:")
           printProperties(relationship.properties)
         }
-        println(s"The relationship from [$source] to [$target] has following instances:")
+        println(s"The relationship of type [$relationshipType] from [$source] to [$target] has following instances:")
         val instancesData = relationship.relationshipInstances.map { relationshipInstance =>
           List(relationshipInstance.sourceInstanceId, relationshipInstance.targetInstanceId, relationshipInstance.state, relationshipInstance.attributes.size.toString)
         }
         println(TabulatorUtil.format(List("Source Id", "Target Id", "State", "Attributes") :: instancesData))
       case None =>
-        println(s"The relationship from [$source] to [$target] is not found in the deployment [$deploymentId] ")
+        println(s"The relationship of type [$relationshipType] from [$source] to [$target] is not found in the deployment [$deploymentId] ")
     }
   }
 

@@ -68,6 +68,7 @@ class DeploymentDetailsSpec extends WordSpec with MustMatchers with LazyLogging 
           RelationshipNodeDTO(
             sourceNodeId = "testSource",
             targetNodeId = "testTarget",
+            relationshipType = "testType",
             properties = Map.empty,
             relationshipInstances = List(
               RelationshipInstanceDTO(

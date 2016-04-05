@@ -1,28 +1,26 @@
 package com.toscaruntime.sdk.util;
 
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-
 import com.toscaruntime.constant.ToscaInterfaceConstant;
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowCommandException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
-import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.MockNodeTask;
-import com.toscaruntime.sdk.workflow.tasks.MockRelationshipTask;
-import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
+import com.toscaruntime.sdk.workflow.tasks.*;
 import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
-
+import com.toscaruntime.util.CaseUtil;
+import com.toscaruntime.util.CodeGeneratorUtil;
+import org.apache.commons.lang.StringUtils;
 import tosca.nodes.Root;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Map;
+import java.util.Set;
 
 public class WorkflowUtil {
 
 
     public static void refreshAttributes(Map<String, Root> nodeInstances,
-                                          Set<tosca.relationships.Root> relationshipInstances) {
+                                         Set<tosca.relationships.Root> relationshipInstances) {
         nodeInstances.values().forEach(Root::refreshAttributes);
         relationshipInstances.forEach(tosca.relationships.Root::refreshAttributes);
     }
@@ -172,5 +170,21 @@ public class WorkflowUtil {
         AbstractRelationshipTask removeSource = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.REMOVE_SOURCE_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
         AbstractRelationshipTask removeTarget = new MockRelationshipTask(ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE, ToscaInterfaceConstant.REMOVE_TARGET_OPERATION, nodeInstances, relationshipInstances, relationshipInstance);
         return new RelationshipUninstallLifeCycleTasks(removeSource, removeTarget);
+    }
+
+    public static void invokeRuntimeTypeMethod(AbstractRuntimeType runtimeType, Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, String interfaceName, String operationName) throws Throwable {
+        try {
+            Method method = runtimeType.getClass().getMethod(CaseUtil.lowerUnderscoreToCamelCase(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName)));
+            method.invoke(runtimeType);
+            WorkflowUtil.refreshAttributes(nodeInstances, relationshipInstances);
+        } catch (IllegalAccessException | NoSuchMethodException e) {
+            throw new InvalidWorkflowCommandException(e.getMessage(), e);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() != null) {
+                throw e.getCause();
+            } else {
+                throw e;
+            }
+        }
     }
 }

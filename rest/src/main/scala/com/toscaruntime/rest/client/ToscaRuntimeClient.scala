@@ -105,16 +105,31 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
       .map(handleWSResponse)
   }
 
-  def executeNodeOperation(deploymentId: String, nodeName: String, instanceId: Option[String], interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]] = None) = {
-    var operationInputs = Map[String, Any](
-      "node_id" -> nodeName,
-      "operation_name" -> operationName)
+  def executeNodeOperation(deploymentId: String, nodeName: Option[String], instanceId: Option[String], interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]] = None) = {
+    var operationInputs = Map[String, Any]("operation_name" -> operationName)
+    if (nodeName.isDefined) operationInputs += ("node_id" -> nodeName.get)
     if (interfaceName.isDefined) operationInputs += ("interface_name" -> interfaceName.get)
     if (instanceId.isDefined) operationInputs += ("instance_id" -> instanceId.get)
     if (inputs.isDefined) operationInputs += ("inputs" -> inputs.get)
     wsClient
       .url(getDeploymentAgentURL(deploymentId) + "/executions")
       .post(Json.toJson(WorkflowExecutionRequest("execute_node_operation", operationInputs)))
+      .map(handleWSResponse)
+  }
+
+  def executeRelationshipOperation(deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]] = None) = {
+    var operationInputs = Map[String, Any](
+      "relationship_type" -> relationshipType,
+      "operation_name" -> operationName)
+    if (sourceNodeName.isDefined) operationInputs += ("source_node_id" -> sourceNodeName.get)
+    if (targetNodeName.isDefined) operationInputs += ("target_node_id" -> targetNodeName.get)
+    if (interfaceName.isDefined) operationInputs += ("interface_name" -> interfaceName.get)
+    if (sourceInstanceId.isDefined) operationInputs += ("source_instance_id" -> sourceInstanceId.get)
+    if (targetInstanceId.isDefined) operationInputs += ("target_instance_id" -> targetInstanceId.get)
+    if (inputs.isDefined) operationInputs += ("inputs" -> inputs.get)
+    wsClient
+      .url(getDeploymentAgentURL(deploymentId) + "/executions")
+      .post(Json.toJson(WorkflowExecutionRequest("execute_relationship_operation", operationInputs)))
       .map(handleWSResponse)
   }
 

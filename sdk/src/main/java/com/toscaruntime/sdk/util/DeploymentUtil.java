@@ -1,25 +1,20 @@
 package com.toscaruntime.sdk.util;
 
+import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import tosca.relationships.Root;
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
-
-import tosca.relationships.Root;
-
 @SuppressWarnings("unchecked")
 public class DeploymentUtil {
 
-    public static long getExecutionTime(long before) {
-        return (System.currentTimeMillis() - before) / 1000L;
-    }
-
-    public static DeploymentRelationshipNode getRelationshipNodeBySourceNameTargetName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName, String targetName, Class<? extends Root> relationshipType) {
+    public static DeploymentRelationshipNode getRelationshipNodeBySourceNameTargetName(Set<DeploymentRelationshipNode> relationshipNodes, String sourceName, String targetName, String relationshipType) {
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
-            if (relationshipNode.getSourceNodeId().equals(sourceName) && relationshipNode.getTargetNodeId().equals(targetName) && relationshipNode.getRelationshipType() == relationshipType) {
+            if (relationshipNode.getSourceNodeId().equals(sourceName) && relationshipNode.getTargetNodeId().equals(targetName) && relationshipNode.getRelationshipName().equals(relationshipType)) {
                 return relationshipNode;
             }
         }
