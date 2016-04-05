@@ -152,7 +152,10 @@ object AgentsCommand {
        |$scaleOpt    : launch default scale workflow on the given node
        |              $scaleOpt <deployment id> $nodeOpt <node name> $instancesCountOpt <instances count>
        |$executeOpt  : launch a particular operation on a particular node or instance
-       |              $executeOpt <deployment id> $nodeOpt <node name> $instanceOpt <instance id> $interfaceOpt <interface> $operationOpt <operation>
+       |              $executeOpt <deployment id> $nodeOpt <node name> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
+       |              $executeOpt <deployment id> $instanceOpt <instance id> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
+       |              $executeOpt <deployment id> $relationshipOpt <source> <target> <relationship_type> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
+       |              $executeOpt <deployment id> $relationshipInstanceOpt <source instance> <target instance> <relationship_type> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
        |$deleteOpt   : delete agent, if the deployment has living nodes, '$uninstallOpt $forceOpt' will be called before the deletion
        |              $deleteOpt <deployment id> $forceOpt : force the delete of the agent without un-deploying application first
     """.stripMargin
