@@ -1,12 +1,11 @@
 package com.toscaruntime.sdk.workflow;
 
-import java.util.Collection;
-import java.util.stream.Collectors;
-
+import com.toscaruntime.deployment.DeploymentPersister;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.deployment.DeploymentPersister;
+import java.util.Collection;
+import java.util.stream.Collectors;
 
 /**
  * Default listener for workflow execution, which do nothing than persist execution's state
@@ -19,34 +18,42 @@ public class DefaultListener implements Listener {
 
     private DeploymentPersister deploymentPersister;
 
-    private String workflowId;
+    private WorkflowExecution workflowExecution;
 
-    public DefaultListener(DeploymentPersister deploymentPersister, String workflowId) {
+    public DefaultListener(DeploymentPersister deploymentPersister, WorkflowExecution workflowExecution) {
         this.deploymentPersister = deploymentPersister;
-        this.workflowId = workflowId;
+        this.workflowExecution = workflowExecution;
     }
 
     @Override
     public void onStop() {
-        deploymentPersister.syncStopRunningExecution();
-        log.info("Execution for {} workflow has been stopped", workflowId);
+        if (!this.workflowExecution.isTransient()) {
+            deploymentPersister.syncStopRunningExecution();
+        }
+        log.info("Execution for {} workflow has been stopped", this.workflowExecution.getWorkflowId());
     }
 
     @Override
     public void onCancel() {
-        deploymentPersister.syncCancelRunningExecution();
-        log.info("Execution for {} workflow has been cancelled", workflowId);
+        if (!this.workflowExecution.isTransient()) {
+            deploymentPersister.syncCancelRunningExecution();
+        }
+        log.info("Execution for {} workflow has been cancelled", this.workflowExecution.getWorkflowId());
     }
 
     @Override
     public void onFinish() {
-        deploymentPersister.syncFinishRunningExecution();
-        log.info("Execution for {} workflow has finished successfully", workflowId);
+        if (!this.workflowExecution.isTransient()) {
+            deploymentPersister.syncFinishRunningExecution();
+        }
+        log.info("Execution for {} workflow has finished successfully", this.workflowExecution.getWorkflowId());
     }
 
     @Override
     public void onFailure(Collection<Throwable> errors) {
-        errors.forEach(error -> log.error("Execution for workflow " + workflowId + " encountered error", error));
-        deploymentPersister.syncStopRunningExecution(errors.stream().map(Throwable::getMessage).collect(Collectors.joining(", ")));
+        errors.forEach(error -> log.error("Execution for workflow " + this.workflowExecution.getWorkflowId() + " encountered error", error));
+        if (!this.workflowExecution.isTransient()) {
+            deploymentPersister.syncStopRunningExecution(errors.stream().map(Throwable::getMessage).collect(Collectors.joining(", ")));
+        }
     }
 }

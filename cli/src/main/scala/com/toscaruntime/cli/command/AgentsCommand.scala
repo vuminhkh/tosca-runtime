@@ -6,6 +6,7 @@ import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.exception.client.BadRequestException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
+import com.typesafe.scalalogging.LazyLogging
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -15,149 +16,254 @@ import scala.io.StdIn
 import scala.language.postfixOps
 
 /**
-  * Command to handle list, delete, show information of an agent
+  * Command to interact with deployment agent
   *
   * @author Minh Khang VU
   */
-object AgentsCommand {
+object AgentsCommand extends LazyLogging {
 
   val commandName = "agents"
 
-  private val createOpt = "create"
+  private val createCmd = "create"
 
-  private val listOpt = "list"
+  private val listCmd = "list"
 
-  private val logOpt = "log"
+  private val logCmd = "log"
 
-  private val startOpt = "start"
+  private val startCmd = "start"
 
-  private val stopOpt = "stop"
+  private val stopCmd = "stop"
 
-  private val restartOpt = "restart"
+  private val restartCmd = "restart"
 
-  private val deleteOpt = "delete"
+  private val deleteCmd = "delete"
 
   private val forceOpt = "-f"
 
-  private val installOpt = "install"
+  private val installCmd = "install"
 
-  private val cancelOpt = "cancel"
+  private val cancelCmd = "cancel"
 
-  private val resumeOpt = "resume"
+  private val resumeCmd = "resume"
 
-  private val uninstallOpt = "uninstall"
+  private val uninstallCmd = "uninstall"
 
-  private val updateOpt = "update"
+  private val updateCmd = "update"
 
-  private val scaleOpt = "scale"
+  private val scaleCmd = "scale"
 
-  private val infoOpt = "info"
+  private val infoCmd = "info"
 
-  private val nodeOpt = "node"
+  private val pauseCmd = "pause"
 
-  private val instancesCountOpt = "to"
+  private val outputsOpt = "--outputs"
 
-  private val nodesOpt = "nodes"
+  private val nodesOpt = "--nodes"
 
-  private val executionsOpt = "executions"
+  private val executionsOpt = "--executions"
 
-  private val executionOpt = "execution"
+  private val relationshipsOpt = "--relationships"
 
-  private val pauseOpt = "pause"
+  private val interfaceOpt = "--interface"
 
-  private val outputsOpt = "outputs"
+  private val inputOpt = "--input"
 
-  private val relationshipsOpt = "relationships"
+  private val transientOpt = "--transient"
 
-  private val relationshipOpt = "relationship"
+  private lazy val infoNodeCmd = "infoNode"
 
-  private val instanceOpt = "instance"
+  private lazy val infoNodeInstanceCmd = "infoNodeInstance"
 
-  private val interfaceOpt = "interface"
+  private lazy val infoExecutionCmd = "infoExecution"
 
-  private val relationshipInstanceOpt = "relationshipInstance"
+  private lazy val infoRelationshipCmd = "infoRelationship"
 
-  private val executeOpt = "execute"
+  private lazy val infoRelationshipInstanceCmd = "infoRelationshipInstance"
 
-  private val operationOpt = "operation"
+  private lazy val executeNodeCmd = "executeNode"
 
-  private val inputsOpt = "-i"
+  private lazy val executeNodeInstanceCmd = "executeNodeInstance"
 
-  private lazy val scaleArgsParser = Space ~> ((token(nodeOpt) ~ (Space ~> token(StringBasic))) | (token(instancesCountOpt) ~ (Space ~> token(IntBasic)))) +
+  private lazy val executeRelationshipCmd = "executeRelationship"
 
-  private lazy val inputsArgsParser = (Space ~> (token(StringBasic) ~ ("=" ~> token(StringBasic)))) +
+  private lazy val executeRelationshipInstanceCmd = "executeRelationshipInstance"
 
-  private lazy val operationExecutionArgsParser = Space ~> ((token(interfaceOpt) ~ (Space ~> token(StringBasic))) | (token(operationOpt) ~ (Space ~> token(StringBasic))) | (token(inputsOpt) ~ inputsArgsParser))
+  private lazy val infoOptsParser = (Space ~> (token(nodesOpt) | token(relationshipsOpt) | token(outputsOpt) | token(executionsOpt))) *
 
-  private lazy val executeArgsParser = Space ~> ((nodeArgsParser | instanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser) ~ (operationExecutionArgsParser +))
+  private lazy val executeInputOptParser = token(inputOpt) ~ (Space ~> (token(StringBasic) ~ (token("=") ~> token(StringBasic))))
 
-  private lazy val nodeArgsParser = token(nodeOpt) ~ (Space ~> token(StringBasic))
+  private lazy val executeOptsParser = (Space ~> ((token(interfaceOpt) ~ (Space ~> token(StringBasic))) | token(transientOpt) | executeInputOptParser)) *
 
-  private lazy val relationshipArgsParser = token(relationshipOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+  private lazy val scaleCmdParser = token(scaleCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(IntBasic))
 
-  private lazy val instanceArgsParser = token(instanceOpt) ~ (Space ~> token(StringBasic))
+  private lazy val deleteCmdParser = token(deleteCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
 
-  private lazy val relationshipInstanceArgsParser = token(relationshipInstanceOpt) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+  private lazy val cancelCmdParser = token(cancelCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
 
-  private lazy val executionArgsParser = token(executionOpt) ~ (Space ~> token(StringBasic))
+  private lazy val pauseCmdParser = token(pauseCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
 
-  private lazy val infoExtraArgsParser = (Space ~> (token(nodesOpt) | token(relationshipsOpt) | token(outputsOpt) | token(executionsOpt) | nodeArgsParser | instanceArgsParser | relationshipArgsParser | relationshipInstanceArgsParser | executionArgsParser)) ?
+  private lazy val installCmdParser = token(installCmd) ~ (Space ~> token(StringBasic))
 
-  private lazy val agentsArgsParser = Space ~>
-    (token(listOpt) |
-      (token(createOpt) ~ (Space ~> token(StringBasic))) |
-      (token(startOpt) ~ (Space ~> token(StringBasic))) |
-      (token(logOpt) ~ (Space ~> token(StringBasic))) |
-      (token(stopOpt) ~ (Space ~> token(StringBasic))) |
-      (token(restartOpt) ~ (Space ~> token(StringBasic))) |
-      (token(updateOpt) ~ (Space ~> token(StringBasic))) |
-      (token(deleteOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
-      (token(installOpt) ~ (Space ~> token(StringBasic))) |
-      (token(cancelOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
-      (token(resumeOpt) ~ (Space ~> token(StringBasic))) |
-      (token(pauseOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
-      (token(scaleOpt) ~ (Space ~> token(StringBasic)) ~ scaleArgsParser) |
-      (token(executeOpt) ~ (Space ~> token(StringBasic) ~ executeArgsParser)) |
-      (token(uninstallOpt) ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(forceOpt)) ?)) |
-      (token(infoOpt) ~ (Space ~> token(StringBasic) ~ infoExtraArgsParser))) +
+  private lazy val uninstallCmdParser = token(uninstallCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
 
-  private lazy val agentsActionsHelp = Help(commandName, (commandName, s"List, stop or delete agent asynchronously, execute 'help $commandName' for more details"),
-    s"""
-       |$commandName [$listOpt| [$createOpt|$startOpt|$stopOpt|$deleteOpt|$installOpt$cancelOpt$resumeOpt|$uninstallOpt|$scaleOpt|$infoOpt|$logOpt] <deployment id> [other options]
-       |$listOpt     : list all agents
-       |$createOpt   : create an agent to manage the given deployment and run immediately install workflow to deploy it
-       |$logOpt      : show the agent's log
-       |$infoOpt     : show the agent's deployment details
-       |              $infoOpt $outputsOpt: show only outputs details
-       |              $infoOpt $nodesOpt: show only nodes details
-       |              $infoOpt $relationshipsOpt: show only relationships details
-       |              $infoOpt $executionsOpt: show only executions details
-       |              $infoOpt $nodeOpt <node id>: show node details
-       |              $infoOpt $instanceOpt <instance id>: show instance details
-       |              $infoOpt $relationshipOpt <source> <target> <relationship_type>: show relationship node details
-       |              $infoOpt $relationshipInstanceOpt <source instance> <target instance> <relationship_type>: show relationship instance details
-       |              $infoOpt $executionOpt <execution id>: show execution details
-       |$startOpt    : start agent, agent will begin to manage deployment
-       |$stopOpt     : stop agent, agent will stop to manage deployment
-       |$restartOpt  : restart the agent, it's useful to refresh the agent with new recipe content
-       |$updateOpt   : update the agent's deployment recipe with the one in 'work' directory
-       |$installOpt  : launch default install workflow
-       |$pauseOpt    : pause current running execution by waiting for all running tasks to finish and not launching new tasks
-       |              $pauseOpt <deployment id> $forceOpt try to interrupt current running tasks
-       |$cancelOpt   : cancel current running execution
-       |              $cancelOpt <deployment id> $forceOpt cancel without waiting for running tasks to finish
-       |$resumeOpt   : resume current running execution (which was stopped due to error)
-       |$uninstallOpt: launch default uninstall workflow
-       |              $uninstallOpt <deployment id> $forceOpt : uninstall only IAAS resources
-       |$scaleOpt    : launch default scale workflow on the given node
-       |              $scaleOpt <deployment id> $nodeOpt <node name> $instancesCountOpt <instances count>
-       |$executeOpt  : launch a particular operation on a particular node or instance
-       |              $executeOpt <deployment id> $nodeOpt <node name> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
-       |              $executeOpt <deployment id> $instanceOpt <instance id> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
-       |              $executeOpt <deployment id> $relationshipOpt <source> <target> <relationship_type> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
-       |              $executeOpt <deployment id> $relationshipInstanceOpt <source instance> <target instance> <relationship_type> [$interfaceOpt <interface>] $operationOpt <operation> [-i <key=value>]
-       |$deleteOpt   : delete agent, if the deployment has living nodes, '$uninstallOpt $forceOpt' will be called before the deletion
-       |              $deleteOpt <deployment id> $forceOpt : force the delete of the agent without un-deploying application first
+  private lazy val infoCmdParser = token(infoCmd) ~ infoOptsParser ~ (Space ~> token(StringBasic))
+
+  private lazy val infoNodeCmdParser = token(infoNodeCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val executeNodeCmdParser = token(executeNodeCmd) ~ executeOptsParser ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoNodeInstanceCmdParser = token(infoNodeInstanceCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val executeNodeInstanceCmdParser = token(executeNodeInstanceCmd) ~ executeOptsParser ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoExecutionCmdParser = token(infoExecutionCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoRelationshipCmdParser = token(infoRelationshipCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val executeRelationshipCmdParser = token(executeRelationshipCmd) ~ executeOptsParser ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val infoRelationshipInstanceCmdParser = token(infoRelationshipInstanceCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val executeRelationshipInstanceCmdParser = token(executeRelationshipInstanceCmd) ~ executeOptsParser ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic))
+
+  private lazy val listCmdParser = token(listCmd)
+
+  private lazy val createCmdParser = token(createCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val startCmdParser = token(startCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val logCmdParser = token(logCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val stopCmdParser = token(stopCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val restartCmdParser = token(restartCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val updateCmdParser = token(updateCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val resumeCmdParser = token(resumeCmd) ~ (Space ~> token(StringBasic))
+
+  private lazy val agentsCmdParser = Space ~>
+    (listCmdParser |
+      createCmdParser |
+      startCmdParser |
+      logCmdParser |
+      stopCmdParser |
+      restartCmdParser |
+      updateCmdParser |
+      deleteCmdParser |
+      installCmdParser |
+      uninstallCmdParser |
+      pauseCmdParser |
+      resumeCmdParser |
+      cancelCmdParser |
+      scaleCmdParser |
+      infoCmdParser |
+      infoNodeCmdParser |
+      infoNodeInstanceCmdParser |
+      infoExecutionCmdParser |
+      infoRelationshipCmdParser |
+      infoRelationshipInstanceCmdParser |
+      executeNodeCmdParser |
+      executeRelationshipCmdParser |
+      executeRelationshipInstanceCmdParser |
+      executeNodeInstanceCmdParser)
+
+  private val synopsisToken = "SYNOPSIS"
+
+  private lazy val agentsActionsHelp = Help(commandName, (commandName, s"Interact with deployment agent, execute 'help $commandName' for more details"),
+    f"""
+       |$commandName <sub command> [OPTIONS] <deployment id> [ARGS]
+       |
+       |Sub commands:
+       |
+       |  $listCmd%-30s list all agents
+       |
+       |  $createCmd%-30s create an agent to manage the given deployment and run immediately install workflow to deploy it
+       |  $synopsisToken%-30s $createCmd <deployment id>
+       |
+       |  $deleteCmd%-30s delete agent, if the deployment has living nodes, $uninstallCmd will be called before the deletion
+       |  $synopsisToken%-30s $deleteCmd [DELETE_OPTIONS] <deployment id>
+       |  DELETE_OPTIONS:
+       |    $forceOpt%-28s force delete without un-deploying application first
+       |
+       |  $startCmd%-30s start agent, agent will begin to manage deployment
+       |  $synopsisToken%-30s $startCmd <deployment id>
+       |
+       |  $stopCmd%-30s stop agent, agent will stop to manage deployment
+       |  $synopsisToken%-30s $stopCmd <deployment id>
+       |
+       |  $restartCmd%-30s restart the agent, it's useful to refresh the agent with new recipe content
+       |  $synopsisToken%-30s $restartCmd <deployment id>
+       |
+       |  $logCmd%-30s show the agent's log
+       |  $synopsisToken%-30s $logCmd <deployment id>
+       |
+       |  $updateCmd%-30s update the agent's deployment recipe with the one in 'work' directory
+       |  $synopsisToken%-30s $updateCmd <deployment id>
+
+       |  $installCmd%-30s launch default install workflow
+       |  $synopsisToken%-30s $installCmd <deployment id>
+
+       |  $uninstallCmd%-30s launch default uninstall workflow
+       |  $synopsisToken%-30s $uninstallCmd [UNINSTALL_OPTIONS] <deployment id>
+       |  UNINSTALL_OPTIONS:
+       |    $forceOpt%-28s uninstall only IAAS resources
+       |
+       |  $scaleCmd%-30s launch default scale workflow on the given node
+       |  $synopsisToken%-30s $scaleCmd <deployment id> <node name> <instances count>
+       |
+       |  $pauseCmd%-30s pause current running execution, wait for all running tasks to finish and not launching new tasks
+       |  $synopsisToken%-30s $pauseCmd [PAUSE_OPTIONS] <deployment id>
+       |  PAUSE_OPTIONS:
+       |    $forceOpt%-28s interrupt current running tasks
+       |
+       |  $cancelCmd%-30s cancel current running execution, wait for all running tasks to finish
+       |  $synopsisToken%-30s $cancelCmd [CANCEL_OPTIONS] <deployment id>
+       |  CANCEL_OPTIONS:
+       |    $forceOpt%-28s interrupt all running tasks
+       |
+       |  $resumeCmd%-30s resume current running execution (which was stopped due to error or by $pauseCmd)
+       |  $synopsisToken%-30s $resumeCmd <deployment id>
+       |
+       |  $infoCmd%-30s show the agent's deployment details
+       |  $synopsisToken%-30s $infoCmd [INFO_OPTIONS] <deployment id>
+       |  INFO_OPTIONS:
+       |    $outputsOpt%-28s show only outputs details
+       |    $nodesOpt%-28s show only nodes details
+       |    $relationshipsOpt%-28s show only relationships details
+       |    $executionsOpt%-28s show only executions details
+       |
+       |  $infoNodeCmd%-30s show node details
+       |  $synopsisToken%-30s $infoNodeCmd <deployment id> <node id>
+       |
+       |  $infoNodeInstanceCmd%-30s show instance details
+       |  $synopsisToken%-30s $infoNodeInstanceCmd <deployment id> <instance id>
+       |
+       |  $infoRelationshipCmd%-30s show relationship node details
+       |  $synopsisToken%-30s $infoRelationshipCmd <deployment id> <source> <target> <relationship_type>
+       |
+       |  $infoRelationshipInstanceCmd%-30s show relationship instance details
+       |  $synopsisToken%-30s $infoRelationshipInstanceCmd <deployment id> <source> <target> <relationship_type>
+       |
+       |  $infoExecutionCmd%-30s show execution details
+       |  $synopsisToken%-30s $infoExecutionCmd <deployment id> <execution id>
+       |
+       |  $executeNodeCmd%-30s execute a particular operation on a particular node
+       |  $synopsisToken%-30s $executeNodeCmd [EXECUTE_OPTIONS] <deployment id> <node id> <operation>
+       |
+       |  $executeNodeInstanceCmd%-30s execute a particular operation on a particular node instance
+       |  $synopsisToken%-30s $executeNodeInstanceCmd [EXECUTE_OPTIONS] <deployment id> <instance id> <operation>
+       |
+       |  $executeRelationshipCmd%-30s execute a particular operation on a particular relationship
+       |  $synopsisToken%-30s $executeRelationshipCmd [EXECUTE_OPTIONS] <deployment id> <source> <target> <relationship type> <operation>
+       |
+       |  $executeRelationshipInstanceCmd%-30s execute a particular operation on a particular relationship instance
+       |  $synopsisToken%-30s $executeRelationshipInstanceCmd [EXECUTE_OPTIONS] <deployment id> <source instance> <target instance> <relationship type> <operation>
+       |
+       |  EXECUTE_OPTIONS:
+       |    $inputOpt%-28s define operation input "$inputOpt key=value" (can be repeated for multiple inputs)
+       |    $transientOpt%-28s an execution is transient then can be executed even if there's unfinished execution
+       |    $interfaceOpt%-28s custom interface for the operation if it's not a standard lifecycle
     """.stripMargin
   )
 
@@ -221,12 +327,12 @@ object AgentsCommand {
     AgentUtil.scaleExecution(client, deploymentId, nodeToScale, newInstancesCount)
   }
 
-  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
-    AgentUtil.executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs)
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Map[String, String], transient: Boolean) = {
+    AgentUtil.executeNodeOperation(client, deploymentId, nodeName, instanceId, interface, operation, inputs, transient)
   }
 
-  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]]) = {
-    AgentUtil.executeRelationshipOperation(client, deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs)
+  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Map[String, Any], transient: Boolean) = {
+    AgentUtil.executeRelationshipOperation(client, deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs, transient)
   }
 
   def startAgent(client: ToscaRuntimeClient, deploymentId: String) = {
@@ -268,74 +374,80 @@ object AgentsCommand {
     AgentUtil.updateDeploymentRecipe(client, deploymentId, workDir.resolve(deploymentId))
   }
 
-  lazy val instance = Command("agents", agentsActionsHelp)(_ => agentsArgsParser) { (state, args) =>
-    // TODO multiple agents to manage a deployment ... For the moment one agent per deployment
+  def getInterfaceOption(opts: Seq[Any]) = {
+    opts.find {
+      case (`interfaceOpt`, _) => true
+      case _ => false
+    }.map {
+      case (`interfaceOpt`, interface: String) => interface
+    }
+  }
+
+  def getTransientOption(opts: Seq[Any]) = {
+    opts.contains(transientOpt)
+  }
+
+  def getInputOption(opts: Seq[Any]) = {
+    opts.filter {
+      case (`inputOpt`, _) => true
+      case _ => false
+    }.map {
+      case (`inputOpt`, (key: String, value: String)) => (key, value)
+    }.toMap
+  }
+
+  lazy val instance = Command(commandName, agentsActionsHelp)(_ => agentsCmdParser) { (state, args) =>
     val client = state.attributes.get(Attributes.clientAttribute).get
     var fail = false
     try {
-      args.head match {
-        case ("create", deploymentId: String) =>
+      args match {
+        case (`createCmd`, deploymentId: String) =>
+          println(s"Creating agent for [$deploymentId], it might take some minutes...")
           val deployResult = deploy(client, deploymentId)
           println(deployResult._1)
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case "list" =>
+        case `listCmd` =>
           AgentUtil.printDeploymentAgentsList(listAgents(client))
-        case ("info", (deploymentId: String, extraArgs: Option[Any])) =>
-          extraArgs match {
-            case Some("nodes") => AgentUtil.printNodesDetails(deploymentId, getNodesDetails(client, deploymentId))
-            case Some("relationships") => AgentUtil.printRelationshipsDetails(deploymentId, getRelationshipsDetails(client, deploymentId))
-            case Some("outputs") => AgentUtil.printOutputsDetails(deploymentId, getOutputsDetails(client, deploymentId))
-            case Some("executions") => AgentUtil.printExecutionsDetails(deploymentId, getExecutionsDetails(client, deploymentId))
-            case Some(("execution", executionId: String)) => AgentUtil.printExecutionDetails(client, deploymentId, executionId)
-            case Some(("node", nodeId: String)) => AgentUtil.printNodeDetails(client, deploymentId, nodeId)
-            case Some(((("relationship", source: String), target: String), relationshipType: String)) => AgentUtil.printRelationshipDetails(client, deploymentId, source, target, relationshipType)
-            case Some(("instance", instanceId: String)) => AgentUtil.printInstanceDetails(client, deploymentId, instanceId)
-            case Some(((("relationshipInstance", source: String), target: String), relationshipType: String)) => AgentUtil.printRelationshipInstanceDetails(client, deploymentId, source, target, relationshipType)
-            case _ => AgentUtil.printDetails(client, deploymentId)
-          }
-        case (("scale", deploymentId: String), scaleOpts: Seq[(String, _)]) =>
-          val scaleArgs = scaleOpts.toMap
-          val nodeName = scaleArgs.get(nodeOpt)
-          val newInstancesCount = scaleArgs.get(instancesCountOpt)
-          if (nodeName.isEmpty) {
-            println("Node name is mandatory for scale workflow")
-            fail = true
-          } else if (newInstancesCount.isEmpty) {
-            println("Instances count is mandatory for scale workflow")
-            fail = true
+        case ((`infoCmd`, options: Seq[String]), deploymentId: String) =>
+          if (options.nonEmpty) {
+            options.foreach {
+              case `nodesOpt` => AgentUtil.printNodesDetails(deploymentId, getNodesDetails(client, deploymentId))
+              case `relationshipsOpt` => AgentUtil.printRelationshipsDetails(deploymentId, getRelationshipsDetails(client, deploymentId))
+              case `outputsOpt` => AgentUtil.printOutputsDetails(deploymentId, getOutputsDetails(client, deploymentId))
+              case `executionsOpt` => AgentUtil.printExecutionsDetails(deploymentId, getExecutionsDetails(client, deploymentId))
+            }
           } else {
-            println(scaleExecution(client, deploymentId, nodeName.get.asInstanceOf[String], newInstancesCount.get.asInstanceOf[Int]))
-            println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
+            AgentUtil.printDetails(client, deploymentId)
           }
-        case ("execute", (deploymentId: String, (executionTargetArgs: Any, executionOpts: Seq[(String, Any)]))) =>
-          val executeArgs = executionOpts.toMap
-          val interface = executeArgs.get(interfaceOpt).asInstanceOf[Option[String]]
-          val operation = executeArgs(operationOpt).asInstanceOf[String]
-          val inputs = executeArgs.get(inputsOpt).asInstanceOf[Option[Seq[(String, String)]]].map(_.toMap)
-          executionTargetArgs match {
-            case ("node", nodeId: String) =>
-              println(executeNodeOperation(client, deploymentId, Some(nodeId), None, interface, operation, inputs))
-            case ("instance", instanceId: String) =>
-              println(executeNodeOperation(client, deploymentId, None, Some(instanceId), interface, operation, inputs))
-            case ((("relationship", source: String), target: String), relationshipType: String) =>
-              println(executeRelationshipOperation(client, deploymentId, Some(source), None, Some(target), None, relationshipType, interface, operation, inputs))
-            case ((("relationshipInstance", source: String), target: String), relationshipType: String) =>
-              println(executeRelationshipOperation(client, deploymentId, None, Some(source), None, Some(target), relationshipType, interface, operation, inputs))
-          }
+        case ((`infoNodeCmd`, deploymentId: String), nodeId: String) => AgentUtil.printNodeDetails(client, deploymentId, nodeId)
+        case ((`infoNodeInstanceCmd`, deploymentId: String), instanceId: String) => AgentUtil.printInstanceDetails(client, deploymentId, instanceId)
+        case ((((`infoRelationshipCmd`, deploymentId: String), source: String), target: String), relationshipType: String) => AgentUtil.printRelationshipDetails(client, deploymentId, source, target, relationshipType)
+        case ((((`infoRelationshipInstanceCmd`, deploymentId: String), source: String), target: String), relationshipType: String) => AgentUtil.printRelationshipInstanceDetails(client, deploymentId, source, target, relationshipType)
+        case ((`infoExecutionCmd`, deploymentId: String), executionId: String) => AgentUtil.printExecutionDetails(client, deploymentId, executionId)
+        case (((`scaleCmd`, deploymentId: String), nodeId: String), newInstancesCount: Int) =>
+          println(scaleExecution(client, deploymentId, nodeId, newInstancesCount))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case ("install", deploymentId: String) =>
+        case ((((`executeNodeCmd`, options: Seq[(String, Object)]), deploymentId: String), nodeId: String), operation: String) =>
+          println(executeNodeOperation(client, deploymentId, Some(nodeId), None, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+        case ((((`executeNodeInstanceCmd`, options: Seq[(String, Object)]), deploymentId: String), instanceId: String), operation: String) =>
+          println(executeNodeOperation(client, deploymentId, None, Some(instanceId), getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+        case ((((((`executeRelationshipCmd`, options: Seq[(String, Object)]), deploymentId: String), source: String), target: String), relationshipType: String), operation: String) =>
+          println(executeRelationshipOperation(client, deploymentId, Some(source), None, Some(target), None, relationshipType, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+        case ((((((`executeRelationshipInstanceCmd`, options: Seq[(String, Object)]), deploymentId: String), source: String), target: String), relationshipType: String), operation: String) =>
+          println(executeRelationshipOperation(client, deploymentId, None, Some(source), None, Some(target), relationshipType, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+        case (`installCmd`, deploymentId: String) =>
           println(launchInstallWorkflow(client, deploymentId))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case (("cancel", deploymentId: String), force: Option[String]) =>
+        case ((`cancelCmd`, force: Option[String]), deploymentId: String) =>
           println(cancelExecution(client, deploymentId, force.isDefined))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case ("resume", deploymentId: String) =>
+        case (`resumeCmd`, deploymentId: String) =>
           println(resumeExecution(client, deploymentId))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case (("pause", deploymentId: String), force: Option[String]) =>
+        case ((`pauseCmd`, force: Option[String]), deploymentId: String) =>
           println(stopExecution(client, deploymentId, force.isDefined))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case ("log", deploymentId: String) =>
+        case (`logCmd`, deploymentId: String) =>
           println("***Press enter to stop following logs***")
           val logCallback = client.tailLog(deploymentId, System.out)
           try {
@@ -343,28 +455,29 @@ object AgentsCommand {
           } finally {
             logCallback.close()
           }
-        case (("uninstall", deploymentId: String), force: Option[String]) =>
+        case ((`uninstallCmd`, force: Option[String]), deploymentId: String) =>
           println(launchUninstallWorkflow(client, deploymentId, force.nonEmpty))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
-        case ("start", deploymentId: String) =>
+        case (`startCmd`, deploymentId: String) =>
           startAgent(client, deploymentId)
           println(s"Started $deploymentId")
-        case ("restart", deploymentId: String) =>
+        case (`restartCmd`, deploymentId: String) =>
           restartAgent(client, deploymentId)
           println(s"Restarted $deploymentId")
-        case ("update", deploymentId: String) =>
+        case (`updateCmd`, deploymentId: String) =>
           val basedir = state.attributes.get(Attributes.basedirAttribute).get
           println(updateDeploymentRecipe(client, deploymentId, basedir))
           println(s"Changes in scripts are immediately recognized, changes in yaml need agent restart with 'agents restart $deploymentId'")
-        case ("stop", deploymentId: String) =>
+        case (`stopCmd`, deploymentId: String) =>
           stopAgent(client, deploymentId)
           println(s"Stopped $deploymentId")
-        case (("delete", deploymentId: String), force: Option[String]) =>
+        case ((`deleteCmd`, force: Option[String]), deploymentId: String) =>
           println(undeploy(client, deploymentId, force.nonEmpty)._1)
       }
     } catch {
       case e: Throwable =>
-        println(e.getMessage)
+        println(s"Error ${e.getMessage}")
+        logger.error("Command finished with error", e)
         fail = true
     }
     if (fail) state.fail else state

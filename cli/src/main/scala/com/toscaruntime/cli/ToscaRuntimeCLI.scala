@@ -8,7 +8,6 @@ import com.toscaruntime.cli.command._
 import com.toscaruntime.cli.util.CompilationUtil
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.exception.UnexpectedException
-import com.toscaruntime.exception.client.BadClientConfigurationException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.util.DockerUtil
 import sbt._
@@ -64,7 +63,6 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       UseCommand.useDefaultInstance,
       BootStrapCommand.instance,
       TeardownCommand.instance,
-      LogCommand.instance,
       AgentsCommand.instance,
       BasicCommands.shell,
       BasicCommands.history,

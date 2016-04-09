@@ -20,8 +20,8 @@ object AgentsSteps extends MustMatchers {
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
   }
 
-  def executeNodeOperation(deploymentId: String, nodeName: Option[String], operationName: String, instanceId: Option[String] = None, interfaceName: Option[String] = None, inputs: Option[Map[String, String]] = None) = {
-    AgentsCommand.executeNodeOperation(Context.client, deploymentId, nodeName, instanceId, interfaceName, operationName, inputs)
+  def executeNodeOperation(deploymentId: String, nodeName: Option[String], operationName: String, instanceId: Option[String] = None, interfaceName: Option[String] = None, inputs: Map[String, String] = Map.empty, transient: Boolean = false) = {
+    AgentsCommand.executeNodeOperation(Context.client, deploymentId, nodeName, instanceId, interfaceName, operationName, inputs, transient)
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
   }
 

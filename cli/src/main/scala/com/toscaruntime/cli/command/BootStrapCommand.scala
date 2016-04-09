@@ -21,17 +21,18 @@ object BootStrapCommand {
 
   val commandName = "bootstrap"
 
-  private lazy val bootstrapArgsParser = Space ~> (Args.providerArg | Args.targetArg) +
+  private lazy val bootstrapCmdParser = Space ~> (Args.providerOptParser | Args.targetOptParser) +
 
   private lazy val bootstrapHelp = Help(commandName, (commandName, s"Bootstrap docker infrastructure, execute 'help $commandName' for more details"),
-    s"""
-       |$commandName ${Args.providerOpt} <provider name=${ProviderConstant.OPENSTACK}> ${Args.targetOpt} <target=${ProviderConstant.DEFAULT_TARGET}>
-       |${Args.providerOpt}   : name of the provider
-       |${Args.targetOpt}     : target/configuration for the provider
+    f"""
+       |$commandName ${Args.providerOpt} <provider name> ${Args.targetOpt} <target>
+       |OPTIONS:
+       |  ${Args.providerOpt}%-30s name of the provider, default value is ${ProviderConstant.OPENSTACK}
+       |  ${Args.targetOpt}%-30s target/configuration for the provider, default values is ${ProviderConstant.DEFAULT_TARGET}
     """.stripMargin
   )
 
-  lazy val instance = Command(commandName, bootstrapHelp)(_ => bootstrapArgsParser) { (state, args) =>
+  lazy val instance = Command(commandName, bootstrapHelp)(_ => bootstrapCmdParser) { (state, args) =>
     val argsMap = args.toMap
     var fail = false
     val client = state.attributes.get(Attributes.clientAttribute).get

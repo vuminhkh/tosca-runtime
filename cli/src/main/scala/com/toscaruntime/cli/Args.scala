@@ -10,11 +10,11 @@ import sbt.complete.DefaultParsers._
   */
 object Args {
 
-  val providerOpt = "-p"
+  val providerOpt = "--provider"
 
-  val providerArg = token(providerOpt) ~ (Space ~> (token(ProviderConstant.DOCKER) | token(ProviderConstant.OPENSTACK)))
+  val providerOptParser = token(providerOpt) ~ (Space ~> (token(ProviderConstant.DOCKER) | token(ProviderConstant.OPENSTACK)))
 
-  val targetOpt = "-t"
+  val targetOpt = "--target"
 
-  val targetArg = token(targetOpt) ~ (Space ~> token(StringBasic))
+  val targetOptParser = token(targetOpt) ~ (Space ~> token(StringBasic))
 }

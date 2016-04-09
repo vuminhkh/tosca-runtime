@@ -71,8 +71,12 @@ class DeploymentDAO @Inject()(schema: Schema,
   def saveOutput(instanceId: String, interfaceName: String, operationName: String, key: String, value: String) =
     outputDAO.save(OperationOutputEntity(instanceId, interfaceName, operationName, key, value))
 
-  def saveAllOutputs(instanceId: String, interfaceName: String, operationName: String, outputs: Map[String, String]) =
-    outputDAO.saveAll(instanceId, interfaceName, operationName, outputs)
+  def saveAllOutputs(instanceId: String, interfaceName: String, operationName: String, outputs: Map[String, String]) = {
+    val operation = OperationEntity(instanceId, interfaceName, operationName)
+    operationDAO.save(operation).flatMap { _ =>
+      outputDAO.saveAll(instanceId, interfaceName, operationName, outputs)
+    }
+  }
 
   def getOutputs(instanceId: String, interfaceName: String, operationName: String) =
     outputDAO.get(instanceId, interfaceName, operationName).map(_.map {
@@ -120,8 +124,12 @@ class DeploymentDAO @Inject()(schema: Schema,
     relationshipOperationDAO.save(relationshipOperationEntity)
   }
 
-  def saveAllRelationshipOutputs(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, outputs: Map[String, String]) =
-    relationshipOutputDAO.saveAll(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, outputs)
+  def saveAllRelationshipOutputs(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, outputs: Map[String, String]) = {
+    val operation = RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName)
+    relationshipOperationDAO.save(operation).map { _ =>
+      relationshipOutputDAO.saveAll(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, outputs)
+    }
+  }
 
   def getRelationshipOutputs(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String) =
     relationshipOutputDAO.get(sourceInstanceId, targetInstanceId, relationshipType).map(_.map {

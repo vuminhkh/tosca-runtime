@@ -24,9 +24,9 @@ object UseCommand {
 
   val useDefaultCommandName = "use-default"
 
-  private val dockerUrlOpt = "-u"
+  private val dockerUrlOpt = "--url"
 
-  private val dockerCertOpt = "-c"
+  private val dockerCertOpt = "-cert"
 
   private lazy val dockerUrlArg = token(dockerUrlOpt) ~ (Space ~> token(URIClass))
 
@@ -37,8 +37,8 @@ object UseCommand {
   private lazy val useHelp = Help(commandName, (commandName, "Use the specified docker daemon url"),
     s"""
        |$commandName $dockerUrlOpt <docker daemon url> $dockerCertOpt <certificate path>
-       |$dockerUrlOpt     : url of the docker daemon
-       |$dockerCertOpt    : (optional if https is not used) path to the the certificate to connect to the docker daemon
+       |$dockerUrlOpt%-30s of the docker daemon
+       |$dockerCertOpt%-30s (optional if https is not used) path to the the certificate to connect to the docker daemon
     """.stripMargin
   )
 

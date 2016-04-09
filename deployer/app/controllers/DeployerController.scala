@@ -63,6 +63,48 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
     Deployer.createDeployment(deploymentName, recipePath, deploymentInputsPath, providerConfiguration, bootstrapContextPath, bootstrap, play.Play.application().classloader(), deploymentDAO)
   }
 
+  private def createExecution(workflowExecutionRequest: WorkflowExecutionRequest) = {
+    val workflowExecution = workflowExecutionRequest.workflowId match {
+      case "install" => deployment.install()
+      case "uninstall" => deployment.uninstall()
+      case "teardown_infrastructure" => deployment.teardown()
+      case "execute_node_operation" =>
+        if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_node_operation workflow")
+        deployment.executeNodeOperation(
+          workflowExecutionRequest.inputs.getOrElse("node_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("instance_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.NODE_STANDARD_INTERFACE).asInstanceOf[String],
+          workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
+          JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]]),
+          workflowExecutionRequest.inputs.getOrElse("transient", false).asInstanceOf[Boolean]
+        )
+      case "execute_relationship_operation" =>
+        if (workflowExecutionRequest.inputs.get("relationship_type").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'relationship_type' input for execute_relationship_operation workflow")
+        if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_relationship_operation workflow")
+        deployment.executeRelationshipOperation(
+          workflowExecutionRequest.inputs.getOrElse("source_node_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("source_instance_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("target_node_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("target_instance_id", null).asInstanceOf[String],
+          workflowExecutionRequest.inputs("relationship_type").asInstanceOf[String],
+          workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE).asInstanceOf[String],
+          workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
+          JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]]),
+          workflowExecutionRequest.inputs.getOrElse("transient", false).asInstanceOf[Boolean]
+        )
+      case "scale" =>
+        if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'node_id' input for scale workflow")
+        if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'new_instances_count' input for scale workflow")
+        val nodeId = workflowExecutionRequest.inputs("node_id")
+        if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowArgumentException("'node_id' input is not of type string for scale workflow")
+        val newInstancesCount = workflowExecutionRequest.inputs("new_instances_count")
+        if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowArgumentException("'new_instances_count' input is not of type integer for scale workflow")
+        deployment.scale(nodeId.asInstanceOf[String], newInstancesCount.asInstanceOf[BigDecimal].toInt)
+      case _ => throw new InvalidWorkflowArgumentException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
+    }
+    workflowExecution
+  }
+
   def execute() = Action.async(BodyParsers.parse.json) { implicit request =>
     val requestBody = request.body.validate[WorkflowExecutionRequest]
     requestBody.fold(
@@ -70,63 +112,45 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
         Future(BadRequest(s"Invalid workflow execution request $errors"))
       },
       workflowExecutionRequest => {
-        deploymentDAO.startExecution(workflowExecutionRequest.workflowId, workflowExecutionRequest.inputs).map { executionId =>
-          log.info(s"Execution has been created for ${workflowExecutionRequest.workflowId} workflow with id $executionId")
+        val isTransientExecution = workflowExecutionRequest.inputs.getOrElse("transient", false).asInstanceOf[Boolean]
+        if (isTransientExecution) {
           try {
-            val workflowExecution = workflowExecutionRequest.workflowId match {
-              case "install" => deployment.install()
-              case "uninstall" => deployment.uninstall()
-              case "teardown_infrastructure" => deployment.teardown()
-              case "execute_node_operation" =>
-                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_node_operation workflow")
-                deployment.executeNodeOperation(
-                  workflowExecutionRequest.inputs.getOrElse("node_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("instance_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.NODE_STANDARD_INTERFACE).asInstanceOf[String],
-                  workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
-                  JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]])
-                )
-              case "execute_relationship_operation" =>
-                if (workflowExecutionRequest.inputs.get("relationship_type").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'relationship_type' input for execute_relationship_operation workflow")
-                if (workflowExecutionRequest.inputs.get("operation_name").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'operation_name' input for execute_relationship_operation workflow")
-                deployment.executeRelationshipOperation(
-                  workflowExecutionRequest.inputs.getOrElse("source_node_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("source_instance_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("target_node_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("target_instance_id", null).asInstanceOf[String],
-                  workflowExecutionRequest.inputs("relationship_type").asInstanceOf[String],
-                  workflowExecutionRequest.inputs.getOrElse("interface_name", ToscaInterfaceConstant.RELATIONSHIP_STANDARD_INTERFACE).asInstanceOf[String],
-                  workflowExecutionRequest.inputs("operation_name").asInstanceOf[String],
-                  JavaScalaConversionUtil.toJavaMap(workflowExecutionRequest.inputs.getOrElse("inputs", Map.empty).asInstanceOf[Map[String, Any]])
-                )
-              case "scale" =>
-                if (workflowExecutionRequest.inputs.get("node_id").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'node_id' input for scale workflow")
-                if (workflowExecutionRequest.inputs.get("new_instances_count").isEmpty) throw new InvalidWorkflowArgumentException("Missing 'new_instances_count' input for scale workflow")
-                val nodeId = workflowExecutionRequest.inputs("node_id")
-                if (!nodeId.isInstanceOf[String]) throw new InvalidWorkflowArgumentException("'node_id' input is not of type string for scale workflow")
-                val newInstancesCount = workflowExecutionRequest.inputs("new_instances_count")
-                if (!newInstancesCount.isInstanceOf[BigDecimal]) throw new InvalidWorkflowArgumentException("'new_instances_count' input is not of type integer for scale workflow")
-                deployment.scale(nodeId.asInstanceOf[String], newInstancesCount.asInstanceOf[BigDecimal].toInt)
-              case _ => throw new InvalidWorkflowArgumentException(s"Workflow ${workflowExecutionRequest.workflowId} is not supported on this deployment")
-            }
+            val workflowExecution = createExecution(workflowExecutionRequest)
             deployment.run(workflowExecution)
-            (executionId, workflowExecution)
+            log.info(s"Transient execution has been started for ${workflowExecutionRequest.workflowId} workflow")
+            Future(Ok(s"Transient execution has been started for ${workflowExecutionRequest.workflowId} workflow"))
           } catch {
+            case e: BadUsageException =>
+              log.error(s"Bad transient workflow execution request", e)
+              Future(BadRequest(e.getMessage))
             case e: Exception =>
-              deploymentDAO.failRunningExecution(e.getMessage)
-              throw e
+              log.error(s"Internal server error while serving transient workflow execution request", e)
+              Future(InternalServerError(s"Failed to launch transient ${workflowExecutionRequest.workflowId} workflow, error is ${e.getMessage}"))
           }
-        }.map {
-          case (executionId, workflowExecution) =>
-            log.info(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
-            Ok(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
-        }.recoverWith {
-          case e: BadUsageException =>
-            log.error(s"Bad workflow execution request", e)
-            Future(BadRequest(e.getMessage))
-          case e: Exception =>
-            log.error(s"Internal server error while serving workflow execution request", e)
-            Future(InternalServerError(s"Failed to launch ${workflowExecutionRequest.workflowId} workflow, error is ${e.getMessage}"))
+        } else {
+          deploymentDAO.startExecution(workflowExecutionRequest.workflowId, workflowExecutionRequest.inputs).map { executionId =>
+            log.info(s"Execution has been created for ${workflowExecutionRequest.workflowId} workflow with id $executionId")
+            try {
+              val workflowExecution = createExecution(workflowExecutionRequest)
+              deployment.run(workflowExecution)
+              (executionId, workflowExecution)
+            } catch {
+              case e: Exception =>
+                deploymentDAO.failRunningExecution(e.getMessage)
+                throw e
+            }
+          }.map {
+            case (executionId, workflowExecution) =>
+              log.info(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
+              Ok(s"Execution $executionId has been started for ${workflowExecutionRequest.workflowId} workflow")
+          }.recoverWith {
+            case e: BadUsageException =>
+              log.error(s"Bad workflow execution request", e)
+              Future(BadRequest(e.getMessage))
+            case e: Exception =>
+              log.error(s"Internal server error while serving workflow execution request", e)
+              Future(InternalServerError(s"Failed to launch ${workflowExecutionRequest.workflowId} workflow, error is ${e.getMessage}"))
+          }
         }
       }
     )

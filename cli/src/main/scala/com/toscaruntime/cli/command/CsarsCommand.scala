@@ -20,29 +20,58 @@ import scala.language.postfixOps
   */
 object CsarsCommand {
 
-  private val compileOpt = "compile"
-  private val deleteOpt = "delete"
-  private val installOpt = "install"
-  private val listOpt = "list"
-  private val infoOpt = "info"
+  private val commandName = "csars"
 
-  private lazy val csarsArgsParser = Space ~>
-    ((token(listOpt) ~ ((Space ~> token(StringBasic)) ?)) |
-      (token(compileOpt) ~ (Space ~> token(Parsers.filePathParser))) |
-      (token(installOpt) ~ (Space ~> token(Parsers.filePathParser))) |
-      (token(infoOpt) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))) |
-      (token(deleteOpt) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic)))))) +
+  private val compileCmd = "compile"
 
-  private lazy val csarsHelp = Help("csars", ("csars", "Compile / install / get information of a csar in local repository, execute 'help csars' for more details"),
-    """
-      |csars [list <name filter> | [compile|install] <csar path> | [info|delete] <csar name>:<csar version>]
-      |list   : show all csars installed in local repository
-      |compile: compile a csar without installing it in local repository
-      |install: compile a csar and install it in local repository
-      |info   : show information about a csar installed in local repository
-      |delete : delete a csar installed in local repository
-    """.stripMargin
-  )
+  private val deleteCmd = "delete"
+
+  private val installCmd = "install"
+
+  private val listCmd = "list"
+
+  private val infoCmd = "info"
+
+  private lazy val listCmdParser = token(listCmd) ~ ((Space ~> token(StringBasic)) ?)
+
+  private lazy val compileCmdParser = token(compileCmd) ~ (Space ~> token(Parsers.filePathParser))
+
+  private lazy val installCmdParser = token(installCmd) ~ (Space ~> token(Parsers.filePathParser))
+
+  private lazy val infoCmdParser = token(infoCmd) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
+
+  private lazy val deleteCmdParser = token(deleteCmd) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
+
+  private lazy val csarsCmdParser = Space ~>
+    (listCmdParser |
+      compileCmdParser |
+      installCmdParser |
+      infoCmdParser |
+      deleteCmdParser)
+
+  private val synopsisToken = "SYNOPSIS"
+
+  private lazy val csarsHelp = Help(commandName, (commandName, s"Compile / install / delete / get information of a csar in local repository, execute 'help $commandName' for more details"),
+    f"""
+       |$commandName <sub command> [ARGS]
+       |
+       |Sub commands:
+       |
+       |  $listCmd%-30s show all csars installed in local repository
+       |  $synopsisToken%-30s $listCmd <name filter>
+       |
+       |  $compileCmd%-30s compile a csar without installing it in local repository
+       |  $synopsisToken%-30s $compileCmd <csar path>
+       |
+       |  $installCmd%-30s compile a csar and install it in local repository
+       |  $synopsisToken%-30s $installCmd <csar path>
+       |
+       |  $infoCmd%-30s show information about a csar installed in local repository
+       |  $synopsisToken%-30s $infoCmd <csar name>:<csar version>
+       |
+       |  $deleteCmd%-30s delete a csar installed in local repository
+       |  $synopsisToken%-30s $deleteCmd <csar name>:<csar version>
+    """.stripMargin)
 
   def listCsars(repository: Path, filter: Option[String]) = {
     val allCsars = FileUtil.listChildrenDirectories(repository, filter.map(List(_)).getOrElse(List.empty).toArray: _*).asScala.toSeq
@@ -67,29 +96,29 @@ object CsarsCommand {
     Compiler.getCsarPath(csarName, csarVersion, repository).foreach(FileUtil.delete)
   }
 
-  lazy val instance = Command("csars", csarsHelp)(_ => csarsArgsParser) { (state, args) =>
+  lazy val instance = Command(commandName, csarsHelp)(_ => csarsCmdParser) { (state, args) =>
     val basedir = state.attributes.get(Attributes.basedirAttribute).get
     val repository = basedir.resolve("repository")
-    args.head match {
-      case ("list", filter: Option[String]) => printCsarsList(repository, filter)
-      case ("compile", csarPath: String) =>
+    args match {
+      case (`listCmd`, filter: Option[String]) => printCsarsList(repository, filter)
+      case (`compileCmd`, csarPath: String) =>
         val result = PathUtil.openAsDirectory(Paths.get(csarPath), realPath => Compiler.compile(realPath, repository))
         if (result.isSuccessful) {
           println(s"[$csarPath] compiled successfully")
         } else {
           CompilationUtil.showErrors(result)
         }
-      case ("install", csarPath: String) =>
+      case (`installCmd`, csarPath: String) =>
         val result = PathUtil.openAsDirectory(Paths.get(csarPath), realPath => Compiler.install(realPath, repository))
         if (result.isSuccessful) {
           println(s"[$csarPath] installed successfully to [$repository]")
         } else {
           CompilationUtil.showErrors(result)
         }
-      case ("delete", (csarName: String, csarVersion: String)) =>
+      case (`deleteCmd`, (csarName: String, csarVersion: String)) =>
         deleteCsar(repository, csarName, csarVersion)
         println(s"Deleted [$csarName:$csarVersion]")
-      case ("info", (csarName: String, csarVersion: String)) =>
+      case (`infoCmd`, (csarName: String, csarVersion: String)) =>
         val result = Compiler.compile(csarName, csarVersion, repository)
         if (result.isSuccessful) {
           println(s"Name: ${result.csar.csarName}")

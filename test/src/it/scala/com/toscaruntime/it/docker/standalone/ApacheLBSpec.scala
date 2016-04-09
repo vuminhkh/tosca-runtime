@@ -97,7 +97,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to Fastconnect !"))
 
       When("I update the deployed war file")
-      executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Some(Map("WAR_URL" -> "https://github.com/alien4cloud/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war")))
+      executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Map("WAR_URL" -> "https://github.com/alien4cloud/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war"))
 
       And("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to testDeployArtifactOverriddenTest !"))

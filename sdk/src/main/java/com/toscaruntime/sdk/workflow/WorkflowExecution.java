@@ -1,24 +1,5 @@
 package com.toscaruntime.sdk.workflow;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang.exception.ExceptionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.toscaruntime.constant.ExecutionConstant;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.deployment.NodeTaskDTO;
@@ -30,8 +11,18 @@ import com.toscaruntime.sdk.workflow.tasks.AbstractGenericTask;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
-
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.relationships.Root;
+
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 public class WorkflowExecution {
 
@@ -63,10 +54,18 @@ public class WorkflowExecution {
 
     private DeploymentPersister deploymentPersister;
 
-    public WorkflowExecution(String workflowId, ExecutorService executorService, DeploymentPersister deploymentPersister) {
+    public WorkflowExecution(String workflowId, ExecutorService executorService) {
         this.workflowId = workflowId;
         this.executorService = executorService;
+    }
+
+    public WorkflowExecution(String workflowId, ExecutorService executorService, DeploymentPersister deploymentPersister) {
+        this(workflowId, executorService);
         this.deploymentPersister = deploymentPersister;
+    }
+
+    public boolean isTransient() {
+        return this.deploymentPersister == null;
     }
 
     public String getWorkflowId() {
@@ -113,7 +112,7 @@ public class WorkflowExecution {
             if (tasksRunning.remove(errorTask) == null) {
                 log.warn("Notified of errors of unknown task {}", errorTask);
             } else {
-                if (deploymentPersister != null) {
+                if (!isTransient()) {
                     if (errorTask instanceof AbstractNodeTask) {
                         AbstractNodeTask nodeTask = (AbstractNodeTask) errorTask;
                         deploymentPersister.syncStopNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName(), t.getMessage());
@@ -143,7 +142,7 @@ public class WorkflowExecution {
             if (tasksRunning.remove(completedTask) == null) {
                 log.warn("Notified of completion of unknown task {}", completedTask);
             } else {
-                if (deploymentPersister != null) {
+                if (!isTransient()) {
                     if (completedTask instanceof AbstractNodeTask) {
                         AbstractNodeTask nodeTask = (AbstractNodeTask) completedTask;
                         deploymentPersister.syncFinishNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName());
@@ -297,7 +296,7 @@ public class WorkflowExecution {
                 }
             } else {
                 tasksCanBeRun.stream().forEach(task -> {
-                    if (deploymentPersister != null) {
+                    if (!isTransient()) {
                         if (task instanceof AbstractNodeTask) {
                             AbstractNodeTask nodeTask = (AbstractNodeTask) task;
                             deploymentPersister.syncStartNodeTask(nodeTask.getNodeInstance().getId(), nodeTask.getInterfaceName(), nodeTask.getOperationName());
@@ -324,7 +323,7 @@ public class WorkflowExecution {
 
     public void persist() {
         // Persist tasks when they are added to the execution
-        if (deploymentPersister != null) {
+        if (!isTransient()) {
             for (AbstractTask task : totalTasks) {
                 if (task instanceof AbstractNodeTask) {
                     AbstractNodeTask nodeTask = (AbstractNodeTask) task;

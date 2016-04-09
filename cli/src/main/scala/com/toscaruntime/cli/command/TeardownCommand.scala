@@ -15,13 +15,14 @@ object TeardownCommand {
 
   val commandName = "teardown"
 
-  private lazy val teardownArgsParser = Space ~> (Args.providerArg | Args.targetArg) +
+  private lazy val teardownArgsParser = Space ~> (Args.providerOptParser | Args.targetOptParser) +
 
   private lazy val teardownHelp = Help(commandName, (commandName, s"Tear down bootstrap installation, execute 'help $commandName' for more details"),
-    s"""
-       |$commandName ${Args.providerOpt} <provider name=${ProviderConstant.OPENSTACK}> ${Args.targetOpt} <target=${ProviderConstant.DEFAULT_TARGET}>
-       |${Args.providerOpt}   : name of the provider
-       |${Args.targetOpt}     : target/configuration for the provider
+    f"""
+       |$commandName ${Args.providerOpt} <provider name> ${Args.targetOpt} <target>
+       |OPTIONS:
+       |  ${Args.providerOpt}%-30s name of the provider, default value is ${ProviderConstant.OPENSTACK}
+       |  ${Args.targetOpt}%-30s target/configuration for the provider, default values is ${ProviderConstant.DEFAULT_TARGET}
     """.stripMargin
   )
 

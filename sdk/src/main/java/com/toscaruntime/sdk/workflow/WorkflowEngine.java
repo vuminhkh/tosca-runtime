@@ -1,5 +1,18 @@
 package com.toscaruntime.sdk.workflow;
 
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
+import com.toscaruntime.sdk.ProviderHook;
+import com.toscaruntime.sdk.ProviderWorkflowProcessingResult;
+import com.toscaruntime.sdk.util.WorkflowUtil;
+import com.toscaruntime.sdk.workflow.tasks.*;
+import com.toscaruntime.sdk.workflow.tasks.nodes.GenericNodeTask;
+import com.toscaruntime.sdk.workflow.tasks.relationships.GenericRelationshipTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import tosca.nodes.Root;
+import tosca.relationships.HostedOn;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,25 +23,6 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
-import com.toscaruntime.sdk.workflow.tasks.relationships.GenericRelationshipTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.toscaruntime.deployment.DeploymentPersister;
-import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
-import com.toscaruntime.sdk.ProviderHook;
-import com.toscaruntime.sdk.ProviderWorkflowProcessingResult;
-import com.toscaruntime.sdk.util.WorkflowUtil;
-import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
-import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
-import com.toscaruntime.sdk.workflow.tasks.nodes.GenericNodeTask;
-
-import tosca.nodes.Root;
-import tosca.relationships.HostedOn;
 
 /**
  * The default workflow engine for toscaruntime
@@ -246,24 +240,37 @@ public class WorkflowEngine {
                                                                Set<Root> concernedInstances,
                                                                String interfaceName,
                                                                String operationName,
-                                                               String workflowId) {
+                                                               String workflowId,
+                                                               boolean transientExecution) {
         List<AbstractTask> nodeTasks = concernedInstances.stream().map(instance -> new GenericNodeTask(nodeInstances, relationshipInstances, instance, interfaceName, operationName)).collect(Collectors.toList());
-        WorkflowExecution workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+
+        WorkflowExecution workflowExecution;
+        if (transientExecution) {
+            workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService());
+        } else {
+            workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+        }
         workflowExecution.addTasks(nodeTasks);
         augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
         return workflowExecution;
     }
 
     public WorkflowExecution buildExecuteRelationshipOperationWorkflow(List<AbstractTask> beforeTasks,
-                                                               List<AbstractTask> afterTasks,
-                                                               Map<String, Root> nodeInstances,
-                                                               Set<tosca.relationships.Root> relationshipInstances,
-                                                               Set<tosca.relationships.Root> concernedRelationshipInstances,
-                                                               String interfaceName,
-                                                               String operationName,
-                                                               String workflowId) {
+                                                                       List<AbstractTask> afterTasks,
+                                                                       Map<String, Root> nodeInstances,
+                                                                       Set<tosca.relationships.Root> relationshipInstances,
+                                                                       Set<tosca.relationships.Root> concernedRelationshipInstances,
+                                                                       String interfaceName,
+                                                                       String operationName,
+                                                                       String workflowId,
+                                                                       boolean transientExecution) {
         List<AbstractTask> relationshipTasks = concernedRelationshipInstances.stream().map(relationshipInstance -> new GenericRelationshipTask(nodeInstances, relationshipInstances, relationshipInstance, interfaceName, operationName)).collect(Collectors.toList());
-        WorkflowExecution workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+        WorkflowExecution workflowExecution;
+        if (transientExecution) {
+            workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService());
+        } else {
+            workflowExecution = new WorkflowExecution(workflowId, createWorkflowExecutorService(), deploymentPersister);
+        }
         workflowExecution.addTasks(relationshipTasks);
         augmentWorkflow(workflowExecution, beforeTasks, afterTasks);
         return workflowExecution;

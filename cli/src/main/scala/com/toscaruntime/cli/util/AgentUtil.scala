@@ -48,12 +48,12 @@ object AgentUtil extends LazyLogging {
     Await.result(client.executeScaleWorkflow(deploymentId, nodeName, newInstancesCount), forEver)
   }
 
-  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Option[Map[String, String]]) = {
-    Await.result(client.executeNodeOperation(deploymentId, nodeName, instanceId, interface, operation, inputs), forEver)
+  def executeNodeOperation(client: ToscaRuntimeClient, deploymentId: String, nodeName: Option[String], instanceId: Option[String], interface: Option[String], operation: String, inputs: Map[String, String], transient: Boolean) = {
+    Await.result(client.executeNodeOperation(deploymentId, nodeName, instanceId, interface, operation, inputs, transient), forEver)
   }
 
-  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Option[Map[String, Any]]) = {
-    Await.result(client.executeRelationshipOperation(deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs), forEver)
+  def executeRelationshipOperation(client: ToscaRuntimeClient, deploymentId: String, sourceNodeName: Option[String], sourceInstanceId: Option[String], targetNodeName: Option[String], targetInstanceId: Option[String], relationshipType: String, interfaceName: Option[String], operationName: String, inputs: Map[String, Any], transient: Boolean) = {
+    Await.result(client.executeRelationshipOperation(deploymentId, sourceNodeName, sourceInstanceId, targetNodeName, targetInstanceId, relationshipType, interfaceName, operationName, inputs, transient), forEver)
   }
 
   def deploy(client: ToscaRuntimeClient, deploymentId: String) = {

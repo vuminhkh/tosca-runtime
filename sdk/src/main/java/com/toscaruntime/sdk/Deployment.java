@@ -91,6 +91,30 @@ public abstract class Deployment {
      */
     private AtomicReference<WorkflowExecution> runningWorkflowExecution = new AtomicReference<>();
 
+    private void setRunningExecution(WorkflowExecution workflowExecution) {
+        if (!workflowExecution.isTransient()) {
+            if (runningWorkflowExecution.get() != null) {
+                log.error("This running execution is being overwritten \n" + runningWorkflowExecution.get());
+            }
+            runningWorkflowExecution.set(workflowExecution);
+        } else {
+            log.info("Workflow execution {} is transient so it's not necessary to set new running execution", workflowExecution.getWorkflowId());
+        }
+    }
+
+    private void setNullRunningExecution(WorkflowExecution workflowExecution) {
+        if (!workflowExecution.isTransient()) {
+            if (runningWorkflowExecution.get() == null) {
+                log.error("No existing running execution to set null");
+            } else if (runningWorkflowExecution.get() != workflowExecution) {
+                log.error("This unknown running execution is being set to null \n" + runningWorkflowExecution.get() + "\n by \n" + workflowExecution);
+            }
+            runningWorkflowExecution.set(null);
+        } else {
+            log.info("Workflow execution {} is transient so it's not necessary to reset running execution", workflowExecution.getWorkflowId());
+        }
+    }
+
     /**
      * This method is overridden by auto-generated code to help initialize the deployment
      */
@@ -159,7 +183,7 @@ public abstract class Deployment {
                         String interfaceName = (String) runningExecution.getInputs().get("interface_name");
                         String operationName = (String) runningExecution.getInputs().get("operation_name");
                         Map<String, Object> executedInputs = (Map<String, Object>) runningExecution.getInputs().get("inputs");
-                        execution = executeNodeOperation(executedNodeId, executedInstanceId, interfaceName, operationName, executedInputs);
+                        execution = executeNodeOperation(executedNodeId, executedInstanceId, interfaceName, operationName, executedInputs, true);
                         break;
                     case "execute_relationship_operation":
                         String executedSourceNodeId = (String) runningExecution.getInputs().get("source_node_id");
@@ -170,7 +194,7 @@ public abstract class Deployment {
                         String relationshipInterfaceName = (String) runningExecution.getInputs().get("interface_name");
                         String relationshipOperationName = (String) runningExecution.getInputs().get("operation_name");
                         Map<String, Object> relationshipExecutedInputs = (Map<String, Object>) runningExecution.getInputs().get("inputs");
-                        execution = executeRelationshipOperation(executedSourceNodeId, executedSourceInstanceId, executedTargetNodeId, executedTargetInstanceId, relationshipType, relationshipInterfaceName, relationshipOperationName, relationshipExecutedInputs);
+                        execution = executeRelationshipOperation(executedSourceNodeId, executedSourceInstanceId, executedTargetNodeId, executedTargetInstanceId, relationshipType, relationshipInterfaceName, relationshipOperationName, relationshipExecutedInputs, false);
                         break;
                     case "scale":
                         Set<String> concernedNodeInstanceIds = nodeTaskDTOs.keySet().stream().map(NodeTaskDTO::getNodeInstanceId).collect(Collectors.toSet());
@@ -190,8 +214,8 @@ public abstract class Deployment {
                         throw new UnexpectedException("Not expecting workflow " + runningExecution.getWorkflowId());
                 }
                 execution.initialLoad(nodeTaskDTOs, relationshipTaskDTOs, taskDTOs);
-                execution.addListener(new DefaultListener(deploymentPersister, runningExecution.getWorkflowId()));
-                runningWorkflowExecution.set(execution);
+                execution.addListener(new DefaultListener(deploymentPersister, execution));
+                setRunningExecution(execution);
             }
         } else {
             for (DeploymentNode node : nodes.values()) {
@@ -242,9 +266,9 @@ public abstract class Deployment {
     }
 
     public WorkflowExecution run(WorkflowExecution workflowExecution) {
-        workflowExecution.addListener(new DefaultListener(deploymentPersister, workflowExecution.getWorkflowId()));
+        workflowExecution.addListener(new DefaultListener(deploymentPersister, workflowExecution));
         workflowExecution.launch();
-        runningWorkflowExecution.set(workflowExecution);
+        setRunningExecution(workflowExecution);
         return workflowExecution;
     }
 
@@ -290,7 +314,7 @@ public abstract class Deployment {
         AbstractGenericTask postInstallTask = new AbstractGenericTask("post_install") {
             @Override
             protected void doRun() {
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
         return this.workflowEngine.buildInstallWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, relationshipInstances, "scale");
@@ -333,7 +357,7 @@ public abstract class Deployment {
                 deploymentPersister.syncSaveNodeInstancesCount(node.getId(), newInstancesCount);
                 persistDeletedInstances(nodeInstances, relationshipInstances);
                 deleteUninstalledInstancesFromDeployment(nodeInstances, relationshipInstances);
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
         return this.workflowEngine.buildUninstallWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postUninstallTask), nodeInstances, relationshipInstances, "scale");
@@ -370,7 +394,15 @@ public abstract class Deployment {
         }
     }
 
-    public WorkflowExecution executeRelationshipOperation(String sourceName, String sourceInstanceId, String targetName, String targetInstanceId, String relationshipType, String interfaceName, String operationName, Map<String, Object> inputs) {
+    public WorkflowExecution executeRelationshipOperation(String sourceName,
+                                                          String sourceInstanceId,
+                                                          String targetName,
+                                                          String targetInstanceId,
+                                                          String relationshipType,
+                                                          String interfaceName,
+                                                          String operationName,
+                                                          Map<String, Object> inputs,
+                                                          boolean transientExecution) {
         Set<tosca.relationships.Root> concernedRelationshipInstances;
         if (StringUtils.isNotBlank(sourceName) && StringUtils.isNotBlank(targetName)) {
             DeploymentRelationshipNode relationshipNode = DeploymentUtil.getRelationshipNodeBySourceNameTargetName(relationshipNodes, sourceName, targetName, relationshipType);
@@ -413,13 +445,13 @@ public abstract class Deployment {
                 if (currentOperationInputs != null) {
                     concernedRelationshipInstances.stream().forEach(relationshipInstance -> relationshipInstance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(relationshipInstance)));
                 }
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
-        return workflowEngine.buildExecuteRelationshipOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, concernedRelationshipInstances, concernedRelationshipInstances, interfaceName, operationName, "execute_relationship_operation");
+        return workflowEngine.buildExecuteRelationshipOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, concernedRelationshipInstances, concernedRelationshipInstances, interfaceName, operationName, "execute_relationship_operation", transientExecution);
     }
 
-    public WorkflowExecution executeNodeOperation(String nodeName, String instanceId, String interfaceName, String operationName, Map<String, Object> inputs) {
+    public WorkflowExecution executeNodeOperation(String nodeName, String instanceId, String interfaceName, String operationName, Map<String, Object> inputs, boolean transientExecution) {
         if (StringUtils.isBlank(nodeName) && StringUtils.isBlank(instanceId)) {
             throw new InvalidWorkflowArgumentException("Both node and instance id are empty");
         }
@@ -470,10 +502,10 @@ public abstract class Deployment {
                 if (currentOperationInputs != null) {
                     concernedInstances.stream().forEach(instance -> instance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(instance.getId())));
                 }
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
-        return workflowEngine.buildExecuteNodeOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, relationshipInstances, concernedInstances, interfaceName, operationName, "execute_node_operation");
+        return workflowEngine.buildExecuteNodeOperationWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, relationshipInstances, concernedInstances, interfaceName, operationName, "execute_node_operation", transientExecution);
     }
 
     private Map<String, Root> createInstanceTree(DeploymentNode node, Root parent, int index) {
@@ -520,6 +552,7 @@ public abstract class Deployment {
             throw new RunningExecutionNotFound("No running execution is found in memory to cancel");
         } else {
             execution.cancel(force);
+            setNullRunningExecution(execution);
         }
     }
 
@@ -565,7 +598,7 @@ public abstract class Deployment {
         AbstractGenericTask postInstallTask = new AbstractGenericTask("post_install") {
             @Override
             protected void doRun() {
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
         return this.workflowEngine.buildInstallWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postInstallTask), nodeInstances, relationshipInstances, "install");
@@ -633,7 +666,7 @@ public abstract class Deployment {
             protected void doRun() {
                 persistDeletedInstances(nodeInstances, relationshipInstances);
                 deleteInstances();
-                runningWorkflowExecution.set(null);
+                setNullRunningExecution(workflowExecution);
             }
         };
         return this.workflowEngine.buildUninstallWorkflow(Collections.singletonList(persistTask), Collections.singletonList(postUninstallTask), nodeInstances, relationshipInstances, "uninstall");
