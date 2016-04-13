@@ -1,45 +1,38 @@
 1.Documentation
-  - Getting started
-  - Openstack provider
-  - Docker provider
 
 2.Tosca support:
+  - Support multiple dsl versions
   - Authorize space in yaml key
   - Authorize null yaml key ?
   - Implement macro
-  - Implement error / warning / info level in semantic analyzer
   - Allow in non strict mode key which is not recognized
-  - Verify dsl version to throw error if necessary
   - Semantic analyzer completion
+    + Implement error / warning / info level in semantic analyzer
     + Input should be compatible with property that perform get_input
-    + Validate scaling policy
-    + Requirement satisfaction validation
-    + Node filter
-    + Component which is not hosted / Relationship whose source and target are not hosted, should not contains artifacts
-  - Requirement properties
-  - Relationship properties - Test
-  - Function in node type properties declaration
-  - Custom workflow
+    + Validate scaling policy min < default < max at compile time
+    + Requirement satisfaction validation (bound validation)
+    + Node filter validation
+    + [BUG] Cannot establish relationship if target do no have required capability for relationship
+  - Requirement properties access (get_property)
+  - Custom workflow parse --> generate
 
-3.Core:
-  - Review class loading model
-
-4.Provider:
+3.Provider:
   - Openstack:
-    + Test exit with error
-    + Manage public_ip for docker on swarm
     + Windows support
   - Docker:
-    + Review status code and outputs detection
-    + Test exit with error
+    + Support full container options (cpu, disk, memory, privilege mode ...)
+    + Manage public_ip for docker on swarm
 
-5.Runtime:
-  - Custom command
-  - Policy handling (auto-healing, dynamic scaling ... )
+4.Runtime:
+  - Auto-healing
+  - Dynamic scaling
+  - Affinity, anti-affinity policy
+
+5.Artifact support:
   - WinRMI + Batch script
+  - Ansible recipe
   - Puppet recipe
   - Chef recipe
-  - Ansible recipe
 
-7.Security:
+6.Security:
   - Https bootstrap for proxy and docker

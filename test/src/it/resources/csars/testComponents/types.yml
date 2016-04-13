@@ -94,3 +94,83 @@ node_types:
           inputs:
             THROW_ERROR: { get_property: [SELF, delete_throw_error] }
           implementation: scripts/error.sh
+
+  com.toscaruntime.nodes.SourceConflict:
+    derived_from: tosca.nodes.SoftwareComponent
+    capabilities:
+      generate_error: com.toscaruntime.capabilities.GenerateConflict
+
+  com.toscaruntime.nodes.TargetConflict:
+    derived_from: tosca.nodes.SoftwareComponent
+    requirements:
+      - generate_error: com.toscaruntime.capabilities.GenerateConflict
+        type: com.toscaruntime.relationships.ConflictRelationship
+
+capability_types:
+  com.toscaruntime.capabilities.GenerateConflict:
+    derived_from: tosca.capabilities.Root
+
+relationship_types:
+  com.toscaruntime.relationships.ConflictRelationship:
+    derived_from: tosca.relationships.Root
+    valid_sources: [ com.toscaruntime.nodes.SourceConflict ]
+    valid_targets: [ com.toscaruntime.capabilities.GenerateConflict ]
+    properties:
+      pre_configure_source_throw_error:
+        type: boolean
+        default: false
+      pre_configure_target_throw_error:
+        type: boolean
+        default: false
+      post_configure_source_throw_error:
+        type: boolean
+        default: false
+      post_configure_target_throw_error:
+        type: boolean
+        default: false
+      remove_source_throw_error:
+        type: boolean
+        default: false
+      remove_target_throw_error:
+        type: boolean
+        default: false
+      add_source_throw_error:
+        type: boolean
+        default: false
+      add_target_throw_error:
+        type: boolean
+        default: false
+    interfaces:
+      Configure:
+        pre_configure_source:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, pre_configure_source_throw_error] }
+          implementation: scripts/error.sh
+        pre_configure_target:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, pre_configure_target_throw_error] }
+          implementation: scripts/error.sh
+        post_configure_source:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, post_configure_source_throw_error] }
+          implementation: scripts/error.sh
+        post_configure_target:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, post_configure_target_throw_error] }
+          implementation: scripts/error.sh
+        add_source:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, add_source_throw_error] }
+          implementation: scripts/error.sh
+        add_target:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, add_target_throw_error] }
+          implementation: scripts/error.sh
+        remove_source:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, remove_source_throw_error] }
+          implementation: scripts/error.sh
+        remove_target:
+          inputs:
+            THROW_ERROR: { get_property: [SELF, remove_target_throw_error] }
+          implementation: scripts/error.sh

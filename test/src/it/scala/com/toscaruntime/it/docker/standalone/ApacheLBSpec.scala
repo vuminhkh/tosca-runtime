@@ -36,6 +36,18 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       And("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
 
+      When("I disconnect the war from the load balancer")
+      executeRelationshipOperation("apache-lb", Some("War"), Some("ApacheLoadBalancer"), "alien.relationships.WebApplicationConnectsToApacheLoadBalancer", "remove_source")
+
+      Then("A request on the application's url should return a response 503 service unavailable")
+      checkURL(url, 503, Set.empty, 5 minutes)
+
+      When("I reconnect the war to the load balancer")
+      executeRelationshipOperation("apache-lb", None, None, "alien.relationships.WebApplicationConnectsToApacheLoadBalancer", "add_source", Some("War_1_1_1"), Some("ApacheLoadBalancer_1_1"))
+
+      Then("A request on the application's url should return a response 200 OK")
+      checkURL(url, 200, Set.empty, 5 minutes)
+
       When("I stop the load balancer")
       executeNodeOperation("apache-lb", Some("ApacheLoadBalancer"), "stop")
 
@@ -43,7 +55,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       checkURLNonAvailable(url)
 
       When("I start the load balancer")
-      executeNodeOperation("apache-lb", Some("ApacheLoadBalancer"), "start")
+      executeNodeOperation("apache-lb", None, "start", Some("ApacheLoadBalancer_1_1"))
 
       Then("A request on the application's url should return a response 200 OK")
       checkURL(url, 200, Set.empty, 5 minutes)
@@ -93,13 +105,13 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       And("The deployment should contains 1 instances of node War in state started")
       assertDeploymentHasNode("apache-lb", "War", 1)
 
-      And("A request on the application's url should return a response 200 OK")
+      And("A request on the application's url should return a response 200 OK with the expected content")
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to Fastconnect !"))
 
       When("I update the deployed war file")
       executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Map("WAR_URL" -> "https://github.com/alien4cloud/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war"))
 
-      And("A request on the application's url should return a response 200 OK")
+      And("A request on the application's url should return a response 200 OK with the updated content")
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to testDeployArtifactOverriddenTest !"))
 
       And("I should be able to undeploy it without error")

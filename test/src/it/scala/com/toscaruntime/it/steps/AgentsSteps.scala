@@ -25,6 +25,11 @@ object AgentsSteps extends MustMatchers {
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
   }
 
+  def executeRelationshipOperation(deploymentId: String, sourceName: Option[String], targetName: Option[String], relationshipType: String, operationName: String, sourceId: Option[String] = None, targetId: Option[String] = None, interfaceName: Option[String] = None, inputs: Map[String, String] = Map.empty, transient: Boolean = false) = {
+    AgentsCommand.executeRelationshipOperation(Context.client, deploymentId, sourceName, sourceId, targetName, targetId, relationshipType, interfaceName, operationName, inputs, transient)
+    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
+  }
+
   def launchDeployment(deploymentId: String) = {
     Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 15 minutes)
   }
@@ -68,8 +73,8 @@ object AgentsSteps extends MustMatchers {
       relationshipDetails.head == sourceName && relationshipDetails(1) == targetName
     }
     relationsFound must have size 1
-    relationsFound.head(2) must be(instanceCount.toString)
-    relationsFound.head(9) must be(instanceCount.toString)
+    relationsFound.head(3) must be(instanceCount.toString)
+    relationsFound.head(10) must be(instanceCount.toString)
   }
 
   def assertDeploymentHasOutput(deploymentId: String, key: String) = {

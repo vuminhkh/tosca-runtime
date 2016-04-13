@@ -58,7 +58,7 @@ class ExecutionDAO @Inject()(protected val dbConfigProvider: DatabaseConfigProvi
       if (runningExecutions.isEmpty) {
         Executions += executionEntity
       } else {
-        throw new ConcurrentWorkflowExecutionException(s"Cannot start execution for workflow ${executionEntity.workflowId} because deployment has unfinished executions")
+        throw new ConcurrentWorkflowExecutionException(s"Cannot start execution for workflow ${executionEntity.workflowId} because deployment has unfinished executions, consider running it in transient mode if this option is available")
       }
     }
     db.run(insertAction.transactionally)
