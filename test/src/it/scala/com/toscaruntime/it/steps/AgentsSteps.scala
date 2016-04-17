@@ -1,6 +1,9 @@
 package com.toscaruntime.it.steps
 
 import com.toscaruntime.cli.command.AgentsCommand
+import com.toscaruntime.cli.util.AgentUtil
+import com.toscaruntime.constant.ExecutionConstant._
+import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.Context
 import org.scalatest.MustMatchers
 
@@ -14,6 +17,14 @@ import scala.language.postfixOps
   * @author Minh Khang VU
   */
 object AgentsSteps extends MustMatchers {
+
+  val NODE_STARTED = 8
+
+  val NODE_STARTING = 7
+
+  val RELATIONSHIP_ESTABLISHING = 9
+
+  val RELATIONSHIP_ESTABLISHED = 10
 
   def scale(deploymentId: String, nodeName: String, newInstancesCount: Int) = {
     AgentsCommand.scaleExecution(Context.client, deploymentId, nodeName, newInstancesCount)
@@ -30,8 +41,25 @@ object AgentsSteps extends MustMatchers {
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
   }
 
+  def assertDeploymentHasBeenStoppedWithError(deploymentId: String) = {
+    val deploymentInfo = Await.result(Context.client.waitForRunningExecutionToReachStatus(deploymentId, RUNNING, STOPPED), 15 minutes)
+    deploymentInfo.executions.head.error must not be empty
+  }
+
+  def assertDeploymentSuccess(deploymentId: String) = {
+    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 10 minutes)
+  }
+
+  def updateRecipe(deploymentId: String) = {
+    AgentUtil.updateDeploymentRecipe(Context.client, deploymentId, assemblyPath)
+  }
+
   def launchDeployment(deploymentId: String) = {
     Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 15 minutes)
+  }
+
+  def resumeDeployment(deploymentId: String) = {
+    AgentsCommand.resumeExecution(Context.client, deploymentId)
   }
 
   def launchUndeployment(deploymentId: String) = {
@@ -60,21 +88,25 @@ object AgentsSteps extends MustMatchers {
     AgentsCommand.startAgent(Context.client, deploymentId)
   }
 
-  def assertDeploymentHasNode(deploymentId: String, nodeName: String, instanceCount: Int) = {
+  def restartAgent(deploymentId: String) = {
+    AgentsCommand.restartAgent(Context.client, deploymentId)
+  }
+
+  def assertDeploymentHasNode(deploymentId: String, nodeName: String, instanceCount: Int, state: Int = NODE_STARTED) = {
     val nodesFound = AgentsCommand.getNodesDetails(Context.client, deploymentId).filter(nodeDetails => nodeDetails.head == nodeName)
     nodesFound must have size 1
     // Here it means total instances == started instances
     nodesFound.head(1) must be(instanceCount.toString)
-    nodesFound.head(8) must be(instanceCount.toString)
+    nodesFound.head(state) must be(instanceCount.toString)
   }
 
-  def assertDeploymentHasRelationship(deploymentId: String, sourceName: String, targetName: String, instanceCount: Int) = {
+  def assertDeploymentHasRelationship(deploymentId: String, sourceName: String, targetName: String, instanceCount: Int, state: Int = RELATIONSHIP_ESTABLISHED) = {
     val relationsFound = AgentsCommand.getRelationshipsDetails(Context.client, deploymentId).filter { relationshipDetails =>
       relationshipDetails.head == sourceName && relationshipDetails(1) == targetName
     }
     relationsFound must have size 1
     relationsFound.head(3) must be(instanceCount.toString)
-    relationsFound.head(10) must be(instanceCount.toString)
+    relationsFound.head(state) must be(instanceCount.toString)
   }
 
   def assertDeploymentHasOutput(deploymentId: String, key: String) = {

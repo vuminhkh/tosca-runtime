@@ -55,7 +55,7 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
     val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, csarsPath, if (Files.exists(inputsPath)) Some(inputsPath) else None)
     showCompilationErrors(topologyCompilationResult)
     topologyCompilationResult.isSuccessful must be(true)
-    val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("deployment").resolve("Deployment.java"))
+    val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("recipe").resolve("deployment").resolve("Deployment.java"))
     deploymentGenerated must include(expectedContain)
     generatedAssemblyPath
   }

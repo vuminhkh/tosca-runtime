@@ -256,13 +256,15 @@ object Compiler extends LazyLogging {
       if (inputErrors.isEmpty && semanticErrors.isEmpty && beforeDeploymentSemanticErrors.isEmpty) {
         val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
         val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
-        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
+        val recipePath = outputPath.resolve("recipe")
+        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, recipePath)
         topologyCompilationResult.dependencies.foreach {
           case (csarId, csar) =>
             val assemblyDependency = assemblyDependenciesResolver(csarId, None).get._3
-            FileUtil.copy(assemblyDependency, outputPath, StandardCopyOption.REPLACE_EXISTING)
+            FileUtil.copy(assemblyDependency, recipePath, StandardCopyOption.REPLACE_EXISTING)
         }
-        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, outputPath)
+        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, recipePath)
+        if (inputs.isDefined) Files.copy(inputs.get, outputPath.resolve("inputs.yaml"), StandardCopyOption.REPLACE_EXISTING)
         topologyCompilationResult.copy(csar = mergedCsar)
       } else {
         val errorsWithInput = beforeDeploymentSemanticErrors ++ inputErrors ++ topologyCompilationResult.errors.getOrElse(definitionWithTopologyEntry.get._1, List.empty)

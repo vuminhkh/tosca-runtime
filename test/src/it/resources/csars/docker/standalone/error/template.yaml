@@ -10,6 +10,12 @@ imports:
 
 topology_template:
 
+  inputs:
+    node_throw_error:
+      type: boolean
+    rel_throw_error:
+      type: boolean
+
   node_templates:
 
     Server:
@@ -20,6 +26,26 @@ topology_template:
     Error:
       type: com.toscaruntime.nodes.Error
       properties:
-        start_throw_error: true
+        start_throw_error: { get_input: node_throw_error}
       requirements:
         - host: Server
+
+    Server2:
+      type: com.toscaruntime.docker.nodes.Container
+      properties:
+        image_id: toscaruntime/ubuntu-trusty
+
+    SourceConflict:
+      type: com.toscaruntime.nodes.SourceConflict
+      requirements:
+        - host: Server2
+        - generate_error:
+            node: TargetConflict
+            properties:
+              add_source_throw_error: { get_input: rel_throw_error}
+
+    TargetConflict:
+      type: com.toscaruntime.nodes.TargetConflict
+      requirements:
+        - host: Server
+        - dependency: Error

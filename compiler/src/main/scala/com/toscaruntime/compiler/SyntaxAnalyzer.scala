@@ -432,9 +432,9 @@ object SyntaxAnalyzer extends YamlParser {
     nestedComplexEntryWithLineFeed(keyParser)(function) |
       // Very important here as nestedComplexEntry is positioned before mapValueEntry
       // and then it will be taken into account first or else the nestedComplexEntry for function access can be interpreted as a map value
-      scalarValueEntry(keyParser)(indentLevel) |
       mapValueEntry(keyParser)(indentLevel) |
-      listValueEntry(keyParser)(indentLevel)
+      listValueEntry(keyParser)(indentLevel) |
+      scalarValueEntry(keyParser)(indentLevel)
 
   def properties(indentLevel: Int) = map(evaluableValueEntry(keyValue))(indentLevel)
 
@@ -468,8 +468,8 @@ object SyntaxAnalyzer extends YamlParser {
 
   def capability(capabilityName: ParsedValue[String])(indentLevel: Int) =
     complexEntry(properties_token)(properties)(indentLevel) ^^ {
-    case (_, properties) => (capabilityName, Capability(capabilityName, properties))
-  }
+      case (_, properties) => (capabilityName, Capability(capabilityName, properties))
+    }
 
   def capabilitiesEntry(indentLevel: Int) = keyValue into {
     capabilityName => keyComplexSeparatorPattern ~> indentAtLeast(indentLevel) into {

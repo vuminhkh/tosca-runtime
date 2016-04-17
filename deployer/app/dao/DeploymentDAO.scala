@@ -126,7 +126,7 @@ class DeploymentDAO @Inject()(schema: Schema,
 
   def saveAllRelationshipOutputs(sourceInstanceId: String, targetInstanceId: String, relationshipType: String, interfaceName: String, operationName: String, outputs: Map[String, String]) = {
     val operation = RelationshipOperationEntity(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName)
-    relationshipOperationDAO.save(operation).map { _ =>
+    relationshipOperationDAO.save(operation).flatMap { _ =>
       relationshipOutputDAO.saveAll(sourceInstanceId, targetInstanceId, relationshipType, interfaceName, operationName, outputs)
     }
   }

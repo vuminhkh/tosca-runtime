@@ -23,13 +23,13 @@ class AlienSpec extends AbstractSpec with MustMatchers {
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("alien")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("topology-alien4cloud-cluster")))
 
-      And("A deployment image has been created for the wordpress openstack topology")
+      And("A deployment image has been created for the alien openstack topology")
       createDeploymentImage("alien4cloud", openstackProvider) must be(true)
 
       When("I deploy it")
       launchDeployment("alien4cloud")
 
-      Then("I should have an output for the wordpress's public url")
+      Then("I should have an output for the alien's public url")
       val url = assertDeploymentHasOutput("alien4cloud", "alien_url")
 
       And("A request on the application's url should return a response 200 OK")

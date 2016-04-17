@@ -27,8 +27,8 @@ class DeployerSpec extends AbstractSpec {
 
       installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
 
-      val wordpressTopologyOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/")
-      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyWordpressDocker").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
+      val wordpressTopologyOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/").resolve("recipe")
+      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyWordpressDocker").resolve("recipe").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "wordpress",
         deploymentRecipeFolder = wordpressTopologyOutput,
@@ -75,8 +75,8 @@ class DeployerSpec extends AbstractSpec {
 
       installAndAssertCompilationResult(Paths.get("docker/src/main/resources/docker-provider-types"))
 
-      val tomcatApacheOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/")
-      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyApacheLoadBalancerDocker").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
+      val tomcatApacheOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/").resolve("recipe")
+      FileUtil.copy(Paths.get("mock-provider/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyApacheLoadBalancerDocker").resolve("recipe").resolve("src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "tomcat-apache",
         deploymentRecipeFolder = tomcatApacheOutput,

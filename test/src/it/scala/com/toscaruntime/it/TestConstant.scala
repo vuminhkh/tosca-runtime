@@ -6,6 +6,8 @@ import com.toscaruntime.util.ClassLoaderUtil
 
 object TestConstant {
 
+  val customTestComponentsPath = Paths.get("test").resolve("src").resolve("it").resolve("resources").resolve("csars")
+
   val prepareTestDataPath = Paths.get("test").resolve("target").resolve("prepare-test")
 
   val testDataPath = Paths.get("target").resolve("test-data")
@@ -13,6 +15,8 @@ object TestConstant {
   val repositoryPath = testDataPath.resolve("repository")
 
   val tempPath = testDataPath.resolve("temp")
+
+  val inputsPath = ClassLoaderUtil.getPathForResource("inputs")
 
   val csarsPath = ClassLoaderUtil.getPathForResource("csars")
 

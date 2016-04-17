@@ -20,9 +20,9 @@ trait YamlParser extends JavaTokenParsers with PackratParsers {
 
   val nestedEntrySeparator = regex( """\s*,\s*""".r).withFailureMessage("Expecting ',' to separate nested map or list entry")
 
-  val nonQuotedTextValuePattern = regex( """[^\[\]\{\}\r\n].*""".r).withFailureMessage("Expecting non quoted text")
+  val nonQuotedTextValuePattern = regex( """[^\[\]\{\}\r\n#][^#\r\n]*""".r).withFailureMessage("Expecting non quoted text")
 
-  val nestedNonQuotedTextValuePattern = regex( """[^,\[\]\{\}\r\n]*""".r).withFailureMessage("Expecting nested non quoted text")
+  val nestedNonQuotedTextValuePattern = regex( """[^,\[\]\{\}\r\n#]*""".r).withFailureMessage("Expecting nested non quoted text")
 
   val quotedTextValuePattern = regex( """"[^"\r\n]*"""".r).withFailureMessage("Expecting quoted text")
 
@@ -32,7 +32,7 @@ trait YamlParser extends JavaTokenParsers with PackratParsers {
 
   val falseValueToken = regex( """false""".r).withFailureMessage("Expecting false")
 
-  val commentRegex = """\p{Blank}*(?:#.*)?"""
+  val commentRegex = """\p{Blank}*(?:#[^\r\n]*)?"""
 
   val endOfLineRegex = """(?:(?:\r?\n)|\Z)"""
 
@@ -42,15 +42,15 @@ trait YamlParser extends JavaTokenParsers with PackratParsers {
 
   val lineEndingPattern = regex(lineEndingRegex.r).withFailureMessage("Unexpected token, expecting new line or end of file")
 
-  val keyValueSeparatorPattern = regex( """: """.r).withFailureMessage("Expecting ':' to separate key and value")
+  val keyValueSeparatorPattern = regex( """: """.r).withFailureMessage("Expecting ': ' to separate key and value")
 
   val keyLongTextSeparatorPattern = regex( """>[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '>' to start a long text")
 
   val keyLongTextWithNewLineSeparatorPattern = regex( """\|[ \t]*\r?\n(?:\r?\n)*""".r).withFailureMessage("Expecting '|' to start a multilines text")
 
-  val keyComplexSeparatorPattern = regex((""":[ \t]*""" + lineEndingRegex).r).withFailureMessage("Expecting ':' to start a complex object")
+  val keyComplexSeparatorPattern = regex((""":""" + lineEndingRegex).r).withFailureMessage("Expecting ':' to start a complex object")
 
-  def listIndicator = regex( """- """.r).withFailureMessage("Expecting '- ' for list entry")
+  def listIndicator = regex("""- """.r).withFailureMessage("Expecting '- ' for list entry")
 
   def indentAtLeast(numberOfWhitespaces: Int): Parser[Int] = regex(("^ {" + numberOfWhitespaces + ",}").r).withFailureMessage(s"Expecting at least $numberOfWhitespaces white space for indentation") ^^ (_.length)
 

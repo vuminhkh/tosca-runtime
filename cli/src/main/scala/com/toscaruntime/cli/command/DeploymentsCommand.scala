@@ -122,9 +122,13 @@ object DeploymentsCommand extends LazyLogging {
                             client: ToscaRuntimeClient,
                             providerConf: Path,
                             bootstrapMode: Option[Boolean]): Boolean = {
+    if (Files.exists(deploymentWorkDir)) {
+      FileUtil.delete(deploymentWorkDir)
+    }
+    Files.createDirectories(deploymentWorkDir)
     val compilationResult = Compiler.assembly(topologyPath, deploymentWorkDir, repository, inputsPath)
     if (compilationResult.isSuccessful) {
-      client.createDeploymentImage(deploymentId, deploymentWorkDir, inputsPath, providerConf, bootstrapMode).awaitImageId()
+      client.createDeploymentImage(deploymentId, deploymentWorkDir, providerConf, bootstrapMode).awaitImageId()
     } else {
       CompilationUtil.showErrors(compilationResult)
       return false
@@ -183,10 +187,6 @@ object DeploymentsCommand extends LazyLogging {
           } else {
             val topologyPath = topologyPathOpt.get
             val deploymentWorkDir = workDir.resolve(deploymentId)
-            if (Files.exists(deploymentWorkDir)) {
-              FileUtil.delete(deploymentWorkDir)
-            }
-            Files.createDirectories(deploymentWorkDir)
             PathUtil.openAsDirectory(topologyPath, realTopologyPath => {
               val inputsPath = createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String]))
               val providerName = createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String]

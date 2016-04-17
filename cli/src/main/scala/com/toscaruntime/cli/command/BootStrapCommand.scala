@@ -68,7 +68,6 @@ object BootStrapCommand {
         val image = client.createBootstrapImage(
           providerName,
           deploymentWorkDir,
-          inputsPath,
           providerConfigurationPath, target).awaitImageId()
         println(s"Packaged bootstrap configuration as docker image [$image]")
         val containerId = client.createBootstrapAgent(providerName, target).getId

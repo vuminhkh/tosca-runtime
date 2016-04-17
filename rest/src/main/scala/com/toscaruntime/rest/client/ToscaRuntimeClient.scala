@@ -169,16 +169,16 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  def waitForRunningExecutionToReachStatus(deploymentId: String, status: String): Future[DeploymentDTO] = {
+  def waitForRunningExecutionToReachStatus(deploymentId: String, currentStatus: String, expectedStatus: String): Future[DeploymentDTO] = {
     getDeploymentAgentInfo(deploymentId).flatMap { deploymentInfo =>
-      if (deploymentInfo.executions.head.status.nonEmpty) {
-        if (deploymentInfo.executions.head.status == status) {
+      if (deploymentInfo.executions.head.status != currentStatus) {
+        if (deploymentInfo.executions.head.status == expectedStatus) {
           Future(deploymentInfo)
         } else {
-          Future.failed(new WorkflowExecutionFailureException(s"Expected to have $status as status but instead had ${deploymentInfo.executions.head.status}"))
+          Future.failed(new WorkflowExecutionFailureException(s"Expected to have $expectedStatus as status but instead had ${deploymentInfo.executions.head.status}"))
         }
       } else {
-        after(2 seconds, system.scheduler)(waitForRunningExecutionToEnd(deploymentId))
+        after(2 seconds, system.scheduler)(waitForRunningExecutionToReachStatus(deploymentId, currentStatus, expectedStatus))
       }
     }
   }
@@ -227,16 +227,16 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  def createDeploymentImage(deploymentId: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, bootstrap: Option[Boolean]) = {
+  def createDeploymentImage(deploymentId: String, recipePath: Path, providerConfigPath: Path, bootstrap: Option[Boolean]) = {
     // TODO asynchronous
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
     // By default if the proxy url is empty then we are not in a bootstrap context, then it means we are bootstrapping
-    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, inputsPath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, providerConfigPath, bootstrapContext)
   }
 
-  def createBootstrapImage(provider: String, recipePath: Path, inputsPath: Option[Path], providerConfigPath: Path, target: String) = {
+  def createBootstrapImage(provider: String, recipePath: Path, providerConfigPath: Path, target: String) = {
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, inputsPath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, providerConfigPath, bootstrapContext)
   }
 
   def listDeploymentImages() = {

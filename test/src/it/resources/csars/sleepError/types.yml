@@ -97,14 +97,14 @@ node_types:
 
   com.toscaruntime.nodes.SourceConflict:
     derived_from: tosca.nodes.SoftwareComponent
-    capabilities:
-      generate_error: com.toscaruntime.capabilities.GenerateConflict
-
-  com.toscaruntime.nodes.TargetConflict:
-    derived_from: tosca.nodes.SoftwareComponent
     requirements:
       - generate_error: com.toscaruntime.capabilities.GenerateConflict
         type: com.toscaruntime.relationships.ConflictRelationship
+
+  com.toscaruntime.nodes.TargetConflict:
+    derived_from: tosca.nodes.SoftwareComponent
+    capabilities:
+      generate_error: com.toscaruntime.capabilities.GenerateConflict
 
 capability_types:
   com.toscaruntime.capabilities.GenerateConflict:
