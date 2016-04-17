@@ -44,7 +44,7 @@ class ErrorResumeSpec extends AbstractSpec with MustMatchers {
       assertDeploymentHasNode("error", "Error", 1, NODE_STARTING)
 
       When("I update the deployment with less bad input")
-      createDeploymentImage("error", dockerProvider, standalone, Some(csarsPath.resolve(dockerProvider).resolve(standalone).resolve("inputs").resolve("error").resolve("less_bad_input.yaml"))) must be(true)
+      createDeploymentImage("error", dockerProvider, standalone, Some(inputsPath.resolve(dockerProvider).resolve(standalone).resolve("error").resolve("less_bad_input.yaml"))) must be(true)
       updateRecipe("error")
       restartAgent("error")
 
@@ -61,7 +61,7 @@ class ErrorResumeSpec extends AbstractSpec with MustMatchers {
       assertDeploymentHasRelationship("error", "SourceConflict", "TargetConflict", 1, RELATIONSHIP_ESTABLISHING)
 
       When("I update the deployment with good input")
-      createDeploymentImage("error", dockerProvider, standalone, Some(csarsPath.resolve(dockerProvider).resolve(standalone).resolve("inputs").resolve("error").resolve("good_input.yaml"))) must be(true)
+      createDeploymentImage("error", dockerProvider, standalone, Some(inputsPath.resolve(dockerProvider).resolve(standalone).resolve("error").resolve("good_input.yaml"))) must be(true)
       updateRecipe("error")
       restartAgent("error")
 
