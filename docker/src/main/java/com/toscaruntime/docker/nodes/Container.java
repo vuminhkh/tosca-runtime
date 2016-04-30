@@ -1,15 +1,5 @@
 package com.toscaruntime.docker.nodes;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
@@ -26,8 +16,16 @@ import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFound
 import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.DockerExecutor;
 import com.toscaruntime.util.DockerUtil;
-
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.nodes.Compute;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
 public class Container extends Compute {
@@ -69,11 +67,17 @@ public class Container extends Compute {
         this.containerId = getAttributeAsString("provider_resource_id");
         this.ipAddress = getAttributeAsString("ip_address");
         this.dockerHostIP = getAttributeAsString("public_ip_address");
-        this.dockerExecutor = new DockerExecutor(dockerClient, containerId, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
+        if (StringUtils.isNotBlank(this.containerId)) {
+            this.dockerExecutor = new DockerExecutor(dockerClient, containerId, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
+        }
     }
 
     @Override
     public void uploadRecipe() {
+        if (dockerExecutor == null) {
+            log.warn("Docker container is not fully initialized, ignoring recipe update request");
+            return;
+        }
         dockerExecutor.upload(this.config.getArtifactsPath().toString(), getPropertyAsString("recipe_location", RECIPE_LOCATION));
     }
 

@@ -14,7 +14,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
     csarsPath.resolve(provider).resolve(config).resolve(name)
   }
 
-  def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone, input: Option[Path] = None) = {
+  def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone, input: Option[Path] = None, deploymentId: Option[String] = None) = {
     val topologyPath = getTopologyPath(name, provider, config)
     Context.postProcessTopology(provider, topologyPath)
     val inputOpt = input.orElse(Context.getInput(provider))
@@ -23,7 +23,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       inputOpt,
       repositoryPath,
       assemblyPath,
-      name,
+      deploymentId.getOrElse(name),
       Context.client,
       Context.getProviderConfig(provider),
       Some(config == standalone)

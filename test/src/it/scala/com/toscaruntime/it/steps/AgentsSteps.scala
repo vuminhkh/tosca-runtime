@@ -26,6 +26,10 @@ object AgentsSteps extends MustMatchers {
 
   val RELATIONSHIP_ESTABLISHED = 10
 
+  def cancelDeployment(deploymentId: String, force: Boolean = false) = AgentsCommand.cancelExecution(Context.client, deploymentId, force)
+
+  def pauseDeployment(deploymentId: String, force: Boolean = false) = AgentsCommand.stopExecution(Context.client, deploymentId, force)
+
   def scale(deploymentId: String, nodeName: String, newInstancesCount: Int) = {
     AgentsCommand.scaleExecution(Context.client, deploymentId, nodeName, newInstancesCount)
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
@@ -41,14 +45,13 @@ object AgentsSteps extends MustMatchers {
     Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 15 minutes)
   }
 
-  def assertDeploymentHasBeenStoppedWithError(deploymentId: String) = {
-    val deploymentInfo = Await.result(Context.client.waitForRunningExecutionToReachStatus(deploymentId, RUNNING, STOPPED), 15 minutes)
-    deploymentInfo.executions.head.error must not be empty
-  }
+  def assertDeploymentHasBeenStopped(deploymentId: String) = Await.result(Context.client.waitForRunningExecutionToReachStatus(deploymentId, RUNNING, STOPPED), 15 minutes)
 
-  def assertDeploymentSuccess(deploymentId: String) = {
-    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 10 minutes)
-  }
+  def assertDeploymentHasBeenStoppedWithError(deploymentId: String) = assertDeploymentHasBeenStopped(deploymentId).executions.head.error must not be empty
+
+  def assertDeploymentHasBeenStoppedWithoutError(deploymentId: String) = assertDeploymentHasBeenStopped(deploymentId).executions.head.error must be(empty)
+
+  def assertDeploymentFinished(deploymentId: String, timeout: Duration = 10 minutes) = Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), timeout)
 
   def updateRecipe(deploymentId: String) = {
     AgentUtil.updateDeploymentRecipe(Context.client, deploymentId, assemblyPath)

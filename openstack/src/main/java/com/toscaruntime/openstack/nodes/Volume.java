@@ -1,22 +1,20 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.commons.lang.StringUtils;
-import org.jclouds.openstack.cinder.v1.features.VolumeApi;
-import org.jclouds.openstack.cinder.v1.options.CreateVolumeOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.toscaruntime.exception.deployment.execution.ProviderResourceAllocationException;
 import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.tosca.ToscaSize;
 import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SynchronizationUtil;
-
+import org.apache.commons.lang.StringUtils;
+import org.jclouds.openstack.cinder.v1.features.VolumeApi;
+import org.jclouds.openstack.cinder.v1.options.CreateVolumeOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.nodes.BlockStorage;
+
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @SuppressWarnings("unchecked")
 public class Volume extends BlockStorage {
@@ -31,7 +29,9 @@ public class Volume extends BlockStorage {
     public void initialLoad() {
         super.initialLoad();
         String volumeId = getAttributeAsString("provider_resource_id");
-        volume = volumeApi.get(volumeId);
+        if (StringUtils.isNotBlank(volumeId)) {
+            volume = volumeApi.get(volumeId);
+        }
     }
 
     @Override

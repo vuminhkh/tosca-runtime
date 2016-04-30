@@ -1,24 +1,5 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang.StringUtils;
-import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
-import org.jclouds.openstack.nova.v2_0.domain.Server;
-import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
-import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
-import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
-import org.jclouds.openstack.nova.v2_0.features.ServerApi;
-import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
@@ -31,6 +12,24 @@ import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SSHJExecutor;
 import com.toscaruntime.util.SynchronizationUtil;
+import org.apache.commons.lang.StringUtils;
+import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
+import org.jclouds.openstack.nova.v2_0.domain.Server;
+import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
+import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
+import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
+import org.jclouds.openstack.nova.v2_0.features.ServerApi;
+import org.jclouds.openstack.nova.v2_0.options.CreateServerOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
 public class Compute extends tosca.nodes.Compute {
@@ -104,6 +103,10 @@ public class Compute extends tosca.nodes.Compute {
 
     @Override
     public void uploadRecipe() {
+        if (artifactExecutor == null) {
+            log.warn("Openstack compute is not fully initialized, ignoring recipe update request");
+            return;
+        }
         String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
         artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation);
     }

@@ -1,10 +1,9 @@
 package com.toscaruntime.openstack.nodes;
 
-import org.apache.commons.lang.StringUtils;
-import org.jclouds.openstack.neutron.v2.features.NetworkApi;
-
 import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.openstack.util.NetworkUtil;
+import org.apache.commons.lang.StringUtils;
+import org.jclouds.openstack.neutron.v2.features.NetworkApi;
 
 /**
  * An external network is more of an existing external network and so the life cycle is not implemented.
@@ -22,7 +21,10 @@ public class ExternalNetwork extends tosca.nodes.Network {
     @Override
     public void initialLoad() {
         super.initialLoad();
-        this.network = networkApi.get(getAttributeAsString("provider_resource_id"));
+        String networkId = getAttributeAsString("provider_resource_id");
+        if (StringUtils.isNotBlank(networkId)) {
+            this.network = networkApi.get(networkId);
+        }
     }
 
     @Override

@@ -1,13 +1,11 @@
 package com.toscaruntime.it
 
-import java.nio.file.Paths
-
 import com.toscaruntime.exception.client.WorkflowExecutionFailureException
-import com.toscaruntime.it.steps.CsarsSteps._
-import org.scalatest.MustMatchers
 import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.AgentsSteps._
+import com.toscaruntime.it.steps.CsarsSteps._
 import com.toscaruntime.it.steps.DeploymentsSteps._
+import org.scalatest.MustMatchers
 
 /**
   * Resume from error
@@ -69,7 +67,7 @@ class ErrorResumeSpec extends AbstractSpec with MustMatchers {
       resumeDeployment("error")
 
       Then("The deployment will finish")
-      assertDeploymentSuccess("error")
+      assertDeploymentFinished("error")
 
       And("The relationship Error is in state established")
       assertDeploymentHasRelationship("error", "SourceConflict", "TargetConflict", 1, RELATIONSHIP_ESTABLISHED)

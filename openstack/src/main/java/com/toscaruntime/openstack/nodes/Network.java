@@ -1,12 +1,11 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
+import com.toscaruntime.openstack.util.FailSafeConfigUtil;
+import com.toscaruntime.openstack.util.NetworkUtil;
+import com.toscaruntime.util.FailSafeUtil;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.openstack.neutron.v2.domain.ExternalGatewayInfo;
 import org.jclouds.openstack.neutron.v2.domain.Router;
@@ -17,12 +16,12 @@ import org.jclouds.openstack.neutron.v2.features.SubnetApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
-import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
-import com.toscaruntime.openstack.util.FailSafeConfigUtil;
-import com.toscaruntime.openstack.util.NetworkUtil;
-import com.toscaruntime.util.FailSafeUtil;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
 public class Network extends tosca.nodes.Network {
@@ -82,10 +81,16 @@ public class Network extends tosca.nodes.Network {
         super.initialLoad();
         this.networkId = getAttributeAsString("provider_resource_id");
         this.subnetId = getAttributeAsString("subnet_id");
-        this.createdNetwork = networkApi.get(this.networkId);
-        this.createdSubnet = subnetApi.get(this.subnetId);
+        if (StringUtils.isNotBlank(this.networkId)) {
+            this.createdNetwork = networkApi.get(this.networkId);
+        }
+        if (StringUtils.isNotBlank(this.subnetId)) {
+            this.createdSubnet = subnetApi.get(this.subnetId);
+        }
         List<String> createdRouterIds = (List<String>) getAttribute("created_router_ids");
-        this.createdRouters.addAll(createdRouterIds.stream().map(createdRouterId -> routerApi.get(createdRouterId)).collect(Collectors.toList()));
+        if (createdRouterIds != null) {
+            this.createdRouters.addAll(createdRouterIds.stream().map(createdRouterId -> routerApi.get(createdRouterId)).collect(Collectors.toList()));
+        }
     }
 
     private Router createRouter(String routerName, String externalNetworkId) {
