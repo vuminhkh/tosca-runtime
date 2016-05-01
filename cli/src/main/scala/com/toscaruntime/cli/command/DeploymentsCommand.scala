@@ -222,6 +222,7 @@ object DeploymentsCommand extends LazyLogging {
       }
     } catch {
       case e: Throwable =>
+        e.printStackTrace()
         println(s"Error ${e.getMessage}")
         logger.error("Command finished with error", e)
         fail = true

@@ -1,6 +1,7 @@
 import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport._
 import sbt.Keys._
 import sbtfilter.Plugin.FilterKeys._
+import sbt._
 
 emojiLogs
 
@@ -201,7 +202,7 @@ lazy val docker = project.in(file("docker"))
     name := "toscaruntime-docker",
     libraryDependencies ++= testDependencies,
     filterDirectoryName := "src/main/resources/docker-provider-types",
-    includeFilter in(Compile, filterResources) ~= { f => f || "*.yml" },
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     mappings in Universal <++= (packageBin in Compile, target) map { (_, target) =>
       val classes = target / "classes"
       val resources = classes / "docker-provider-types"
@@ -222,7 +223,7 @@ lazy val openstack = project.in(file("openstack"))
   .settings(
     name := "toscaruntime-openstack",
     filterDirectoryName := "src/main/resources/openstack-provider-types",
-    includeFilter in(Compile, filterResources) ~= { f => f || "*.yml" },
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-keystone" % "1.9.1",
     libraryDependencies += "org.apache.jclouds.api" % "openstack-nova" % "1.9.1",
@@ -249,9 +250,12 @@ lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
 
 lazy val cli = project.in(file("cli"))
   .settings(commonSettings: _*)
+  .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-cli",
     libraryDependencies += "org.scala-sbt" % "command" % "0.13.8",
+    filterDirectoryName := "src/main/resources/",
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     downloadSbtLauncher := {
       val logFile = target.value / "prepare-stage" / "log" / "cli.log"
       logFile.getParentFile.mkdirs()
@@ -267,9 +271,9 @@ lazy val cli = project.in(file("cli"))
       launchConfigTarget.getParentFile.mkdirs()
       val launchConfigSource = (resourceDirectory in Compile).value / "conf" / "launchConfig.template"
       var launchConfigTemplateText = IO.read(launchConfigSource)
-      launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@organization", organization.value)
-      launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@name", name.value)
-      launchConfigTemplateText = launchConfigTemplateText.replaceFirst("@version", version.value)
+      launchConfigTemplateText = launchConfigTemplateText.replace("${organization}", organization.value)
+      launchConfigTemplateText = launchConfigTemplateText.replace("${name}", name.value)
+      launchConfigTemplateText = launchConfigTemplateText.replace("${version}", version.value)
       IO.write(launchConfigTarget, launchConfigTemplateText)
       val dockerProviderTarget = target.value / "prepare-stage" / "repository" / "docker-provider-types" / version.value
       dockerProviderTarget.mkdirs()
@@ -280,7 +284,8 @@ lazy val cli = project.in(file("cli"))
       IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "providers", providerConf)
       val bootstrapConf = target.value / "prepare-stage" / "bootstrap"
       bootstrapConf.mkdirs()
-      IO.copyDirectory((resourceDirectory in Compile).value / "bootstrap", bootstrapConf)
+      val bootstrapConfSource = target.value / "classes" / "bootstrap"
+      IO.copyDirectory(bootstrapConfSource, bootstrapConf)
       IO.copyDirectory((stage in docker).value, dockerProviderTarget)
       IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
       val sdkToscaTarget = target.value / "prepare-stage" / "csars"
@@ -288,7 +293,7 @@ lazy val cli = project.in(file("cli"))
       sdkToscaTempDownloadTarget.getParentFile.mkdirs()
       IO.download(url("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip"), sdkToscaTempDownloadTarget)
       IO.unzip(sdkToscaTempDownloadTarget, sdkToscaTarget)
-      IO.copyDirectory((resourceDirectory in Compile).value / "csars", sdkToscaTarget)
+      IO.copyDirectory(target.value / "classes" / "csars", sdkToscaTarget)
       val command = s"java -jar $sbtLaunchTarget @$launchConfigTarget"
       Process(command, Some(sbtLaunchTarget.getParentFile)) ! match {
         case 0 =>

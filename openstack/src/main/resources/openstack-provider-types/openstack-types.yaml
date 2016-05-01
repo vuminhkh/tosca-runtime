@@ -73,6 +73,10 @@ node_types:
         type: string
       key_path:
         type: string
+        required: false
+      key_content:
+        type: string
+        required: false
       recipe_location:
         type: string
         required: false

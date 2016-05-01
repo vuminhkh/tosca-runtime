@@ -1,19 +1,5 @@
 package com.toscaruntime.util;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.MalformedURLException;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.net.URL;
-import java.net.UnknownHostException;
-import java.nio.file.Paths;
-import java.util.Enumeration;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.commons.lang.StringUtils;
-
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
@@ -21,6 +7,13 @@ import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.netty.DockerCmdExecFactoryImpl;
 import com.google.common.collect.Maps;
 import com.toscaruntime.exception.client.BadClientConfigurationException;
+import org.apache.commons.lang.StringUtils;
+
+import java.net.*;
+import java.nio.file.Paths;
+import java.util.Enumeration;
+import java.util.Map;
+import java.util.Properties;
 
 public class DockerUtil {
 

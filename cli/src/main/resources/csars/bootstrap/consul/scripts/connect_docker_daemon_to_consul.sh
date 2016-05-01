@@ -8,6 +8,8 @@ sudo service docker stop
 . /etc/default/docker
 echo "DOCKER_OPTS=\"${DOCKER_OPTS} --cluster-store ${CONSUL_CLIENT_URL} --cluster-advertise ${DOCKER_ADDRESS}\"" | sudo tee /etc/default/docker
 
+sleep 5
+
 sudo service docker start
 
 sleep 5

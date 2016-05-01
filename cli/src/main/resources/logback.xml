@@ -2,7 +2,7 @@
 <configuration>
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>${user.dir}/../log/cli.log</file>
-        <append>false</append>
+        <append>true</append>
         <encoder>
             <Pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</Pattern>
         </encoder>

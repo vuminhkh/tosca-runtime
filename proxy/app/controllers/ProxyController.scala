@@ -9,13 +9,14 @@ import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfoDTO, RestResponse}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.cache._
-import play.api.libs.json.{JsObject, JsString, Json}
+import play.api.libs.json._
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.api.mvc._
+import play.mvc.Http.MimeTypes
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.collection.JavaConverters._
 
 class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controller with LazyLogging {
 
@@ -70,14 +71,12 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
   }
 
   def saveBootstrapContext() = Action { request =>
-    request.body.asJson.map { json =>
-      json match {
-        case JsObject(fields) =>
-          cache.set(bootstrapContextCacheKey, json.as[JsObject])
-          Files.write(bootstrapContextPath, json.asOpt[String].get.getBytes("UTF-8"), StandardOpenOption.TRUNCATE_EXISTING)
-          Ok(s"Bootstrap context saved to $bootstrapContextPath")
-        case _ => BadRequest("Expecting a map of value")
-      }
+    request.body.asJson.map {
+      case json@JsObject(fields) =>
+        cache.set(bootstrapContextCacheKey, json.as[JsObject])
+        Files.write(bootstrapContextPath, Json.prettyPrint(json).getBytes("UTF-8"), StandardOpenOption.TRUNCATE_EXISTING)
+        Ok(s"Bootstrap context saved to $bootstrapContextPath")
+      case _ => BadRequest("Expecting a map of value")
     }.getOrElse {
       BadRequest("Expecting Json data")
     }
@@ -91,17 +90,36 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
     Ok(Json.toJson(RestResponse.success[List[DeploymentInfoDTO]](Some(dockerClient.listDeploymentAgents().values.toList))))
   }
 
+  private def handleWSResponse(response: WSResponse) = {
+    response.status match {
+      case play.api.http.Status.OK =>
+        val contentTypeOpt = response.header(play.api.http.HeaderNames.CONTENT_TYPE)
+        val proxyResponse = Ok(response.body)
+        if (contentTypeOpt.isDefined) proxyResponse.withHeaders((play.api.http.HeaderNames.CONTENT_TYPE, contentTypeOpt.get))
+        proxyResponse
+      case play.api.http.Status.BAD_REQUEST => BadRequest(response.body)
+      case _ => InternalServerError(s"Encountered unexpected status ${response.status} :\n ${response.body}")
+    }
+  }
+
   private def doRedirect(deploymentId: String, path: String, request: Request[AnyContent], webAction: (String, Request[AnyContent]) => Future[WSResponse]) = {
     val url = getURL(deploymentId).map(_ + path)
     url.map { url =>
-      webAction(url, request).map { response =>
-        Ok(response.json)
-      }
+      webAction(url, request).map(handleWSResponse)
     }.getOrElse(Future(NotFound(s"Deployment id $deploymentId do not exist")))
   }
 
   private def doRedirectPost(deploymentId: String, path: String, request: Request[AnyContent]) = {
-    doRedirect(deploymentId, path, request, (url, request) => ws.url(url).post(request.body.asText.getOrElse("")))
+    doRedirect(deploymentId, path, request, (url, request) => {
+      val redirectQuery = ws.url(url)
+      request.queryString.foreach {
+        case (key, values) => values.foreach(value => redirectQuery.withQueryString((key, value)))
+      }
+      request.contentType.getOrElse(MimeTypes.TEXT) match {
+        case MimeTypes.JSON => redirectQuery.post(request.body.asJson.getOrElse(JsNull))
+        case _ => redirectQuery.post(request.body.asText.getOrElse(""))
+      }
+    })
   }
 
   private def doRedirectGet(deploymentId: String, path: String, request: Request[AnyContent]) = {
@@ -109,7 +127,7 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
   }
 
   def execute(deploymentId: String) = Action.async { request =>
-    doRedirectPost(deploymentId, "/deployment/execute", request)
+    doRedirectPost(deploymentId, "/deployment/executions", request)
   }
 
   def get(deploymentId: String) = Action.async { request =>
@@ -117,10 +135,18 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
   }
 
   def cancel(deploymentId: String) = Action.async { request =>
-    doRedirectPost(deploymentId, "/deployment/cancel", request)
+    doRedirectPost(deploymentId, "/deployment/executions/cancel", request)
   }
 
   def resume(deploymentId: String) = Action.async { request =>
-    doRedirectPost(deploymentId, "/deployment/resume", request)
+    doRedirectPost(deploymentId, "/deployment/executions/resume", request)
+  }
+
+  def stop(deploymentId: String) = Action.async { request =>
+    doRedirectPost(deploymentId, "/deployment/executions/stop", request)
+  }
+
+  def updateRecipe(deploymentId: String) = Action.async { request =>
+    doRedirectPost(deploymentId, "/deployment/recipe/update", request)
   }
 }

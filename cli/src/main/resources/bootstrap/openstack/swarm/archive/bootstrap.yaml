@@ -1,7 +1,7 @@
 tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
 
 template_name: openstack-swarm-bootstrap-template
-template_version: 1.0.0-SNAPSHOT
+template_version: ${version}
 template_author: MKV
 
 imports:
@@ -15,19 +15,21 @@ topology_template:
       type: string
     flavor:
       type: string
-    key_path:
+    key_content:
       type: string
     key_pair_name:
       type: string
     login:
       type: string
-    key_path:
+    key_content:
       type: string
     security_group_names:
       type: list
       entry_schema:
         type: string
     external_network_name:
+      type: string
+    cloud_init:
       type: string
 
   outputs:
@@ -76,25 +78,25 @@ topology_template:
         flavor: { get_input: flavor }
         login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
+        key_content: { get_input: key_content }
         security_group_names: { get_input: security_group_names }
-        user_data: |
-          #!/bin/sh
-          sudo cp /etc/hosts /tmp/hosts
-          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+        user_data: { get_input: cloud_init }
       requirements:
         - network: privateNetwork
         - network: publicNetwork
 
     managerDaemon:
       type: com.toscaruntime.docker.nodes.DockerDaemon
+      properties:
+        pull_images: toscaruntime/deployer:${version}
       requirements:
         - host: managerMachine
         - discovery_service: consulServer
 
     proxy:
       type: com.toscaruntime.docker.nodes.ProxyWebApp
+      properties:
+        docker_image_tag: ${version}
       requirements:
         - host: managerMachine
         - daemon: swarmManager
@@ -120,13 +122,9 @@ topology_template:
         flavor: { get_input: flavor }
         login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
+        key_content: { get_input: key_content }
         security_group_names: { get_input: security_group_names }
-        user_data: |
-          #!/bin/sh
-          sudo cp /etc/hosts /tmp/hosts
-          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+        user_data: { get_input: cloud_init }
       requirements:
         - network: privateNetwork
         - network: publicNetwork
@@ -139,6 +137,8 @@ topology_template:
 
     swarmNodeDaemon:
       type: com.toscaruntime.docker.nodes.DockerDaemon
+      properties:
+        pull_images: toscaruntime/deployer:${version}
       requirements:
         - host: swarmNodeMachine
         - discovery_service: consulClient

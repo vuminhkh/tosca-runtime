@@ -6,6 +6,7 @@ import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFail
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
+import com.toscaruntime.exception.deployment.configuration.PropertyRequiredException;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.util.ArtifactExecutionUtil;
@@ -208,16 +209,24 @@ public class Compute extends tosca.nodes.Compute {
 
     private SSHJExecutor createExecutor(String ipForSSSHSession) {
         String user = getMandatoryPropertyAsString("login");
-        String keyPath = getMandatoryPropertyAsString("key_path");
-        String absoluteKeyPath;
-        if (Paths.get(keyPath).isAbsolute()) {
-            absoluteKeyPath = keyPath;
+        String keyPath = getPropertyAsString("key_path");
+        String keyContent = getPropertyAsString("key_content");
+        Integer port = Integer.parseInt(getPropertyAsString("ssh_port", "22"));
+        boolean elevatePrivilege = Boolean.parseBoolean(getPropertyAsString("elevate_privilege"));
+        if (StringUtils.isNotBlank(keyPath)) {
+            String absoluteKeyPath;
+            if (Paths.get(keyPath).isAbsolute()) {
+                absoluteKeyPath = keyPath;
+            } else {
+                absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
+            }
+            return new SSHJExecutor(user, ipForSSSHSession, port, Paths.get(absoluteKeyPath), elevatePrivilege);
         } else {
-            absoluteKeyPath = this.config.getTopologyResourcePath().resolve(keyPath).toString();
+            if (StringUtils.isBlank(keyContent)) {
+                throw new PropertyRequiredException("One of key_path or key_content is required to connect to the created VM");
+            }
+            return new SSHJExecutor(user, ipForSSSHSession, port, keyContent, elevatePrivilege);
         }
-        String port = getPropertyAsString("ssh_port", "22");
-        // Create the executor
-        return new SSHJExecutor(user, ipForSSSHSession, Integer.parseInt(port), absoluteKeyPath, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
     }
 
     private void initSshExecutor(String ipForSSSHSession) {

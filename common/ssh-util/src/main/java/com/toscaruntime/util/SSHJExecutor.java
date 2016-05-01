@@ -1,5 +1,28 @@
 package com.toscaruntime.util;
 
+import com.toscaruntime.artifact.ArtifactExecutor;
+import com.toscaruntime.artifact.ArtifactExecutorUtil;
+import com.toscaruntime.artifact.ArtifactUploader;
+import com.toscaruntime.exception.deployment.artifact.*;
+import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.common.Factory;
+import net.schmizz.sshj.common.IOUtils;
+import net.schmizz.sshj.common.SSHException;
+import net.schmizz.sshj.common.SecurityUtils;
+import net.schmizz.sshj.connection.ConnectionException;
+import net.schmizz.sshj.connection.channel.direct.Session;
+import net.schmizz.sshj.connection.channel.direct.SessionChannel;
+import net.schmizz.sshj.transport.TransportException;
+import net.schmizz.sshj.userauth.UserAuthException;
+import net.schmizz.sshj.userauth.keyprovider.FileKeyProvider;
+import net.schmizz.sshj.userauth.keyprovider.KeyFormat;
+import net.schmizz.sshj.userauth.keyprovider.KeyProviderUtil;
+import net.schmizz.sshj.xfer.scp.SCPFileTransfer;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -8,35 +31,8 @@ import java.nio.file.Paths;
 import java.security.Security;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.commons.lang.exception.ExceptionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.toscaruntime.artifact.ArtifactExecutor;
-import com.toscaruntime.artifact.ArtifactExecutorUtil;
-import com.toscaruntime.artifact.ArtifactUploader;
-import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactUploadException;
-
-import net.schmizz.sshj.SSHClient;
-import net.schmizz.sshj.common.IOUtils;
-import net.schmizz.sshj.common.SecurityUtils;
-import net.schmizz.sshj.connection.ConnectionException;
-import net.schmizz.sshj.connection.channel.direct.Session;
-import net.schmizz.sshj.connection.channel.direct.SessionChannel;
-import net.schmizz.sshj.transport.TransportException;
-import net.schmizz.sshj.userauth.UserAuthException;
-import net.schmizz.sshj.xfer.scp.SCPFileTransfer;
 
 public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUploader {
 
@@ -75,13 +71,23 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
 
     private String pemPath;
 
+    private String pemContent;
+
     private boolean elevatePrivilege;
 
-    public SSHJExecutor(String user, String ip, int port, String pemPath, boolean elevatePrivilege) {
+    public SSHJExecutor(String user, String ip, int port, Path pemPath, boolean elevatePrivilege) {
         this.user = user;
         this.ip = ip;
         this.port = port;
-        this.pemPath = pemPath;
+        this.pemPath = pemPath.toString();
+        this.elevatePrivilege = elevatePrivilege;
+    }
+
+    public SSHJExecutor(String user, String ip, int port, String pemContent, boolean elevatePrivilege) {
+        this.user = user;
+        this.ip = ip;
+        this.port = port;
+        this.pemContent = pemContent;
         this.elevatePrivilege = elevatePrivilege;
     }
 
@@ -93,7 +99,17 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
             sshClient = new SSHClient();
             sshClient.addHostKeyVerifier((h, p, k) -> true);
             sshClient.connect(ip, port);
-            sshClient.authPublickey(user, pemPath);
+            if (StringUtils.isNotBlank(pemPath)) {
+                sshClient.authPublickey(user, pemPath);
+            } else {
+                KeyFormat format = KeyProviderUtil.detectKeyFileFormat(pemContent, false);
+                final FileKeyProvider fkp =
+                        Factory.Named.Util.create(sshClient.getTransport().getConfig().getFileKeyProviderFactories(), format.toString());
+                if (fkp == null)
+                    throw new SSHException("No provider available for " + format + " key file");
+                fkp.init(pemContent, null);
+                sshClient.authPublickey(user, fkp);
+            }
         } catch (UserAuthException e) {
             throw new ArtifactAuthenticationFailureException("User authentication failure : " + e.getMessage(), e);
         } catch (IOException e) {

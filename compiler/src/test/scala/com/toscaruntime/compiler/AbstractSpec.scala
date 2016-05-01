@@ -49,7 +49,7 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
   def assemblyTopologyAndAssertCompilationResult(dockerTopology: String, expectedContain: String) = {
     val topologyPath = ClassLoaderUtil.getPathForResource(dockerTopology)
     val topologyName = topologyPath.getFileName.toString
-    val inputsPath = topologyPath.getParent.getParent.resolve("inputs").resolve(topologyName).resolve("inputs.yml")
+    val inputsPath = topologyPath.getParent.getParent.resolve("inputs").resolve(topologyName).resolve("inputs.yaml")
     val generatedAssemblyPath = assemblyPath.resolve(topologyPath.getFileName.toString)
     Files.createDirectories(generatedAssemblyPath)
     val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, csarsPath, if (Files.exists(inputsPath)) Some(inputsPath) else None)

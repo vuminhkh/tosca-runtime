@@ -2,9 +2,9 @@
   version: auto
 
 [app]
-  org: @organization
-  name: @name
-  version: @version
+  org: ${organization}
+  name: ${name}
+  version: ${version}
   class: com.toscaruntime.cli.ToscaRuntimeCLI
   components: xsbti
   cross-versioned: true

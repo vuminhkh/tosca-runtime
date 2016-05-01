@@ -1,13 +1,5 @@
 package com.toscaruntime.docker;
 
-import java.net.UnknownHostException;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.dockerjava.api.DockerClient;
 import com.toscaruntime.docker.nodes.Container;
 import com.toscaruntime.docker.nodes.Network;
@@ -17,12 +9,18 @@ import com.toscaruntime.sdk.AbstractProviderHook;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.util.DockerUtil;
-
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.nodes.Root;
+
+import java.net.UnknownHostException;
+import java.util.Map;
+import java.util.Set;
 
 public class DockerProviderHook extends AbstractProviderHook {
 
-    private static final Logger log = LoggerFactory.getLogger(Container.class);
+    private static final Logger log = LoggerFactory.getLogger(DockerProviderHook.class);
 
     private DockerClient dockerClient;
 
