@@ -107,7 +107,7 @@ public class DockerUtil {
         }
     }
 
-    public static String getDockerHostIP(Map<String, String> providerProperties) throws UnknownHostException {
+    public static String getDockerDaemonIP(Map<String, String> providerProperties) throws UnknownHostException {
         String dockerURL = providerProperties.get(DOCKER_URL_KEY);
         if (StringUtils.isBlank(dockerURL)) {
             return "127.0.0.1";

@@ -4,6 +4,7 @@ import com.github.dockerjava.api.DockerClient;
 import com.toscaruntime.docker.nodes.Container;
 import com.toscaruntime.docker.nodes.Network;
 import com.toscaruntime.docker.nodes.Volume;
+import com.toscaruntime.docker.util.IpAddressUtil;
 import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
 import com.toscaruntime.sdk.AbstractProviderHook;
 import com.toscaruntime.sdk.Deployment;
@@ -24,7 +25,9 @@ public class DockerProviderHook extends AbstractProviderHook {
 
     private DockerClient dockerClient;
 
-    private String dockerHostIP;
+    private String dockerDaemonIP;
+
+    private Map<String, String> swarmNodesIPsMappings;
 
     private String dockerNetworkId;
 
@@ -33,8 +36,10 @@ public class DockerProviderHook extends AbstractProviderHook {
     @Override
     public void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext) {
         dockerClient = DockerUtil.buildDockerClient(providerProperties);
+        // Only available in swarm bootstrapped environment
+        swarmNodesIPsMappings = IpAddressUtil.extractSwarmNodesIpsMappings(bootstrapContext);
         try {
-            dockerHostIP = DockerUtil.getDockerHostIP(providerProperties);
+            dockerDaemonIP = DockerUtil.getDockerDaemonIP(providerProperties);
         } catch (UnknownHostException e) {
             throw new ProviderInitializationException("Unable to resolve docker host", e);
         }
@@ -45,7 +50,7 @@ public class DockerProviderHook extends AbstractProviderHook {
         if (StringUtils.isNotBlank(dockerNetworkId)) {
             log.info("Docker overlay network id [" + dockerNetworkId + "] docker network name [" + dockerNetworkName + "]");
         } else {
-            log.info("No overlay docker network detected, must be in non toscaruntime bootstrap context");
+            log.info("No overlay docker network detected, must be in non bootstrap context");
         }
     }
 
@@ -59,7 +64,8 @@ public class DockerProviderHook extends AbstractProviderHook {
                 container.setBootstrapNetworkId(dockerNetworkId);
                 container.setBootstrapNetworkName(dockerNetworkName);
                 container.setNetworks(connectedNetworks);
-                container.setDockerHostIP(dockerHostIP);
+                container.setDockerDaemonIP(dockerDaemonIP);
+                container.setSwarmNodesIPsMappings(swarmNodesIPsMappings);
                 container.setVolumes(attachedVolumes);
                 attachedVolumes.stream().forEach(volume -> volume.setContainer(container));
             }

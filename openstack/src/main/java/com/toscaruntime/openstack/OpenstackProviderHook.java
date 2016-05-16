@@ -1,9 +1,17 @@
 package com.toscaruntime.openstack;
 
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
+import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
+import com.toscaruntime.openstack.nodes.Compute;
+import com.toscaruntime.openstack.nodes.ExternalNetwork;
+import com.toscaruntime.openstack.nodes.Network;
+import com.toscaruntime.openstack.nodes.Volume;
+import com.toscaruntime.openstack.util.NetworkUtil;
+import com.toscaruntime.sdk.AbstractProviderHook;
+import com.toscaruntime.sdk.Deployment;
+import com.toscaruntime.sdk.util.DeploymentUtil;
+import com.toscaruntime.util.PropertyUtil;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.ContextBuilder;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
@@ -20,21 +28,11 @@ import org.jclouds.openstack.nova.v2_0.NovaApiMetadata;
 import org.jclouds.openstack.nova.v2_0.extensions.FloatingIPApi;
 import org.jclouds.openstack.nova.v2_0.extensions.VolumeAttachmentApi;
 import org.jclouds.openstack.nova.v2_0.features.ServerApi;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.inject.Module;
-import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
-import com.toscaruntime.openstack.nodes.Compute;
-import com.toscaruntime.openstack.nodes.ExternalNetwork;
-import com.toscaruntime.openstack.nodes.Network;
-import com.toscaruntime.openstack.nodes.Volume;
-import com.toscaruntime.openstack.util.NetworkUtil;
-import com.toscaruntime.sdk.AbstractProviderHook;
-import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.util.DeploymentUtil;
-import com.toscaruntime.util.PropertyUtil;
-
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 public class OpenstackProviderHook extends AbstractProviderHook {
 
@@ -50,13 +48,15 @@ public class OpenstackProviderHook extends AbstractProviderHook {
 
     private String networkId;
 
+    private String networkName;
+
     private String externalNetworkId;
 
     private VolumeApi volumeApi;
 
     private VolumeAttachmentApi volumeAttachmentApi;
 
-    private String getNetworkIdFromContext(NetworkApi networkApi, Map<String, String> providerProperties, Map<String, Object> bootstrapContext, boolean isExternal) {
+    private org.jclouds.openstack.neutron.v2.domain.Network getNetworkFromContext(NetworkApi networkApi, Map<String, String> providerProperties, Map<String, Object> bootstrapContext, boolean isExternal) {
         String networkIdPropertyName;
         String networkNamePropertyName;
         if (isExternal) {
@@ -71,12 +71,10 @@ public class OpenstackProviderHook extends AbstractProviderHook {
         if (StringUtils.isEmpty(networkId)) {
             String networkName = PropertyUtil.getPropertyAsString(providerProperties, networkNamePropertyName,
                     PropertyUtil.getPropertyAsString(bootstrapContext, networkNamePropertyName));
-            org.jclouds.openstack.neutron.v2.domain.Network found = NetworkUtil.findNetworkByName(networkApi, networkName, isExternal);
-            if (found != null) {
-                return found.getId();
-            }
+            return NetworkUtil.findNetworkByName(networkApi, networkName, isExternal);
+        } else {
+            return networkApi.get(networkId);
         }
-        return networkId;
     }
 
     @Override
@@ -130,8 +128,15 @@ public class OpenstackProviderHook extends AbstractProviderHook {
          * Network Id and External Network Id if defined are default values that will be injected into every compute
          * We search first in provider configuration, if not found then we'll look into bootstrap context
          */
-        networkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, false);
-        externalNetworkId = getNetworkIdFromContext(networkApi, providerProperties, bootstrapContext, true);
+        org.jclouds.openstack.neutron.v2.domain.Network internalNetwork = getNetworkFromContext(networkApi, providerProperties, bootstrapContext, false);
+        if (internalNetwork != null) {
+            networkId = internalNetwork.getId();
+            networkName = internalNetwork.getName();
+        }
+        org.jclouds.openstack.neutron.v2.domain.Network externalNetwork = getNetworkFromContext(networkApi, providerProperties, bootstrapContext, true);
+        if (externalNetwork != null) {
+            externalNetworkId = externalNetwork.getId();
+        }
     }
 
     @Override
@@ -146,6 +151,7 @@ public class OpenstackProviderHook extends AbstractProviderHook {
         for (Compute compute : computes) {
             compute.setServerApi(serverApi);
             compute.setNetworkId(networkId);
+            compute.setNetworkName(networkName);
             compute.setFloatingIPApi(floatingIPApi);
             compute.setVolumeAttachmentApi(volumeAttachmentApi);
             if (StringUtils.isNotBlank(externalNetworkId)) {

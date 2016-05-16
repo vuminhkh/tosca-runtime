@@ -8,5 +8,5 @@ GET         /deployments/:deploymentId                          controllers.Prox
 POST        /deployments/:deploymentId/executions               controllers.ProxyController.execute(deploymentId: String)
 POST        /deployments/:deploymentId/executions/cancel        controllers.ProxyController.cancel(deploymentId: String)
 POST        /deployments/:deploymentId/executions/resume        controllers.ProxyController.resume(deploymentId: String)
-POST        /deployment/:deploymentId/executions/stop           controllers.ProxyController.stop(deploymentId: String)
-POST        /deployment/:deploymentId/recipe/update             controllers.ProxyController.updateRecipe(deploymentId: String)
+POST        /deployments/:deploymentId/executions/stop          controllers.ProxyController.stop(deploymentId: String)
+POST        /deployments/:deploymentId/recipe/update            controllers.ProxyController.updateRecipe(deploymentId: String)

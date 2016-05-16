@@ -14,6 +14,7 @@ import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SSHJExecutor;
 import com.toscaruntime.util.SynchronizationUtil;
 import org.apache.commons.lang.StringUtils;
+import org.jclouds.openstack.nova.v2_0.domain.Address;
 import org.jclouds.openstack.nova.v2_0.domain.FloatingIP;
 import org.jclouds.openstack.nova.v2_0.domain.Server;
 import org.jclouds.openstack.nova.v2_0.domain.ServerCreated;
@@ -25,10 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -36,8 +34,6 @@ import java.util.stream.Collectors;
 public class Compute extends tosca.nodes.Compute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
-
-    private static final String RECIPE_LOCATION = "/tmp/recipe";
 
     private SSHJExecutor artifactExecutor;
 
@@ -48,6 +44,8 @@ public class Compute extends tosca.nodes.Compute {
     private VolumeAttachmentApi volumeAttachmentApi;
 
     private String networkId;
+
+    private String networkName;
 
     private String externalNetworkId;
 
@@ -63,6 +61,10 @@ public class Compute extends tosca.nodes.Compute {
 
     public void setNetworkId(String networkId) {
         this.networkId = networkId;
+    }
+
+    public void setNetworkName(String networkName) {
+        this.networkName = networkName;
     }
 
     public void setServerApi(ServerApi serverApi) {
@@ -108,13 +110,13 @@ public class Compute extends tosca.nodes.Compute {
             log.warn("Openstack compute is not fully initialized, ignoring recipe update request");
             return;
         }
-        String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
+        String recipeLocation = getMandatoryPropertyAsString("recipe_location");
         artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation);
     }
 
     @Override
     public Map<String, String> execute(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
-        String recipeLocation = getPropertyAsString("recipe_location", RECIPE_LOCATION);
+        String recipeLocation = getMandatoryPropertyAsString("recipe_location");
         try {
             return FailSafeUtil.doActionWithRetry(
                     () -> artifactExecutor.executeArtifact(
@@ -292,7 +294,16 @@ public class Compute extends tosca.nodes.Compute {
                 return true;
             }
         }, retryNumber, coolDownPeriod, TimeUnit.SECONDS);
-        this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
+        if (StringUtils.isNotEmpty(networkName) && server.getAddresses().containsKey(networkName)) {
+            // The primary private ip address must come from configured network, in case of a bootstrap this is important as only this ip is reachable by the agent
+            this.ipAddress = server.getAddresses().get(networkName).iterator().next().getAddr();
+        } else {
+            this.ipAddress = server.getAddresses().values().iterator().next().getAddr();
+        }
+        Map<String, List<String>> ipAddresses = new HashMap<>();
+        for (Map.Entry<String, Collection<Address>> addressEntry : server.getAddresses().asMap().entrySet()) {
+            ipAddresses.put(addressEntry.getKey(), addressEntry.getValue().stream().map(Address::getAddr).collect(Collectors.toList()));
+        }
         // Create floating ips
         Set<String> floatingIpIds = this.externalNetworks.stream().map(externalNetwork -> attachFloatingIP(externalNetwork.getNetworkId(), retryNumber, coolDownPeriod).getId()).collect(Collectors.toSet());
         if (this.config.isBootstrap() && this.externalNetworks.isEmpty() && StringUtils.isNotBlank(this.externalNetworkId)) {
@@ -303,6 +314,7 @@ public class Compute extends tosca.nodes.Compute {
         // Attach volumes
         this.volumes.stream().forEach(this::attachVolume);
         setAttribute("ip_address", this.ipAddress);
+        setAttribute("ip_addresses", ipAddresses);
         setAttribute("provider_resource_id", server.getId());
         setAttribute("provider_resource_name", server.getName());
         setAttribute("floating_ip_ids", new ArrayList<>(floatingIpIds));

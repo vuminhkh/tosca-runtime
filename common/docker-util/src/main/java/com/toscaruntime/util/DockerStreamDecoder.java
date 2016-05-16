@@ -1,12 +1,12 @@
 package com.toscaruntime.util;
 
-import java.io.IOException;
-import java.util.List;
-
 import com.github.dockerjava.api.model.Frame;
 import com.github.dockerjava.api.model.StreamType;
 import com.github.dockerjava.core.async.ResultCallbackTemplate;
 import com.google.common.collect.Lists;
+
+import java.io.IOException;
+import java.util.List;
 
 /**
  * Decoder for docker stream protocol
@@ -48,28 +48,17 @@ public class DockerStreamDecoder extends ResultCallbackTemplate<DockerStreamDeco
         try {
             StringBuilder currentLine = getBuffer(frame.getStreamType());
             String newData = new String(frame.getPayload(), "UTF-8");
-            if (newData.contains("\n")) {
-                String[] newLines = newData.split("\n");
-                if (newLines.length == 0) {
-                    if (currentLine.length() > 0) {
-                        newLines = new String[]{currentLine.toString()};
-                        currentLine.setLength(0);
-                    }
-                }
-                if (currentLine.length() > 0) {
-                    newLines[0] = currentLine.append(newLines[0]).toString();
+            for (int i = 0; i < newData.length(); i++) {
+                char c = newData.charAt(i);
+                if (c == '\n') {
+                    result.add(new DecoderResult(frame.getStreamType(), currentLine.toString()));
                     currentLine.setLength(0);
+                } else {
+                    currentLine.append(c);
                 }
-                for (String newLine : newLines) {
-                    result.add(new DecoderResult(frame.getStreamType(), newLine));
-                }
-            } else {
-                currentLine.append(newData);
             }
-            if (!result.isEmpty()) {
-                for (DecoderResult line : result) {
-                    logger.log(line);
-                }
+            for (DecoderResult line : result) {
+                logger.log(line);
             }
         } catch (IOException e) {
             onError(e);

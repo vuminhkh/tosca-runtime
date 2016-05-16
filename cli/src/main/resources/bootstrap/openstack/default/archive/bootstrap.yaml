@@ -36,18 +36,15 @@ topology_template:
     public_daemon_url:
       description: The URL to access the docker daemon
       value: { get_attribute: [ dockerDaemon, public_docker_url ] }
-    daemon_url:
-      description: The URL to access the docker daemon
-      value: { get_attribute: [ dockerDaemon, docker_url ] }
     public_proxy_url:
       description: The URL to access the proxy
       value: { get_attribute: [ proxy, public_proxy_url ] }
-    proxy_url:
-      description: The URL to access the proxy
-      value: { get_attribute: [ proxy, proxy_url ] }
     network_id:
       description: The id of the network the docker daemon connected to
       value: { get_attribute: [ privateNetwork, provider_resource_id ] }
+    network_name:
+      description: The name of the openstack network that the host of docker daemon is connected to
+      value: { get_attribute: [ privateNetwork, provider_resource_name ] }
     external_network_id:
       description: The id of the external network the docker daemon connected to
       value: { get_attribute: [ publicNetwork, provider_resource_id ] }
@@ -69,7 +66,7 @@ topology_template:
         flavor: { get_input: flavor }
         login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_content: { get_input: key_path }
+        key_content: { get_input: key_content }
         security_group_names: { get_input: security_group_names }
         user_data: { get_input: cloud_init }
       requirements:
@@ -79,6 +76,7 @@ topology_template:
       type: com.toscaruntime.docker.nodes.DockerDaemon
       properties:
         port: 2376
+        pull_images: toscaruntime/deployer:${version}
       requirements:
         - host: dockerMachine
     proxy:
@@ -86,5 +84,5 @@ topology_template:
       properties:
         docker_image_tag: ${version}
       requirements:
-        - host: dockerDaemon
-
+        - host: dockerMachine
+        - daemon: dockerDaemon

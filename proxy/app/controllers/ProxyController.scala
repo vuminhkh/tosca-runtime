@@ -7,6 +7,7 @@ import com.github.dockerjava.api.model.NetworkSettings
 import com.toscaruntime.exception.UnexpectedException
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfoDTO, RestResponse}
+import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 import play.api.cache._
 import play.api.libs.json._
@@ -74,7 +75,7 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
     request.body.asJson.map {
       case json@JsObject(fields) =>
         cache.set(bootstrapContextCacheKey, json.as[JsObject])
-        Files.write(bootstrapContextPath, Json.prettyPrint(json).getBytes("UTF-8"), StandardOpenOption.TRUNCATE_EXISTING)
+        FileUtil.writeTextFile(Json.prettyPrint(json), bootstrapContextPath)
         Ok(s"Bootstrap context saved to $bootstrapContextPath")
       case _ => BadRequest("Expecting a map of value")
     }.getOrElse {
@@ -112,12 +113,12 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
   private def doRedirectPost(deploymentId: String, path: String, request: Request[AnyContent]) = {
     doRedirect(deploymentId, path, request, (url, request) => {
       val redirectQuery = ws.url(url)
-      request.queryString.foreach {
-        case (key, values) => values.foreach(value => redirectQuery.withQueryString((key, value)))
+      val allQueryString = request.queryString.flatMap {
+        case (key, values) => values.map((key, _))
       }
       request.contentType.getOrElse(MimeTypes.TEXT) match {
-        case MimeTypes.JSON => redirectQuery.post(request.body.asJson.getOrElse(JsNull))
-        case _ => redirectQuery.post(request.body.asText.getOrElse(""))
+        case MimeTypes.JSON => redirectQuery.withQueryString(allQueryString.toSeq: _*).post(request.body.asJson.getOrElse(JsNull))
+        case _ => redirectQuery.withQueryString(allQueryString.toSeq: _*).post(request.body.asText.getOrElse(""))
       }
     })
   }

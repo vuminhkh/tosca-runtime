@@ -31,32 +31,43 @@ topology_template:
       type: string
     cloud_init:
       type: string
+    swarm_nodes_count:
+      type: integer
 
   outputs:
     public_daemon_url:
       description: The URL to access the docker daemon
       value: { get_attribute: [ swarmManager, public_docker_url ] }
-    daemon_url:
-      description: The URL to access the docker daemon
-      value: { get_attribute: [ swarmManager, docker_url ] }
     public_proxy_url:
       description: The public URL to access the proxy
       value: { get_attribute: [ proxy, public_proxy_url ] }
-    proxy_url:
-      description: The URL to access the proxy
-      value: { get_attribute: [ proxy, proxy_url ] }
     network_id:
       description: The id of the openstack network that the host of docker daemon is connected to
       value: { get_attribute: [ privateNetwork, provider_resource_id ] }
+    network_name:
+      description: The name of the openstack network that the host of docker daemon is connected to
+      value: { get_attribute: [ privateNetwork, provider_resource_name ] }
+    external_network_id:
+      description: The id of the external network that the host of docker daemon is connected to
+      value: { get_attribute: [ publicNetwork, provider_resource_id ] }
     docker_network_id:
       description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
       value: { get_attribute: [ swarmManager, docker_network_id ] }
     docker_network_name:
       description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
       value: { get_attribute: [ swarmManager, docker_network_name ] }
-    external_network_id:
-      description: The id of the external network that the host of docker daemon is connected to
-      value: { get_attribute: [ publicNetwork, provider_resource_id ] }
+    manager_ip_addresses:
+      description: The private ip addresses of the manager machine
+      value: { get_attribute: [ managerMachine, ip_address ] }
+    manager_public_ip_addresses:
+      description: The public ip addresses of the manager machine
+      value: { get_attribute: [ managerMachine, public_ip_address ] }
+    node_ip_addresses:
+      description: The private ip addresses of swarm node machines
+      value: { get_attribute: [ swarmNodeMachine, ip_address ] }
+    node_public_ip_addresses:
+      description: The public ip addressse of swarm node machines
+      value: { get_attribute: [ swarmNodeMachine, public_ip_address ] }
 
   node_templates:
 
@@ -131,9 +142,9 @@ topology_template:
       capabilities:
         scalable:
           properties:
-            max_instances: 3
+            max_instances: 999
             min_instances: 1
-            default_instances: 1
+            default_instances: { get_input: swarm_nodes_count }
 
     swarmNodeDaemon:
       type: com.toscaruntime.docker.nodes.DockerDaemon

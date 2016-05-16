@@ -57,7 +57,15 @@ public class Container extends Compute {
      */
     private Set<Volume> volumes;
 
-    private String dockerHostIP;
+    /**
+     * The docker daemon IP where the daemon is hosted
+     */
+    private String dockerDaemonIP;
+
+    /**
+     * In a swarm bootstrap context, this holds the mapping from private IP to public IP of all swarm nodes
+     */
+    private Map<String, String> swarmNodesIPsMappings;
 
     private DockerExecutor dockerExecutor;
 
@@ -66,7 +74,6 @@ public class Container extends Compute {
         super.initialLoad();
         this.containerId = getAttributeAsString("provider_resource_id");
         this.ipAddress = getAttributeAsString("ip_address");
-        this.dockerHostIP = getAttributeAsString("public_ip_address");
         if (StringUtils.isNotBlank(this.containerId)) {
             this.dockerExecutor = new DockerExecutor(dockerClient, containerId, Boolean.parseBoolean(getPropertyAsString("elevate_privilege")));
         }
@@ -192,7 +199,18 @@ public class Container extends Compute {
         uploadRecipe();
         setAttribute("ip_addresses", ipAddresses);
         setAttribute("ip_address", ipAddress);
-        setAttribute("public_ip_address", dockerHostIP);
+        String publicIPAddress = null;
+        if (swarmNodesIPsMappings != null && !swarmNodesIPsMappings.isEmpty() && response.getNode() != null) {
+            String dockerHostIP = response.getNode().getIp();
+            setAttribute("docker_host_ip_address", dockerHostIP);
+            publicIPAddress = swarmNodesIPsMappings.get(dockerHostIP);
+            setAttribute("docker_host_public_ip_address", publicIPAddress);
+        }
+        if (StringUtils.isBlank(publicIPAddress)) {
+            publicIPAddress = dockerDaemonIP;
+        }
+        setAttribute("docker_daemon_ip_address", dockerDaemonIP);
+        setAttribute("public_ip_address", publicIPAddress);
         setAttribute("provider_resource_id", containerId);
         setAttribute("provider_resource_name", response.getName());
         log.info("Container [" + getId() + "] : Started container with id " + containerId + " and ip address " + ipAddress);
@@ -261,8 +279,12 @@ public class Container extends Compute {
         this.networks = networks;
     }
 
-    public void setDockerHostIP(String dockerHostIP) {
-        this.dockerHostIP = dockerHostIP;
+    public void setDockerDaemonIP(String dockerDaemonIP) {
+        this.dockerDaemonIP = dockerDaemonIP;
+    }
+
+    public void setSwarmNodesIPsMappings(Map<String, String> swarmNodesIPsMappings) {
+        this.swarmNodesIPsMappings = swarmNodesIPsMappings;
     }
 
     public void setVolumes(Set<Volume> volumes) {

@@ -1,15 +1,29 @@
 package com.toscaruntime.util;
 
-import java.net.MalformedURLException;
-import java.nio.file.Paths;
-
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(JUnit4.class)
 public class DockerUtilTest {
+
+    private static final Logger log = LoggerFactory.getLogger(DockerUtilTest.class);
 
     @Test
     public void testGetDefaultURL() throws MalformedURLException {
@@ -29,34 +43,36 @@ public class DockerUtilTest {
         Assert.assertEquals("192.168.99.100", dockerHost);
     }
 
-//    @Test
-//    public void testExecutor() throws MalformedURLException, UnsupportedEncodingException, InterruptedException {
-//        DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
-//        DockerClient dockerClient = DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath());
-//        CreateContainerResponse container = dockerClient.createContainerCmd("busybox").withCmd("sleep", "9999")
-//                .withName("test").exec();
-//        dockerClient.startContainerCmd(container.getId()).exec();
-//        DockerExecutor dockerExecutor = new DockerExecutor(dockerClient, container.getId());
-//        dockerExecutor.runCommand("cat", line -> {
-//            System.out.println(line.getData());
-//        }, new ByteArrayInputStream("TOTO".getBytes(StandardCharsets.UTF_8)));
-//        DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
-//        DockerClient dockerClient = DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath());
-//
-//        CreateContainerResponse container = dockerClient.createContainerCmd("busybox").withCmd("sleep", "9999")
-//                .withName("test").exec();
-//
-//        dockerClient.startContainerCmd(container.getId()).exec();
-//
-//        InputStream stdin = new ByteArrayInputStream("STDIN\n".getBytes("UTF-8"));
-//
-//        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-//
-//        ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(container.getId())
-//                .withAttachStdout(true).withAttachStdin(true).withCmd("cat").exec();
-//        dockerClient.execStartCmd(execCreateCmdResponse.getId()).withDetach(false).withTty(true).withStdIn(stdin)
-//                .exec(new ExecStartResultCallback(stdout, System.err)).awaitCompletion(5, TimeUnit.SECONDS);
-//
-//        Assert.assertEquals(stdout.toString("UTF-8"), "STDIN\n");
-//    }
+    @Test
+    @Ignore
+    public void testExecutor() throws MalformedURLException, UnsupportedEncodingException, InterruptedException {
+        DockerClient dockerClient = DockerUtil.buildDockerClient("http://129.185.67.86:2376", null);
+        dockerClient.pullImageCmd("toscaruntime/ubuntu-trusty").exec(new PullImageResultCallback()).awaitCompletion();
+        CreateContainerResponse container = dockerClient.createContainerCmd("toscaruntime/ubuntu-trusty").withCmd("sleep", "9999")
+                .withName("test2").exec();
+        try {
+            dockerClient.startContainerCmd(container.getId()).exec();
+
+            DockerExecutor dockerExecutor = new DockerExecutor(dockerClient, container.getId(), false);
+            ExecutorService executorService = Executors.newCachedThreadPool();
+            dockerExecutor.upload("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/", "/tmp/");
+            executorService.submit(() -> {
+                Map<String, String> env = new HashMap<>();
+                env.put("JAVA_HOME", "/opt/java");
+                env.put("JAVA_URL", "http://download.oracle.com/otn-pub/java/jdk/7u75-b13/jdk-7u75-linux-x64.tar.gz");
+                dockerExecutor.executeArtifact("install java", Paths.get("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/java_install.sh"), "/tmp/java_install.sh", env);
+            });
+            executorService.submit(() -> {
+                Map<String, String> env = new HashMap<>();
+                env.put("TOMCAT_HOME", "/opt/tomcat");
+                env.put("TOMCAT_PORT", "80");
+                env.put("TOMCAT_URL", "http://mirrors.ircam.fr/pub/apache/tomcat/tomcat-8/v8.0.33/bin/apache-tomcat-8.0.33.tar.gz");
+                dockerExecutor.executeArtifact("install tomcat", Paths.get("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/tomcat_install.sh"), "/tmp/tomcat_install.sh", env);
+            });
+            executorService.shutdown();
+            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+        } finally {
+            dockerClient.removeContainerCmd(container.getId()).withForce(true).exec();
+        }
+    }
 }

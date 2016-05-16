@@ -79,7 +79,8 @@ node_types:
         required: false
       recipe_location:
         type: string
-        required: false
+        required: true
+        default: /tmp/recipe
       ssh_port:
         type: integer
         default: 22

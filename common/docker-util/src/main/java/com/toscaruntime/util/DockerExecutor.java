@@ -1,21 +1,5 @@
 package com.toscaruntime.util;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Map;
-import java.util.UUID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
@@ -27,6 +11,15 @@ import com.toscaruntime.artifact.ArtifactExecutorUtil;
 import com.toscaruntime.artifact.ArtifactUploader;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Docker executor is based on docker exec command

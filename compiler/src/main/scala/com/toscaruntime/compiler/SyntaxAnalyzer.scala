@@ -179,7 +179,8 @@ object SyntaxAnalyzer extends YamlParser {
   }
 
   def nodeFilterEntry(indentLevel: Int) =
-    (filterEntry(indentLevel) | nodeCapabilitiesFilterEntry(indentLevel)) | failure(s"Expecting one of '$capabilities_token', '$properties_token'")
+    (filterEntry(indentLevel) ^^ { case (propToken, constraints) => (propToken, constraints.toMap) } |
+      nodeCapabilitiesFilterEntry(indentLevel)) | failure(s"Expecting one of '$capabilities_token', '$properties_token'")
 
   def nodeFilter(indentLevel: Int): Parser[NodeFilter] =
     map(nodeFilterEntry)(indentLevel) ^^ {

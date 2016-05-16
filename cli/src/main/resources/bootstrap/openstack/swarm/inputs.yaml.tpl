@@ -14,3 +14,4 @@ cloud_init: |
   sudo cp /etc/hosts /tmp/hosts
   echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
   cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+swarm_nodes_count: 2

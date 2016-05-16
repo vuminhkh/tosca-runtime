@@ -10,5 +10,4 @@
     <root level="info">
         <appender-ref ref="FILE"/>
     </root>
-    <logger name="com.github.dockerjava.core.async.ResultCallbackTemplate" level="OFF" />
 </configuration>
