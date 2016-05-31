@@ -51,14 +51,14 @@ object AgentsSteps extends MustMatchers {
 
   def assertDeploymentHasBeenStoppedWithoutError(deploymentId: String) = assertDeploymentHasBeenStopped(deploymentId).executions.head.error must be(empty)
 
-  def assertDeploymentFinished(deploymentId: String, timeout: Duration = 10 minutes) = Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), timeout)
+  def assertDeploymentFinished(deploymentId: String, timeout: Duration = 20 minutes) = Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), timeout)
 
   def updateRecipe(deploymentId: String) = {
     AgentUtil.updateDeploymentRecipe(Context.client, deploymentId, assemblyPath)
   }
 
   def launchDeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 15 minutes)
+    Await.result(AgentsCommand.deploy(Context.client, deploymentId)._2, 20 minutes)
   }
 
   def resumeDeployment(deploymentId: String) = {
@@ -66,17 +66,17 @@ object AgentsSteps extends MustMatchers {
   }
 
   def launchUndeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.undeploy(Context.client, deploymentId, force = false)._2, 15 minutes)
+    Await.result(AgentsCommand.undeploy(Context.client, deploymentId, force = false)._2, 20 minutes)
   }
 
   def launchInstallWorkflow(deploymentId: String) = {
     AgentsCommand.launchInstallWorkflow(Context.client, deploymentId)
-    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 10 minutes)
+    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 20 minutes)
   }
 
   def launchUninstallWorkflow(deploymentId: String) = {
     AgentsCommand.launchUninstallWorkflow(Context.client, deploymentId, force = false)
-    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 10 minutes)
+    Await.result(Context.client.waitForRunningExecutionToEnd(deploymentId), 20 minutes)
   }
 
   def createAgent(deploymentId: String) = {

@@ -41,7 +41,7 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
       cancelDeployment("sleep", force = true)
 
       Then("The deployment should finish immediately")
-      Await.result(finishFuture, 1 second)
+      Await.result(finishFuture, 5 second)
 
       And("I should be able to undeploy it without error")
       launchUndeployment("sleep")

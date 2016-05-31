@@ -374,6 +374,7 @@ public class WorkflowExecution {
                 tasksRunning.values().forEach(task -> task.cancel(force));
             } else {
                 listeners.forEach(this::notifyInterruptedToListener);
+                listeners.clear();
             }
         } finally {
             lock.unlock();
@@ -388,6 +389,7 @@ public class WorkflowExecution {
             if (force || tasksRunning.isEmpty()) {
                 // If not forcing the cancel then the listeners will be notified only when every tasks have successfully been cancelled
                 listeners.forEach(this::notifyCancelledToListener);
+                listeners.clear();
             }
         } finally {
             lock.unlock();
