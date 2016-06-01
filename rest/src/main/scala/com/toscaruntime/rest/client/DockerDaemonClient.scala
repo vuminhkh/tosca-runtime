@@ -39,7 +39,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   }
 
   private def findMappedPort(container: InspectContainerResponse, localPort: Int) = {
-    container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == localPort).values.head.head.getHostPort
+    container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == localPort).values.head.head.getHostPortSpec
   }
 
   def getProxyURL: Option[String] = {
@@ -69,7 +69,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   def getBootstrapAgentURL(deploymentId: String) = {
     getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
       val daemonHost = DockerUtil.getDockerHost(url)
-      val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPort
+      val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPortSpec
       s"http://$daemonHost:$port/deployment"
     }
   }
@@ -171,7 +171,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
     labels.putAll(labels)
     val portHttp: ExposedPort = ExposedPort.tcp(9000)
     val portBindings: Ports = new Ports
-    portBindings.bind(portHttp, Ports.binding(null))
+    portBindings.bind(portHttp, Ports.Binding.empty())
     val createdContainer = dockerClient
       .createContainerCmd(deploymentImageId)
       .withExposedPorts(portHttp)

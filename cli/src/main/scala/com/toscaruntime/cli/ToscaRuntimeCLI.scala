@@ -30,7 +30,9 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     if (existingConfiguration.nonEmpty) {
       val url = existingConfiguration.get(DockerUtil.DOCKER_URL_KEY).get
       val cert = existingConfiguration.getOrElse(DockerUtil.DOCKER_CERT_PATH_KEY, null)
-      new ToscaRuntimeClient(url, cert)
+      val existingClient = new ToscaRuntimeClient(url, cert)
+      println(s"Begin to use docker daemon at [$url] with api version [${existingClient.dockerVersion}]")
+      existingClient
     } else {
       val defaultConfig = DockerUtil.getDefaultDockerDaemonConfig
       if ("true".equals(System.getProperty("toscaruntime.clientMode"))) {

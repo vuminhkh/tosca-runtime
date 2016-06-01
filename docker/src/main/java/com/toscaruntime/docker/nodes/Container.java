@@ -131,7 +131,7 @@ public class Container extends Compute {
         for (ExposedPort exposedPort : exposedPorts) {
             Integer mappedPort = portMappings.get(exposedPort.getPort());
             if (mappedPort != null) {
-                portBindings.bind(exposedPort, Ports.binding(mappedPort));
+                portBindings.bind(exposedPort, Ports.Binding.bindPort(mappedPort));
             }
         }
         String tag = getPropertyAsString("tag", "latest");

@@ -14,4 +14,4 @@ sudo service docker start
 
 sleep 5
 
-sudo docker run -d swarm join --advertise=${DOCKER_ADDRESS} ${CONSUL_CLIENT_URL}
+sudo docker run -d swarm:1.2.2 join --advertise=${DOCKER_ADDRESS} ${CONSUL_CLIENT_URL}
