@@ -135,7 +135,7 @@ The `csars install` command not only compiles but also installs the given csar t
  
 Basically, ToscaRuntime needs a docker daemon (can be swarm daemon) in order to manage deployment images and instantiate micro managers (agents), let’s call it the manager daemon.
 Then the micro manager (agent) might target a particular IAAS (for ex Openstack), or a docker daemon (can be swarm), to instantiate application containers or VMs.
-In some cases, the manager daemon and the targeted docker daemon for application containers can be the same. Below you have some examples of available configurations
+In some cases, the manager daemon and the target docker daemon for application containers can be the same. Below you have some examples of available configurations
 
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/LocalhostOnly.jpg "Localhost only")
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/SwarmCluster.jpg "Swarm Cluster")

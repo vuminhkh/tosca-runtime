@@ -263,10 +263,11 @@ lazy val cli = project.in(file("cli"))
       val sbtLaunchTarget = target.value / "prepare-stage" / "bin" / "sbt-launch.jar"
       sbtLaunchTarget.getParentFile.mkdirs()
       IO.download(url("https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.8/sbt-launch.jar"), sbtLaunchTarget)
-      val toscaRuntimeScriptTarget = target.value / "prepare-stage" / "bin" / "tosca-runtime.sh"
-      toscaRuntimeScriptTarget.getParentFile.mkdirs()
-      IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeScriptTarget)
-      toscaRuntimeScriptTarget.setExecutable(true)
+      val toscaRuntimeBashScriptTarget = target.value / "prepare-stage" / "bin" / "tosca-runtime.sh"
+      toscaRuntimeBashScriptTarget.getParentFile.mkdirs()
+      IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeBashScriptTarget)
+      toscaRuntimeBashScriptTarget.setExecutable(true)
+      IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.bat", target.value / "prepare-stage" / "bin" / "tosca-runtime.bat")
       val launchConfigTarget = target.value / "prepare-stage" / "conf" / "launchConfig"
       launchConfigTarget.getParentFile.mkdirs()
       val launchConfigSource = (resourceDirectory in Compile).value / "conf" / "launchConfig.template"
