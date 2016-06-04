@@ -19,13 +19,13 @@ Getting Started
 
 ### Pre-requisite
 
-* Install docker 1.10.x (compatibility problems can happen with versions below or above)
+* Install Java 8
+* Install docker 1.10.x (the versions below or above 1.10.x might have compatibility issues)
 
   - For Linux user:
   
     ```bash
     # Uninstall old version if necessary
-    # Install latest version
     curl -sSL https://get.docker.com/ | sudo sh
     # Add your user to docker group, not necessary but convenient, or else only root can use docker
     sudo usermod -aG docker your-user
@@ -35,15 +35,17 @@ Getting Started
     docker info
     # configure docker to expose http end point (For ex: in /etc/default/docker or /etc/systemd/system/docker.service.d/docker.conf)
     echo "DOCKER_OPTS=\"-H tcp://0.0.0.0:2376 -H unix:///var/run/docker.sock\"" | sudo tee /etc/default/docker
+    # On some recent Ubuntu versions or CentOS :
+    # echo -e "[Service]\n""EnvironmentFile=-/etc/default/docker\n""ExecStart=\n""ExecStart=/usr/bin/docker daemon \$DOCKER_OPTS -H fd://\n" | sudo tee -a /etc/systemd/system/docker.service.d/docker.conf
     # restart docker
     sudo service docker restart
     ```
-  
+    Please take note that, for linux, there are some [kernel bugs](https://github.com/docker/docker/issues/18180) and compatibilities issues with old kernel version.
   - For Mac OS user: https://docs.docker.com/engine/installation/mac/
   
   - For Windows user: https://docs.docker.com/engine/installation/windows/
   
-  Note that for Mac OS and Windows, if you already had the docker toolbox installed but with older version, you can just upgrade your daemon's version
+  Note that for Mac OS and Windows, if you've already had the docker toolbox installed but with older version, you can just upgrade your daemon's version
   
   ```bash
   docker-machine upgrade default
@@ -54,9 +56,12 @@ Getting Started
 ### Quick getting started
 
   ```bash
+  # Let's say you are at pathToProjects
   # get some Alien samples
   git clone https://github.com/alien4cloud/alien4cloud-extended-types.git
   git clone https://github.com/alien4cloud/samples.git
+  # get toscaruntime sources as it contains some samples for testing
+  git clone https://github.com/vuminhkh/tosca-runtime.git
   # launch tosca runtime
   cd path_to_toscaruntime
   ./tosca-runtime.sh
@@ -64,14 +69,13 @@ Getting Started
   # show pre-installed csars
   csars list
   # Install some types necessary to deploy a topology apache load balancer
-  csars install /home/vuminhkh/Projects/alien4cloud-extended-types/alien-base-types/
-  csars install /home/vuminhkh/Projects/samples/apache-load-balancer/
-  csars install /home/vuminhkh/Projects/samples/tomcat-war/
-  csars install /home/vuminhkh/Projects/samples/topology-load-balancer-tomcat/
-  csars install /home/vuminhkh/Projects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
+  csars install pathToProjects/alien4cloud-extended-types/alien-base-types/
+  csars install pathToProjects/samples/apache-load-balancer/
+  csars install pathToProjects/samples/tomcat-war/
+  csars install pathToProjects/samples/topology-load-balancer-tomcat/
   # First deployment may take some minutes as it pulls base image from toscaruntime docker hub, next deployments will be much more rapid
   # Create a deployment image
-  deployments create aplb /Users/vuminhkh/Projects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
+  deployments create aplb pathToProjects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
   # Create agent to deploy
   agents create apache-lb
   ```
@@ -170,12 +174,14 @@ You can deploy/undeploy/scale your application thanks to the agents.
 * Bootstrap: The localhost configuration is in general suitable only for developing and testing recipe.
 You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
 The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
+The bootstrap topology was only tested with Ubuntu Willy and kernel version 4.2.0-36-generic.
 
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
-  bootstrap -p openstack
+  bootstrap --provider openstack
   # To bootstrap a swarm cluster
-  bootstrap -p openstack -t swarm
+  bootstrap --provider openstack --target swarm
+  # Note the output key 'public_daemon_url', this is the URL of the new docker daemon
   ```
 * Target the new bootstrapped daemon: By default when you start to use Tosca Runtime CLI, it targets the local daemon of your machine.
 After the bootstrap operation, you can point the CLI to the new daemon by doing:

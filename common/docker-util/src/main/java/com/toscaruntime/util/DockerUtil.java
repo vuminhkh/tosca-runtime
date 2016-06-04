@@ -25,16 +25,32 @@ public class DockerUtil {
 
     public static final String DOCKER_CERT_PATH_KEY = "docker.io.dockerCertPath";
 
+    private static NetworkInterface guessMostRelevantInterface() throws SocketException {
+        Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
+        if (!networkInterfaceEnumeration.hasMoreElements()) {
+            // No network interface !!
+            return null;
+        }
+        while (networkInterfaceEnumeration.hasMoreElements()) {
+            NetworkInterface networkInterface = networkInterfaceEnumeration.nextElement();
+            // Docker will create virtual interface on the machine, does not take it
+            if (!networkInterface.getName().startsWith("docker")) {
+                // Ethernet interface is priority
+                if (networkInterface.getName().equals("eth") || networkInterface.getName().startsWith("en")) {
+                    return networkInterface;
+                }
+            }
+        }
+        // Return a random one if none is found
+        return NetworkInterface.getNetworkInterfaces().nextElement();
+    }
+
     private static String getDefaultDockerUrlForLinux() {
         String defaultValueForLinux = DEFAULT_DOCKER_URL;
         try {
-            if (!NetworkInterface.getNetworkInterfaces().hasMoreElements()) {
-                return defaultValueForLinux;
-            }
-            NetworkInterface networkInterface = NetworkInterface.getByName("eth0");
+            NetworkInterface networkInterface = guessMostRelevantInterface();
             if (networkInterface == null) {
-                // eth0 not configured then take the first one
-                networkInterface = NetworkInterface.getNetworkInterfaces().nextElement();
+                return defaultValueForLinux;
             }
             Enumeration<InetAddress> address = networkInterface.getInetAddresses();
             while (address.hasMoreElements()) {
@@ -78,6 +94,7 @@ public class DockerUtil {
             properties.put(DockerClientConfig.DOCKER_HOST, url);
             properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
         }
+        properties.put(DockerClientConfig.API_VERSION, "1.22");
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
         DockerCmdExecFactoryImpl execFactory = new DockerCmdExecFactoryImpl();
         return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(execFactory).build();
