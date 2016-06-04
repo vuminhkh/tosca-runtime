@@ -19,7 +19,7 @@ Getting Started
 
 ### Pre-requisite
 
-* Install docker (at least 1.10.1, as tosca runtime uses new docker functionality as network, volume API etc ...)
+* Install docker 1.10.x (compatibility problems can happen with versions below or above)
 
   - For Linux user:
   
@@ -51,7 +51,7 @@ Getting Started
 
 * Download [tosca-runtime](https://fastconnect.org/owncloud/public.php?service=files&t=b50fcd56e52724b25774e30a4c3ffbd7&download), uncompress
 
-### Play with Tosca Runtime in local with docker
+### Quick getting started
 
   ```bash
   # get some Alien samples
@@ -71,11 +71,11 @@ Getting Started
   csars install /home/vuminhkh/Projects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
   # First deployment may take some minutes as it pulls base image from toscaruntime docker hub, next deployments will be much more rapid
   # Create a deployment image
-  deployments create apache-lb -c apache-load-balancer-template-docker-sa:*
+  deployments create aplb /Users/vuminhkh/Projects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
   # Create agent to deploy
   agents create apache-lb
-  
   ```
+* Inside tosca runtime shell, perform `help` command to have more commands and options
 
 ### Build Tosca Runtime
 
@@ -129,12 +129,13 @@ The `csars install` command not only compiles but also installs the given csar t
 
 ### Deployment Orchestrator
  
-Tosca Runtime uses Docker to handle deployment lifecycle, the only pre-requisite is to have a running docker daemon.
+Basically, ToscaRuntime needs a docker daemon (can be swarm daemon) in order to manage deployment images and instantiate micro managers (agents), let’s call it the manager daemon.
+Then the micro manager (agent) might target a particular IAAS (for ex Openstack), or a docker daemon (can be swarm), to instantiate application containers or VMs.
+In some cases, the manager daemon and the targeted docker daemon for application containers can be the same. Below you have some examples of available configurations
 
-![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/ManagerLessArchitecture.png "Managerless architecture")
-
-In this managerless Tosca Runtime configuration, no manager bootstrap is required to begin to use Tosca Runtime CLI. 
-The deployment can event target a distant IAAS if each created VM has a public ip and is reachable. 
+![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/LocalhostOnly.jpg "Localhost only")
+![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/SwarmCluster.jpg "Swarm Cluster")
+![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/IAAS.jpg "IAAS")
 
 The common workflow to use Tosca Runtime is:
 
@@ -145,28 +146,28 @@ All necessary information are packaged into this image which make the deployment
   Usage:
   ```bash
   # To create the deployment from an installed archive
-  deployments create myDeployment -c myTopologyArchive:*
+  deployments create my_deployment path_to_my_deployment
   # To list created deployments
   deployments list
   ```
 
-* Create deployment agent from deployment images: you can create deployment agents which are docker container that handle the lifecycle of your application.
+* Create deployment agent (micro manager) from deployment images: you can create deployment agents which are docker container that handle the lifecycle of your application.
 You can deploy/undeploy/scale your application thanks to the agents.
 
   ```bash
   # Create agent (docker container) from deployment image and run install workflow
-  deployments run myDeployment
+  agents create myDeployment
   # Show logs of the deployment agent
   agents log myDeployment
   # Scale myNode to a new instance count of 5
-  agents scale myDeployment -n myNode -c 5
+  agents scale myDeployment myNode 2
   # Undeploy the application
   agents undeploy myDeployment
   # Delete the agent
   agents delete myDeployment
   ```
   
-* Bootstrap: The managerless configuration is in general suitable only for developing and testing recipe.
+* Bootstrap: The localhost configuration is in general suitable only for developing and testing recipe.
 You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
 The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
 
@@ -181,7 +182,7 @@ After the bootstrap operation, you can point the CLI to the new daemon by doing:
  
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
-  use -u NEW_DAEMON_URL
+  use --url NEW_DAEMON_URL
   # To reset to the default local docker daemon configuration
   use-default
   ```
