@@ -51,7 +51,26 @@ Getting Started
   docker-machine upgrade default
   ```
 
-* Download [tosca-runtime](https://fastconnect.org/owncloud/public.php?service=files&t=b50fcd56e52724b25774e30a4c3ffbd7&download), uncompress
+### Build Tosca Runtime
+
+* Install [Maven](https://maven.apache.org/install.html), [SBT](http://www.scala-sbt.org/0.13/docs/Setup.html)
+* Clone and build docker-java (temporary for the moment as some modifications are not yet merged in the official release):
+
+  ```bash
+    git clone https://github.com/vuminhkh/docker-java.git
+    cd docker-java/
+    mvn clean install -DskipTests
+  ```
+* Clone and build tosca-runtime
+
+  ```bash
+    git clone https://github.com/vuminhkh/tosca-runtime.git
+    cd tosca-runtime/
+    sbt
+    # Inside sbt CLI, build and package
+    > dist
+  ```
+* The CLI package is then available at path_to_project/cli/target/universal/toscaruntime-cli-${version}.tgz
 
 ### Quick getting started
 
@@ -80,26 +99,6 @@ Getting Started
   agents create apache-lb
   ```
 * Inside tosca runtime shell, perform `help` command to have more commands and options
-
-### Build Tosca Runtime
-
-* Install [Maven](https://maven.apache.org/install.html), [SBT](http://www.scala-sbt.org/0.13/docs/Setup.html)
-* Clone and build docker-java (temporary for the moment as some modifications are not yet merged in the official release):
-  
-  ```bash
-    git clone https://github.com/vuminhkh/docker-java.git
-    cd docker-java/
-    mvn clean install -DskipTests
-  ```
-* Clone and build tosca-runtime
-
-  ```bash
-    git clone https://github.com/vuminhkh/tosca-runtime.git
-    cd tosca-runtime/
-    sbt
-    # Inside sbt CLI, build and package
-    > dist
-  ```
 
 Architecture
 ============================
