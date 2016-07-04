@@ -1,5 +1,6 @@
 Tosca Runtime: Development and deployment platform for Tosca
-============================
+============================================================
+
 [Tosca](https://www.oasis-open.org/committees/tosca/faq.php) from developer's point of view is a cloud deployment orchestration language.
 The language is fairly complex with a lots of feature. Its notion of type, template and instance have many similarity with object oriented language like Java.
 The motivation behind this project is to create a light weight runtime for this new language, which must contain:
@@ -15,7 +16,7 @@ restart in all transparency without the deployed applications even know about it
 Tosca Runtime's aim is to become a basic development kit for Tosca as much as a JDK for Java.
 
 Getting Started
-============================
+===============
 
 ### Pre-requisite
 
@@ -98,10 +99,11 @@ Getting Started
   # Create agent to deploy
   agents create apache-lb
   ```
-* Inside tosca runtime shell, perform `help` command to have more commands and options
+* Inside tosca runtime shell, perform `help` command or `help sub_command` to have more commands and options, for example `help agents`, or `help deployments`
 
 Architecture
-============================
+============
+
 Basically, Tosca Runtime is a set of command line tools that make development/deployment of Tosca recipe quicker.
 Tosca Runtime for the moment target Docker and OpenStack as IaaS Provider.
 
@@ -140,7 +142,10 @@ In some cases, the manager daemon and the target docker daemon for application c
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/SwarmCluster.jpg "Swarm Cluster")
 ![alt text](https://github.com/vuminhkh/tosca-runtime/raw/master/src/common/images/IAAS.jpg "IAAS")
 
-The common workflow to use Tosca Runtime is:
+Recipe development
+==================
+
+The common workflow to use Tosca Runtime to develop recipe is:
 
 * Create Deployment Image: 
 From installed types and topology archives, Tosca Runtime allows you to create docker images that can be used to deploy your topology.
@@ -154,7 +159,7 @@ All necessary information are packaged into this image which make the deployment
   deployments list
   ```
 
-* Create deployment agent (micro manager) from deployment images: you can create deployment agents which are docker container that handle the lifecycle of your application.
+* Create deployment agent (micro manager) from deployment images: you can create deployment agents which are docker containers that handle the lifecycle of your application.
 You can deploy/undeploy/scale your application thanks to the agents.
 
   ```bash
@@ -162,18 +167,36 @@ You can deploy/undeploy/scale your application thanks to the agents.
   agents create myDeployment
   # Show logs of the deployment agent
   agents log myDeployment
-  # Scale myNode to a new instance count of 5
+  # Scale myNode to a new instance count of 2
   agents scale myDeployment myNode 2
   # Undeploy the application
   agents undeploy myDeployment
   # Delete the agent
   agents delete myDeployment
   ```
-  
-* Bootstrap: The localhost configuration is in general suitable only for developing and testing recipe.
+
+* With `agents log myDeployment` or `agents info --executions myDeployment`, you might observe that your deployment has failed. You might be able to fix your recipe and then hot reload it with tosca runtime. Once recipe is updated, you can resume the execution from the failure point.
+
+  ```bash
+  # After fixing your recipe, update the csar installed in the local repository
+  csars install myCsar
+  # Regenerate the deployment image, update the work folder
+  deployments create my_deployment
+  # Take note that you can bypass the image generation by modifying directly compiled csar inside path_to_toscaruntime/work/myDeployment/recipe/src/main/resources, but then next 'agents create myDeployment' will not use the updated recipe
+  # Update recipe on the agent
+  agents update my_deployment
+  # Resume the the deployment from the last failure point
+  agents resume my_deployment
+  ```
+
+Production deployment
+=====================
+
+The localhost configuration is in general suitable only for developing and testing recipe.
 You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
 The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
-The bootstrap topology was only tested with Ubuntu Willy and kernel version 4.2.0-36-generic.
+
+* Bootstrap: The bootstrap topology was only tested with Ubuntu Willy and kernel version 4.2.0-36-generic.
 
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
@@ -182,6 +205,7 @@ The bootstrap topology was only tested with Ubuntu Willy and kernel version 4.2.
   bootstrap --provider openstack --target swarm
   # Note the output key 'public_daemon_url', this is the URL of the new docker daemon
   ```
+
 * Target the new bootstrapped daemon: By default when you start to use Tosca Runtime CLI, it targets the local daemon of your machine.
 After the bootstrap operation, you can point the CLI to the new daemon by doing:
  
@@ -191,4 +215,5 @@ After the bootstrap operation, you can point the CLI to the new daemon by doing:
   # To reset to the default local docker daemon configuration
   use-default
   ```
+
 * After that you can begin to work with this bootstrapped daemon in all transparency as if you are working in local configuration.
