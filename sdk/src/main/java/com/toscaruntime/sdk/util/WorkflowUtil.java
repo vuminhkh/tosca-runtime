@@ -3,6 +3,7 @@ package com.toscaruntime.sdk.util;
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowCommandException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
+import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.workflow.tasks.*;
 import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
@@ -13,8 +14,11 @@ import tosca.nodes.Root;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class WorkflowUtil {
 
@@ -55,16 +59,32 @@ public class WorkflowUtil {
         }
     }
 
-    public static void declareNodeInstallDependencies(InstallLifeCycleTasks installLifeCycleTasks) {
-        // Configure is executed after create
-        installLifeCycleTasks.getConfigureTask().dependsOn(installLifeCycleTasks.getCreateTask());
-        // Start is executed after configure
-        installLifeCycleTasks.getStartTask().dependsOn(installLifeCycleTasks.getConfigureTask());
+    private static AbstractTask[] getNodeInstallTasks(DeploymentNode node, Map<Root, InstallLifeCycleTasks> allNodesTasks, Function<InstallLifeCycleTasks, AbstractTask> taskExtractor) {
+        List<AbstractTask> result = node.getInstances().stream()
+                .map(allNodesTasks::get)
+                .map(taskExtractor)
+                .collect(Collectors.toList());
+        return result.toArray(new AbstractTask[result.size()]);
     }
 
-    public static void declareNodeUninstallDependencies(UninstallLifeCycleTasks uninstallLifeCycleTasks) {
+    private static AbstractTask[] getNodeUninstallTasks(DeploymentNode node, Map<Root, UninstallLifeCycleTasks> allNodesTasks, Function<UninstallLifeCycleTasks, AbstractTask> taskExtractor) {
+        List<AbstractTask> result = node.getInstances().stream()
+                .map(allNodesTasks::get)
+                .map(taskExtractor)
+                .collect(Collectors.toList());
+        return result.toArray(new AbstractTask[result.size()]);
+    }
+
+    public static void declareNodeInstallDependencies(InstallLifeCycleTasks installLifeCycleTasks, Map<Root, InstallLifeCycleTasks> allNodesTasks) {
+        // Configure is executed after create
+        installLifeCycleTasks.getConfigureTask().dependsOn(getNodeInstallTasks(installLifeCycleTasks.getNodeInstance().getNode(), allNodesTasks, InstallLifeCycleTasks::getCreateTask));
+        // Start is executed after configure
+        installLifeCycleTasks.getStartTask().dependsOn(getNodeInstallTasks(installLifeCycleTasks.getNodeInstance().getNode(), allNodesTasks, InstallLifeCycleTasks::getConfigureTask));
+    }
+
+    public static void declareNodeUninstallDependencies(UninstallLifeCycleTasks uninstallLifeCycleTasks, Map<Root, UninstallLifeCycleTasks> allNodesTasks) {
         // Delete is executed after stop
-        uninstallLifeCycleTasks.getDeleteTask().dependsOn(uninstallLifeCycleTasks.getStopTask());
+        uninstallLifeCycleTasks.getDeleteTask().dependsOn(getNodeUninstallTasks(uninstallLifeCycleTasks.getNodeInstance().getNode(), allNodesTasks, UninstallLifeCycleTasks::getStopTask));
     }
 
     public static void declareRelationshipInstallDependencies(RelationshipInstallLifeCycleTasks relationshipInstallLifeCycleTasks, InstallLifeCycleTasks sourceInstallLifeCycleTasks, InstallLifeCycleTasks targetInstallLifeCycleTasks) {
@@ -147,7 +167,7 @@ public class WorkflowUtil {
         AbstractNodeTask createTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.CREATE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
         AbstractNodeTask configureTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.CONFIGURE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
         AbstractNodeTask startTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.START_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
-        return new InstallLifeCycleTasks(createTask, configureTask, startTask);
+        return new InstallLifeCycleTasks(createTask, configureTask, startTask, nodeInstance);
     }
 
     public static RelationshipInstallLifeCycleTasks mockRelationshipInstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {
@@ -163,7 +183,7 @@ public class WorkflowUtil {
     public static UninstallLifeCycleTasks mockUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Root nodeInstance) {
         AbstractNodeTask stopTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.STOP_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
         AbstractNodeTask deleteTask = new MockNodeTask(ToscaInterfaceConstant.NODE_STANDARD_INTERFACE, ToscaInterfaceConstant.DELETE_OPERATION, nodeInstances, relationshipInstances, nodeInstance);
-        return new UninstallLifeCycleTasks(stopTask, deleteTask);
+        return new UninstallLifeCycleTasks(stopTask, deleteTask, nodeInstance);
     }
 
     public static RelationshipUninstallLifeCycleTasks mockRelationshipUninstallLifeCycleTasks(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, tosca.relationships.Root relationshipInstance) {

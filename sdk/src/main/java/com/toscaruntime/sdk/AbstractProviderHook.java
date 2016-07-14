@@ -1,10 +1,5 @@
 package com.toscaruntime.sdk;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
@@ -12,12 +7,16 @@ import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
-
 import tosca.nodes.BlockStorage;
 import tosca.nodes.Compute;
 import tosca.nodes.Network;
 import tosca.nodes.Root;
 import tosca.relationships.AttachTo;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Base class for provider hook which perform default workflow processing for native nodes
@@ -30,7 +29,7 @@ public abstract class AbstractProviderHook implements ProviderHook {
     public ProviderWorkflowProcessingResult postConstructInstallWorkflow(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Map<Root, InstallLifeCycleTasks> nodeInstancesLifeCycles, Map<tosca.relationships.Root, RelationshipInstallLifeCycleTasks> relationshipInstancesLifeCycles, WorkflowExecution workflowExecution) {
         ProviderWorkflowProcessingResult workflowProcessingResult = getProviderWorkflowProcessingResult(nodeInstances, relationshipInstances);
         for (Root nodeInstance : workflowProcessingResult.getNodeInstances().values()) {
-            WorkflowUtil.declareNodeInstallDependencies(nodeInstancesLifeCycles.get(nodeInstance));
+            WorkflowUtil.declareNodeInstallDependencies(nodeInstancesLifeCycles.get(nodeInstance), nodeInstancesLifeCycles);
         }
         // This means all relationships are treated as hostedOn
         // For AttachTo the relationship direction is inverted, it means the volume is hosted on the compute
@@ -55,7 +54,7 @@ public abstract class AbstractProviderHook implements ProviderHook {
     public ProviderWorkflowProcessingResult postConstructUninstallWorkflow(Map<String, Root> nodeInstances, Set<tosca.relationships.Root> relationshipInstances, Map<Root, UninstallLifeCycleTasks> nodeInstancesLifeCycles, Map<tosca.relationships.Root, RelationshipUninstallLifeCycleTasks> relationshipInstancesLifeCycles, WorkflowExecution workflowExecution) {
         ProviderWorkflowProcessingResult workflowProcessingResult = getProviderWorkflowProcessingResult(nodeInstances, relationshipInstances);
         for (Root processedInstance : workflowProcessingResult.getNodeInstances().values()) {
-            WorkflowUtil.declareNodeUninstallDependencies(nodeInstancesLifeCycles.get(processedInstance));
+            WorkflowUtil.declareNodeUninstallDependencies(nodeInstancesLifeCycles.get(processedInstance), nodeInstancesLifeCycles);
         }
         // This means all relationships are treated as hostOn
         // For AttachTo the relationship direction is inverted, it means the volume is hosted on the compute

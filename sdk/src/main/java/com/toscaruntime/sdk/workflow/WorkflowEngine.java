@@ -204,7 +204,7 @@ public class WorkflowEngine {
         // Only process life cycles of nodes that were not processed by the provider
         allNodesTasks.entrySet().stream()
                 .filter(taskEntry -> !providerWorkflowResult.getNodeInstances().containsKey(taskEntry.getKey().getId()))
-                .forEach(taskEntry -> WorkflowUtil.declareNodeInstallDependencies(taskEntry.getValue()));
+                .forEach(taskEntry -> WorkflowUtil.declareNodeInstallDependencies(taskEntry.getValue(), allNodesTasks));
         // Only process life cycles of relationships that were not processed by the provider
         allRelationshipsTasks.entrySet().stream()
                 .filter(taskEntry -> !providerWorkflowResult.getRelationshipInstances().contains(taskEntry.getKey()))
@@ -335,7 +335,7 @@ public class WorkflowEngine {
         // Only process life cycles of nodes that were not processed by the provider
         allNodesTasks.entrySet().stream()
                 .filter(taskEntry -> !providerWorkflowResult.getNodeInstances().containsKey(taskEntry.getKey().getId()))
-                .forEach(taskEntry -> WorkflowUtil.declareNodeUninstallDependencies(taskEntry.getValue()));
+                .forEach(taskEntry -> WorkflowUtil.declareNodeUninstallDependencies(taskEntry.getValue(), allNodesTasks));
         // Only process life cycles of relationships that were not processed by the provider
         allRelationshipsTasks.entrySet().stream()
                 .filter(taskEntry -> !providerWorkflowResult.getRelationshipInstances().contains(taskEntry.getKey()))
