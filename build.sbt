@@ -167,6 +167,7 @@ lazy val deployer = project.in(file("deployer"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-deployer",
+    javaOptions in Universal += "-Dio.netty.noJavassist=true",
     routesGenerator := InjectedRoutesGenerator,
     libraryDependencies += "com.h2database" % "h2" % "1.4.191",
     libraryDependencies += "com.typesafe.play" %% "play-slick" % "1.1.1",
