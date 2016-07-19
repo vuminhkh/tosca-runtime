@@ -1,10 +1,5 @@
 package tosca.relationships;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
@@ -16,8 +11,12 @@ import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.JSONUtil;
-
 import tosca.nodes.Compute;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -53,7 +52,7 @@ public abstract class Root extends AbstractRuntimeType {
         for (Root sibling : getNode().getRelationshipInstances()) {
             // Inject also other inputs from other instances
             Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
-            inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getSource().getId() + "_" + sibling.getTarget().getId(), siblingInputDefinitions));
+            inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getTarget().getId(), siblingInputDefinitions));
         }
         switch (operationName) {
             case "pre_configure_source":
