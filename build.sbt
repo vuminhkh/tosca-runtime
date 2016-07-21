@@ -38,7 +38,8 @@ val commonSettings: Seq[Setting[_]] = Seq(
   parallelExecution in ThisBuild := false,
   fork in Test := false,
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage
+  dist <<= dist dependsOn stage,
+  Keys.`package` <<= (Keys.`package` in Compile) dependsOn (copyResources in Compile)
 ) ++ net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 lazy val root = project.in(file("."))
