@@ -38,8 +38,7 @@ val commonSettings: Seq[Setting[_]] = Seq(
   parallelExecution in ThisBuild := false,
   fork in Test := false,
   stage <<= stage dependsOn publishLocal,
-  dist <<= dist dependsOn stage,
-  Keys.`package` <<= (Keys.`package` in Compile) dependsOn (copyResources in Compile)
+  dist <<= dist dependsOn stage
 ) ++ net.virtualvoid.sbt.graph.Plugin.graphSettings
 
 lazy val root = project.in(file("."))
@@ -140,7 +139,8 @@ lazy val rest = project.in(file("rest"))
     filterDirectoryName := "src/main/resources",
     includeFilter in(Compile, filterResources) ~= { f => f || "Dockerfile" },
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.6",
-    libraryDependencies += "org.yaml" % "snakeyaml" % "1.16"
+    libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
+    packageBin <<= (packageBin in Compile) dependsOn (filterResources in Compile)
   ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project.in(file("compiler"))
@@ -209,7 +209,8 @@ lazy val docker = project.in(file("docker"))
       val classes = target / "classes"
       val resources = classes / "docker-provider-types"
       (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
-    }
+    },
+    packageBin <<= (packageBin in Compile) dependsOn (filterResources in Compile)
   ).dependsOn(sdk, dockerUtil).enablePlugins(JavaAppPackaging)
 
 lazy val mockProvider = project.in(file("mock-provider"))
@@ -236,7 +237,8 @@ lazy val openstack = project.in(file("openstack"))
       val classes = target / "classes"
       val resources = classes / "openstack-provider-types"
       (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
-    }
+    },
+    packageBin <<= (packageBin in Compile) dependsOn (filterResources in Compile)
   ).dependsOn(sdk, sshUtil).enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.in(file("sdk"))
@@ -314,7 +316,8 @@ lazy val cli = project.in(file("cli"))
     },
     downloadSbtLauncher <<= downloadSbtLauncher dependsOn publishLocal,
     stage <<= (stage in Universal) dependsOn downloadSbtLauncher,
-    dist <<= (packageZipTarball in Universal) dependsOn stage
+    dist <<= (packageZipTarball in Universal) dependsOn stage,
+    packageBin <<= (packageBin in Compile) dependsOn (filterResources in Compile)
   ).dependsOn(compiler, runtime, rest).enablePlugins(UniversalPlugin)
 
 lazy val copyProviders = taskKey[Unit]("Copy provider resources for integration tests.")
