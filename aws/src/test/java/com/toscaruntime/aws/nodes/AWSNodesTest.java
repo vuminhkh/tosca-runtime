@@ -8,6 +8,7 @@ import com.toscaruntime.exception.deployment.execution.InvalidOperationExecution
 import com.toscaruntime.util.ClassLoaderUtil;
 import org.apache.commons.lang.StringUtils;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 public class AWSNodesTest {
 
+    @Ignore
     @Test
     public void testAWS() throws Throwable {
         if (StringUtils.isBlank(System.getenv("AWS_ACCESS_KEY_ID"))) {

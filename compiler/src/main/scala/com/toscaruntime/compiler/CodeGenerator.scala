@@ -121,14 +121,15 @@ object CodeGenerator extends LazyLogging {
   }
 
   def parseCapabilityProperties(capabilities: Option[Map[ParsedValue[String], Capability]],
-                                capabilitiesDefinitions: Option[Map[ParsedValue[String], CapabilityDefinition]]) = {
-    capabilities.map {
+                                capabilitiesDefinitions: Option[Map[ParsedValue[String], CapabilityDefinition]],
+                                csarPath: Seq[Csar]) = {
+    capabilitiesDefinitions.map {
       _.map {
-        case (capabilityName, capability) =>
-          // Once we are here it means the topology is semantically correct and the the capability must be defined within the type
-          val capabilityDefinition = capabilitiesDefinitions.get(capabilityName)
-          (capabilityName.value, parseProperties(Some(capability.properties), capabilityDefinition.properties))
-      }
+        case (capabilityName, capabilityDefinition) =>
+          val capability = capabilities.flatMap(_.get(capabilityName))
+          // We don't perform check that the capability type exist as it must have been done in semantic analyzer
+          (capabilityName.value, parseProperties(capability.map(_.properties), TypeLoader.loadCapabilityTypeWithHierarchy(capabilityDefinition.capabilityType.get.value, csarPath).get.properties))
+      }.filter(_._2.nonEmpty)
     }.getOrElse(Map.empty)
   }
 
@@ -142,7 +143,7 @@ object CodeGenerator extends LazyLogging {
         val nodeTypeName = nodeTemplate.typeName.get.value
         val nodeType = TypeLoader.loadNodeTypeWithHierarchy(nodeTypeName, csarPath).get
         val properties = parseProperties(nodeTemplate.properties, nodeType.properties)
-        val capabilitiesProperties = parseCapabilityProperties(nodeTemplate.capabilities, nodeType.capabilities)
+        val capabilitiesProperties = parseCapabilityProperties(nodeTemplate.capabilities, nodeType.capabilities, csarPath)
         (nodeName, new runtime.Node(nodeName, nodeTypeName, properties, capabilitiesProperties))
     }.toMap
 

@@ -186,7 +186,6 @@ case class RequirementDefinition(name: ParsedValue[String],
 
 case class CapabilityDefinition(capabilityType: Option[ParsedValue[String]],
                                 upperBound: ParsedValue[Int],
-                                properties: Option[Map[ParsedValue[String], PropertyDefinition]],
                                 description: Option[ParsedValue[String]]) extends Positional
 
 case class Interface(description: Option[ParsedValue[String]],

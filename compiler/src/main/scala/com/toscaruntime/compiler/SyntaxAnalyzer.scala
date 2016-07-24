@@ -245,11 +245,10 @@ object SyntaxAnalyzer extends YamlParser {
   def capabilityDefinitionEntry(indentLevel: Int) =
     (textEntry(type_token)(indentLevel) |
       intEntry(upper_bound_token) |
-      mapEntry(properties_token)(propertyDefinitionsEntry)(indentLevel) |
-      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$upper_bound_token', '$properties_token', '$description_token'")
+      textEntry(description_token)(indentLevel)) | failure(s"Expecting one of '$type_token', '$upper_bound_token', '$description_token'")
 
   def simpleCapabilityDefinition(indentLevel: Int) = positioned(textValue ^^ {
-    case capabilityType => CapabilityDefinition(Some(capabilityType), ParsedValue(1), None, None)
+    case capabilityType => CapabilityDefinition(Some(capabilityType), ParsedValue(1), None)
   })
 
   def capabilityDefinition(indentLevel: Int): Parser[CapabilityDefinition] = positioned(
@@ -257,7 +256,6 @@ object SyntaxAnalyzer extends YamlParser {
       case map => CapabilityDefinition(
         get[ParsedValue[String]](map, type_token),
         get[ParsedValue[Int]](map, upper_bound_token).getOrElse(ParsedValue(1)),
-        get[Map[ParsedValue[String], PropertyDefinition]](map, properties_token),
         get[ParsedValue[String]](map, description_token)
       )
     })

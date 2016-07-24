@@ -7,6 +7,7 @@ import com.toscaruntime.exception.deployment.execution.InvalidOperationExecution
 import com.toscaruntime.openstack.OpenstackProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 import tosca.constants.RelationshipInstanceState;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 public class OpenstackNodesTest {
 
+    @Ignore
     @Test
     public void testOpenstack() throws Throwable {
         OpenstackTestDeployment testDeployment = new OpenstackTestDeployment();
