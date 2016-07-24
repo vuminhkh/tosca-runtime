@@ -1,4 +1,4 @@
-image_id: "ami-47a23a30"
+image_id: "ami-71e88902"
 instance_type: "t2.small"
 key_content: |
   -----BEGIN RSA PRIVATE KEY-----
