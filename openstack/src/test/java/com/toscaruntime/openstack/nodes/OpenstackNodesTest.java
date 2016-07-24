@@ -1,27 +1,22 @@
 package com.toscaruntime.openstack.nodes;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.openstack.OpenstackProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
-
+import org.junit.Assert;
+import org.junit.Test;
+import org.mockito.Mockito;
 import tosca.constants.RelationshipInstanceState;
 import tosca.relationships.AttachTo;
 
-@RunWith(JUnit4.class)
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
 public class OpenstackNodesTest {
 
     @Test

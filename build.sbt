@@ -45,7 +45,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-parent"
-  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, mockProvider, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, aws, mockProvider, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
@@ -220,6 +220,12 @@ lazy val mockProvider = project.in(file("mock-provider"))
     libraryDependencies ++= testDependencies
   ).dependsOn(sdk).enablePlugins(JavaAppPackaging)
 
+lazy val sshProvider = project.in(file("ssh-provider"))
+  .settings(providerSettings: _*)
+  .settings(
+    name := "ssh-provider"
+  ).dependsOn(sdk, sshUtil).enablePlugins(UniversalPlugin)
+
 lazy val openstack = project.in(file("openstack"))
   .settings(providerSettings: _*)
   .settings(filterSettings: _*)
@@ -239,7 +245,26 @@ lazy val openstack = project.in(file("openstack"))
       (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
     },
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk, sshUtil).enablePlugins(JavaAppPackaging)
+  ).dependsOn(sshProvider).enablePlugins(JavaAppPackaging)
+
+lazy val aws = project.in(file("aws"))
+  .settings(providerSettings: _*)
+  .settings(filterSettings: _*)
+  .settings(
+    name := "toscaruntime-aws",
+    filterDirectoryName := "src/main/resources/aws-provider-types",
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
+    libraryDependencies += "org.apache.jclouds.driver" % "jclouds-slf4j" % "1.9.3-SNAPSHOT",
+    libraryDependencies += "org.apache.jclouds.provider" % "aws-ec2" % "1.9.3-SNAPSHOT",
+    libraryDependencies += "org.apache.jclouds.provider" % "aws-s3" % "1.9.3-SNAPSHOT",
+    libraryDependencies ++= testDependencies,
+    mappings in Universal <++= (packageBin in Compile, target) map { (_, target) =>
+      val classes = target / "classes"
+      val resources = classes / "aws-provider-types"
+      (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
+    },
+    (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
+  ).dependsOn(sshProvider).enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.in(file("sdk"))
   .settings(providerSettings: _*)
@@ -272,6 +297,8 @@ lazy val cli = project.in(file("cli"))
       IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeBashScriptTarget)
       toscaRuntimeBashScriptTarget.setExecutable(true)
       IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.bat", target.value / "prepare-stage" / "bin" / "tosca-runtime.bat")
+
+      // Launch config
       val launchConfigTarget = target.value / "prepare-stage" / "conf" / "launchConfig"
       launchConfigTarget.getParentFile.mkdirs()
       val launchConfigSource = (resourceDirectory in Compile).value / "conf" / "launchConfig.template"
@@ -280,19 +307,33 @@ lazy val cli = project.in(file("cli"))
       launchConfigTemplateText = launchConfigTemplateText.replace("${name}", name.value)
       launchConfigTemplateText = launchConfigTemplateText.replace("${version}", version.value)
       IO.write(launchConfigTarget, launchConfigTemplateText)
+
+      // Copy docker provider
       val dockerProviderTarget = target.value / "prepare-stage" / "repository" / "docker-provider-types" / version.value
       dockerProviderTarget.mkdirs()
+      IO.copyDirectory((stage in docker).value, dockerProviderTarget)
+
+      // Copy openstack provider
       val openstackProviderTarget = target.value / "prepare-stage" / "repository" / "openstack-provider-types" / version.value
       openstackProviderTarget.mkdirs()
+      IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
+
+      // Copy aws provider
+      val awsProviderTarget = target.value / "prepare-stage" / "repository" / "aws-provider-types" / version.value
+      awsProviderTarget.mkdirs()
+      IO.copyDirectory((stage in aws).value, awsProviderTarget)
+
+      // Copy providers configurations
       val providerConf = target.value / "prepare-stage" / "conf" / "providers"
       providerConf.mkdirs()
       IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "providers", providerConf)
+
+      // Copy bootstrap csars
       val bootstrapConf = target.value / "prepare-stage" / "bootstrap"
       bootstrapConf.mkdirs()
       val bootstrapConfSource = target.value / "classes" / "bootstrap"
       IO.copyDirectory(bootstrapConfSource, bootstrapConf)
-      IO.copyDirectory((stage in docker).value, dockerProviderTarget)
-      IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
+
       val sdkToscaTarget = target.value / "prepare-stage" / "csars"
       val sdkToscaTempDownloadTarget = sdkToscaTarget / "tosca-normative-types.zip"
       sdkToscaTempDownloadTarget.getParentFile.mkdirs()
@@ -334,8 +375,11 @@ lazy val itTest = project.in(file("test"))
       dockerProviderTarget.mkdirs()
       val openstackProviderTarget = target.value / "prepare-test" / "openstack-provider-types" / version.value
       openstackProviderTarget.mkdirs()
+      val awsProviderTarget = target.value / "prepare-test" / "aws-provider-types" / version.value
+      awsProviderTarget.mkdirs()
       IO.copyDirectory((stage in docker).value, dockerProviderTarget)
       IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
+      IO.copyDirectory((stage in aws).value, awsProviderTarget)
     },
     stage <<= (stage in Universal) dependsOn copyProviders
   ).dependsOn(cli).enablePlugins(UniversalPlugin)

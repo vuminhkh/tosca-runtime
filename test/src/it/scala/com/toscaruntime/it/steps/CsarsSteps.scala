@@ -85,5 +85,6 @@ object CsarsSteps extends MustMatchers with LazyLogging {
     assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types")))
     installProvider(dockerProvider)
     installProvider(openstackProvider)
+    installProvider(awsProvider)
   }
 }

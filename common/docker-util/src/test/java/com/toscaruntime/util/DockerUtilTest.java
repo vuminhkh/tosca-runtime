@@ -44,9 +44,8 @@ public class DockerUtilTest {
     }
 
     @Test
-    @Ignore
     public void testExecutor() throws MalformedURLException, UnsupportedEncodingException, InterruptedException {
-        DockerClient dockerClient = DockerUtil.buildDockerClient("http://129.185.67.86:2376", null);
+        DockerClient dockerClient = DockerUtil.buildDockerClient("https://192.168.99.100:2376", "/Users/vuminhkh/.docker/machine/machines/default/");
         dockerClient.pullImageCmd("toscaruntime/ubuntu-trusty").exec(new PullImageResultCallback()).awaitCompletion();
         CreateContainerResponse container = dockerClient.createContainerCmd("toscaruntime/ubuntu-trusty").withCmd("sleep", "9999")
                 .withName("test2").exec();
@@ -55,20 +54,18 @@ public class DockerUtilTest {
 
             DockerExecutor dockerExecutor = new DockerExecutor(dockerClient, container.getId(), false);
             ExecutorService executorService = Executors.newCachedThreadPool();
-            dockerExecutor.upload("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/", "/tmp/");
+            dockerExecutor.upload("/Users/vuminhkh/Downloads/tdk-test/scripts/", "/tmp/");
             executorService.submit(() -> {
                 Map<String, String> env = new HashMap<>();
-                env.put("JAVA_HOME", "/opt/java");
-                env.put("JAVA_URL", "http://download.oracle.com/otn-pub/java/jdk/7u75-b13/jdk-7u75-linux-x64.tar.gz");
-                dockerExecutor.executeArtifact("install java", Paths.get("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/java_install.sh"), "/tmp/java_install.sh", env);
+                dockerExecutor.executeArtifact("install java", Paths.get("/Users/vuminhkh/Downloads/tdk-test/scripts/Soft/create.sh"), "/tmp/Soft/create.sh", env);
             });
-            executorService.submit(() -> {
-                Map<String, String> env = new HashMap<>();
-                env.put("TOMCAT_HOME", "/opt/tomcat");
-                env.put("TOMCAT_PORT", "80");
-                env.put("TOMCAT_URL", "http://mirrors.ircam.fr/pub/apache/tomcat/tomcat-8/v8.0.33/bin/apache-tomcat-8.0.33.tar.gz");
-                dockerExecutor.executeArtifact("install tomcat", Paths.get("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/tomcat_install.sh"), "/tmp/tomcat_install.sh", env);
-            });
+//            executorService.submit(() -> {
+//                Map<String, String> env = new HashMap<>();
+//                env.put("TOMCAT_HOME", "/opt/tomcat");
+//                env.put("TOMCAT_PORT", "80");
+//                env.put("TOMCAT_URL", "http://mirrors.ircam.fr/pub/apache/tomcat/tomcat-8/v8.0.33/bin/apache-tomcat-8.0.33.tar.gz");
+//                dockerExecutor.executeArtifact("install tomcat", Paths.get("/Users/vuminhkh/Projects/samples/tomcat-war/scripts/tomcat_install.sh"), "/tmp/tomcat_install.sh", env);
+//            });
             executorService.shutdown();
             executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
         } finally {

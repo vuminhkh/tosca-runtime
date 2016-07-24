@@ -4,7 +4,13 @@ import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowCommandException;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentNode;
-import com.toscaruntime.sdk.workflow.tasks.*;
+import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
+import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
+import com.toscaruntime.sdk.workflow.tasks.MockNodeTask;
+import com.toscaruntime.sdk.workflow.tasks.MockRelationshipTask;
+import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
+import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
+import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
 import com.toscaruntime.util.CaseUtil;
@@ -61,6 +67,7 @@ public class WorkflowUtil {
 
     private static AbstractTask[] getNodeInstallTasks(DeploymentNode node, Map<Root, InstallLifeCycleTasks> allNodesTasks, Function<InstallLifeCycleTasks, AbstractTask> taskExtractor) {
         List<AbstractTask> result = node.getInstances().stream()
+                .filter(allNodesTasks::containsKey)
                 .map(allNodesTasks::get)
                 .map(taskExtractor)
                 .collect(Collectors.toList());
@@ -69,6 +76,7 @@ public class WorkflowUtil {
 
     private static AbstractTask[] getNodeUninstallTasks(DeploymentNode node, Map<Root, UninstallLifeCycleTasks> allNodesTasks, Function<UninstallLifeCycleTasks, AbstractTask> taskExtractor) {
         List<AbstractTask> result = node.getInstances().stream()
+                .filter(allNodesTasks::containsKey)
                 .map(allNodesTasks::get)
                 .map(taskExtractor)
                 .collect(Collectors.toList());

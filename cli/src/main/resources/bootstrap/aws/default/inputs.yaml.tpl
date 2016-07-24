@@ -1,17 +1,16 @@
-image: "Swarm needs recent linux kernel, for example for Ubuntu it only works for Ubuntu Vivid and above"
-flavor: "2"
+image_id: "ami-47a23a30"
+instance_type: "t2.small"
 key_content: |
   -----BEGIN RSA PRIVATE KEY-----
   Put here your private key
   -----END RSA PRIVATE KEY-----
 
 login: "ubuntu"
-key_pair_name: "your keypair name"
-security_group_names: ["your security group"]
-external_network_name: "net-pub"
+key_name: "your key name"
+security_groups: ["your security groups"]
 cloud_init: |
   #!/bin/sh
   sudo cp /etc/hosts /tmp/hosts
   echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
   cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
-swarm_nodes_count: 2
+

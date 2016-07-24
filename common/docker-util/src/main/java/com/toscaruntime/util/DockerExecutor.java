@@ -130,7 +130,7 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
                 .withCmd(command.split("\\s"))
                 .exec();
         ExecStartCmd execStartCmd = dockerClient.execStartCmd(containerId)
-                .withTty(true)
+                .withTty(false)
                 .withExecId(execCreateCmdResponse.getId())
                 .withDetach(false);
         if (input != null) {

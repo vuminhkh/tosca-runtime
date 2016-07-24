@@ -1,32 +1,30 @@
 tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
 
-template_name: openstack-swarm-bootstrap-template
+template_name: aws-swarm-bootstrap-template
 template_version: ${version}
 template_author: MKV
 
 imports:
   - toscaruntime-bootstrap-type:*
-  - openstack-provider-types:*
+  - aws-provider-types:*
 
 topology_template:
   description: Wordpress deployment template for openstack
   inputs:
-    image:
+    image_id:
       type: string
-    flavor:
+    instance_type:
       type: string
-    key_pair_name:
+    key_name:
       type: string
     login:
       type: string
     key_content:
       type: string
-    security_group_names:
+    security_groups:
       type: list
       entry_schema:
         type: string
-    external_network_name:
-      type: string
     cloud_init:
       type: string
     swarm_nodes_count:
@@ -39,15 +37,6 @@ topology_template:
     public_proxy_url:
       description: The public URL to access the proxy
       value: { get_attribute: [ proxy, public_proxy_url ] }
-    network_id:
-      description: The id of the openstack network that the host of docker daemon is connected to
-      value: { get_attribute: [ privateNetwork, provider_resource_id ] }
-    network_name:
-      description: The name of the openstack network that the host of docker daemon is connected to
-      value: { get_attribute: [ privateNetwork, provider_resource_name ] }
-    external_network_id:
-      description: The id of the external network that the host of docker daemon is connected to
-      value: { get_attribute: [ publicNetwork, provider_resource_id ] }
     docker_network_id:
       description: The overlay network that is created so that containers that use the swarm daemon can talk to each other
       value: { get_attribute: [ swarmManager, docker_network_id ] }
@@ -70,28 +59,19 @@ topology_template:
   node_templates:
 
     publicNetwork:
-      type: com.toscaruntime.openstack.nodes.ExternalNetwork
-      properties:
-        network_name: { get_input: external_network_name}
-
-    privateNetwork:
-      type: com.toscaruntime.openstack.nodes.Network
-      properties:
-        network_name: "dockerDaemonNetwork"
-        cidr: "192.168.1.0/24"
+      type: com.toscaruntime.aws.nodes.PublicNetwork
 
     managerMachine:
-      type: com.toscaruntime.openstack.nodes.Compute
+      type: com.toscaruntime.aws.nodes.Instance
       properties:
-        image: { get_input: image }
-        flavor: { get_input: flavor }
+        image_id: { get_input: image_id }
+        instance_type: { get_input: instance_type }
         login: { get_input: login }
-        key_pair_name: { get_input: key_pair_name }
+        key_name: { get_input: key_name }
         key_content: { get_input: key_content }
-        security_group_names: { get_input: security_group_names }
+        security_groups: { get_input: security_groups }
         user_data: { get_input: cloud_init }
       requirements:
-        - network: privateNetwork
         - network: publicNetwork
 
     managerDaemon:
@@ -125,17 +105,16 @@ topology_template:
         - discovery_service: consulServer
 
     swarmNodeMachine:
-      type: com.toscaruntime.openstack.nodes.Compute
+      type: com.toscaruntime.aws.nodes.Instance
       properties:
-        image: { get_input: image }
-        flavor: { get_input: flavor }
+        image_id: { get_input: image_id }
+        instance_type: { get_input: instance_type }
         login: { get_input: login }
-        key_pair_name: { get_input: key_pair_name }
+        key_name: { get_input: key_name }
         key_content: { get_input: key_content }
-        security_group_names: { get_input: security_group_names }
+        security_groups: { get_input: security_groups }
         user_data: { get_input: cloud_init }
       requirements:
-        - network: privateNetwork
         - network: publicNetwork
       capabilities:
         scalable:

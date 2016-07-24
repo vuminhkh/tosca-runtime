@@ -26,6 +26,8 @@ object TestConstant {
 
   val openstackProvider = "openstack"
 
+  val awsProvider = "aws"
+
   val standalone = "standalone"
 
   val bootstrap = "bootstrap"

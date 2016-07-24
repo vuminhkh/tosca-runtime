@@ -16,10 +16,10 @@ object Context {
 
   private val dockerConfigPath = UseCommand.getDaemonConfigPath(testDataPath)
 
-  private lazy val openstackGlobalConfPath = {
-    val providerConfDir = System.getenv("TOSCA_RUNTIME_OS_CONF_DIR")
+  def resolveGlobalConfPath(envVar: String) = {
+    val providerConfDir = System.getenv(envVar)
     if (StringUtils.isBlank(providerConfDir)) {
-      throw new AssertionError("Environment variable TOSCA_RUNTIME_OS_CONF_DIR needs to be set to launch openstack test")
+      throw new AssertionError(s"Environment variable $envVar needs to be set to launch test")
     }
     val providerConfDirPath = Paths.get(providerConfDir)
     if (!Files.isDirectory(providerConfDirPath)) {
@@ -28,32 +28,45 @@ object Context {
     providerConfDirPath
   }
 
-  private lazy val openstackConfigPath = {
-    val providerConfFile = openstackGlobalConfPath.resolve("provider").resolve("provider.conf")
+  private lazy val openstackGlobalConfPath = resolveGlobalConfPath("TOSCA_RUNTIME_OS_CONF_DIR")
+  private lazy val awsGlobalConfPath = resolveGlobalConfPath("TOSCA_RUNTIME_AWS_CONF_DIR")
+
+  def resolveProviderConf(globalConfPath: Path) = {
+    val providerConfFile = globalConfPath.resolve("provider").resolve("provider.conf")
     if (!Files.isRegularFile(providerConfFile)) {
       throw new AssertionError(providerConfFile + " is not a file or do not exist, openstack tests need tenant information")
     }
     providerConfFile.getParent
   }
 
-  private lazy val openstackInputPath = {
-    val inputsFile = openstackGlobalConfPath.resolve("deployment").resolve("inputs.yaml")
+  private lazy val openstackConfigPath = resolveProviderConf(openstackGlobalConfPath)
+  private lazy val awsConfigPath = resolveProviderConf(awsGlobalConfPath)
+
+  def resolveInputPath(globalConfPath: Path) = {
+    val inputsFile = globalConfPath.resolve("deployment").resolve("inputs.yaml")
     if (!Files.isRegularFile(inputsFile)) {
       throw new AssertionError(inputsFile + " is not a file or do not exist, openstack tests need input to know which image, flavor to use ...")
     }
     inputsFile
   }
 
-  private lazy val openstackKeyPath = {
-    val keyFile = openstackGlobalConfPath.resolve("deployment").resolve("toscaruntime.pem")
+  private lazy val openstackInputPath = resolveInputPath(openstackGlobalConfPath)
+  private lazy val awsInputPath = resolveInputPath(awsGlobalConfPath)
+
+  def resolveKeyPath(globalConfPath: Path) = {
+    val keyFile = globalConfPath.resolve("deployment").resolve("toscaruntime.pem")
     if (!Files.isRegularFile(keyFile)) {
       throw new AssertionError(keyFile + " is not a file or do not exist, openstack tests need a key to create VM")
     }
     keyFile
   }
 
+  private lazy val openstackKeyPath = resolveKeyPath(openstackGlobalConfPath)
+  private lazy val awsKeyPath = resolveKeyPath(awsGlobalConfPath)
+
   def getProviderConfig(provider: String) = {
     provider match {
+      case `awsProvider` => awsConfigPath
       case `openstackProvider` => openstackConfigPath
       case `dockerProvider` => dockerConfigPath
     }
@@ -61,6 +74,7 @@ object Context {
 
   def getInput(provider: String) = {
     provider match {
+      case `awsProvider` => Some(awsInputPath)
       case `openstackProvider` => Some(openstackInputPath)
       case _ => None
     }
@@ -68,6 +82,7 @@ object Context {
 
   def postProcessTopology(provider: String, topologyPath: Path) = {
     provider match {
+      case `awsProvider` => Files.copy(awsKeyPath, topologyPath.resolve("toscaruntime.pem"), StandardCopyOption.REPLACE_EXISTING)
       case `openstackProvider` => Files.copy(openstackKeyPath, topologyPath.resolve("toscaruntime.pem"), StandardCopyOption.REPLACE_EXISTING)
       case _ =>
     }
