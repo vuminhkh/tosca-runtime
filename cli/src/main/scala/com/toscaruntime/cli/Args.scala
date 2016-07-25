@@ -12,9 +12,9 @@ object Args {
 
   val providerOpt = "--provider"
 
-  val providerOptParser = token(providerOpt) ~ (Space ~> (token(ProviderConstant.DOCKER) | token(ProviderConstant.OPENSTACK) | token(ProviderConstant.AWS)))
+  val providerOptParser = token(providerOpt) ~ (token("=") ~> (token(ProviderConstant.DOCKER) | token(ProviderConstant.OPENSTACK) | token(ProviderConstant.AWS)))
 
   val targetOpt = "--target"
 
-  val targetOptParser = token(targetOpt) ~ (Space ~> token(StringBasic))
+  val targetOptParser = token(targetOpt) ~ (token("=") ~> token(StringBasic))
 }

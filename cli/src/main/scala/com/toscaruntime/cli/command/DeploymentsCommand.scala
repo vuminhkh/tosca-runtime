@@ -38,11 +38,11 @@ object DeploymentsCommand extends LazyLogging {
 
   private val bootstrapOpt = "--bootstrap"
 
-  private lazy val csarPathOptParser = token(csarOpt) ~ (Space ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
+  private lazy val csarPathOptParser = token(csarOpt) ~ (token("=") ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
 
-  private lazy val inputsPathOptParser = token(inputPathOpt) ~ (Space ~> token(Parsers.filePathParser))
+  private lazy val inputsPathOptParser = token(inputPathOpt) ~ (token("=") ~> token(Parsers.filePathParser))
 
-  private lazy val createCmdOptParser = Space ~> (csarPathOptParser | inputsPathOptParser | Args.providerOptParser | Args.targetOptParser | (token(bootstrapOpt) ~ (Space ~> token(Bool)))) *
+  private lazy val createCmdOptParser = Space ~> (csarPathOptParser | inputsPathOptParser | Args.providerOptParser | Args.targetOptParser | (token(bootstrapOpt) ~ (token("=") ~> token(Bool)))) *
 
   private lazy val createCmdParser = token(createCmd) ~ createCmdOptParser ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(Parsers.filePathParser)) ?)
 
@@ -71,11 +71,11 @@ object DeploymentsCommand extends LazyLogging {
        |  $createCmd%-30s Create deployment image from the given topology on a particular provider's target
        |  $synopsisToken%-30s $createCmd [CREATE_OPTIONS] <deployment id> <topology path>
        |  CREATE_OPTIONS:
-       |    ${csarOpt + " <csar name>:<version>"}%-28s use an installed topology to create the deployment, if this option is set <topology path> argument is not necessary
-       |    ${inputPathOpt + " <input path>"}%-28s input for the deployment
-       |    ${Args.providerOpt + " <provider name>"}%-28s the deployment's provider, default to ${ProviderConstant.DOCKER}
-       |    ${Args.targetOpt + " <target>"}%-28s the provider's configuration, default to ${ProviderConstant.DEFAULT_TARGET}
-       |    ${bootstrapOpt + " <true|false>"}%-28s enable bootstrap mode, in this mode the agent will use public ip to connect to created compute
+       |    ${csarOpt + "=<csar name>:<version>"}%-28s use an installed topology to create the deployment, if this option is set <topology path> argument is not necessary
+       |    ${inputPathOpt + "=<input path>"}%-28s input for the deployment
+       |    ${Args.providerOpt + "=<provider name>"}%-28s the deployment's provider, default to ${ProviderConstant.DOCKER}
+       |    ${Args.targetOpt + "=<target>"}%-28s the provider's configuration, default to ${ProviderConstant.DEFAULT_TARGET}
+       |    ${bootstrapOpt + "=<true|false>"}%-28s enable bootstrap mode, in this mode the agent will use public ip to connect to created compute
        |
        |  $deleteCmd%-30s Delete the deployment
        |  $synopsisToken%-30s $deleteCmd <deployment id>

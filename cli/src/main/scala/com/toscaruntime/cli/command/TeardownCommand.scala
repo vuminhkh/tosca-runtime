@@ -19,7 +19,7 @@ object TeardownCommand {
 
   private lazy val teardownHelp = Help(commandName, (commandName, s"Tear down bootstrap installation, execute 'help $commandName' for more details"),
     f"""
-       |$commandName ${Args.providerOpt} <provider name> ${Args.targetOpt} <target>
+       |$commandName ${Args.providerOpt}=<provider name> ${Args.targetOpt}=<target>
        |OPTIONS:
        |  ${Args.providerOpt}%-30s name of the provider, default value is ${ProviderConstant.OPENSTACK}
        |  ${Args.targetOpt}%-30s target/configuration for the provider, default values is ${ProviderConstant.DEFAULT_TARGET}

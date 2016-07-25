@@ -26,17 +26,17 @@ object UseCommand {
 
   private val dockerUrlOpt = "--url"
 
-  private val dockerCertOpt = "-cert"
+  private val dockerCertOpt = "--cert"
 
-  private lazy val dockerUrlArg = token(dockerUrlOpt) ~ (Space ~> token(URIClass))
+  private lazy val dockerUrlArg = token(dockerUrlOpt) ~ (token("=") ~> token(URIClass))
 
-  private lazy val dockerCertPathArg = token(dockerCertOpt) ~ (Space ~> token(Parsers.filePathParser))
+  private lazy val dockerCertPathArg = token(dockerCertOpt) ~ (token("=") ~> token(Parsers.filePathParser))
 
   private lazy val useArgsParser = Space ~> (dockerUrlArg | dockerCertPathArg) +
 
   private lazy val useHelp = Help(commandName, (commandName, "Use the specified docker daemon url"),
     s"""
-       |$commandName $dockerUrlOpt <docker daemon url> $dockerCertOpt <certificate path>
+       |$commandName $dockerUrlOpt=<docker daemon url> $dockerCertOpt=<certificate path>
        |$dockerUrlOpt%-30s of the docker daemon
        |$dockerCertOpt%-30s (optional if https is not used) path to the the certificate to connect to the docker daemon
     """.stripMargin

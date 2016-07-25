@@ -66,7 +66,7 @@ object AgentsSteps extends MustMatchers {
   }
 
   def launchUndeployment(deploymentId: String) = {
-    Await.result(AgentsCommand.undeploy(Context.client, deploymentId, force = false)._2, 20 minutes)
+    Await.result(AgentsCommand.undeploy(Context.client, deploymentId, force = false, teardown = false)._2, 20 minutes)
   }
 
   def launchInstallWorkflow(deploymentId: String) = {

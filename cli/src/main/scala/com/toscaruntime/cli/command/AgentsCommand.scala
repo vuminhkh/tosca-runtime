@@ -70,6 +70,8 @@ object AgentsCommand extends LazyLogging {
 
   private val transientOpt = "--transient"
 
+  private val ignoreDeploymentOpt = "--ignore-deployment"
+
   private lazy val infoNodeCmd = "infoNode"
 
   private lazy val infoNodeInstanceCmd = "infoNodeInstance"
@@ -90,13 +92,13 @@ object AgentsCommand extends LazyLogging {
 
   private lazy val infoOptsParser = (Space ~> (token(nodesOpt) | token(relationshipsOpt) | token(outputsOpt) | token(executionsOpt))) *
 
-  private lazy val executeInputOptParser = token(inputOpt) ~ (Space ~> (token(StringBasic) ~ (token("=") ~> token(StringBasic))))
+  private lazy val executeInputOptParser = token(inputOpt) ~ (token("=") ~> (token(StringBasic) ~ (token(":") ~> token(StringBasic))))
 
-  private lazy val executeOptsParser = (Space ~> ((token(interfaceOpt) ~ (Space ~> token(StringBasic))) | token(transientOpt) | executeInputOptParser)) *
+  private lazy val executeOptsParser = (Space ~> ((token(interfaceOpt) ~ (token("=") ~> token(StringBasic))) | token(transientOpt) | executeInputOptParser)) *
 
   private lazy val scaleCmdParser = token(scaleCmd) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(StringBasic)) ~ (Space ~> token(IntBasic))
 
-  private lazy val deleteCmdParser = token(deleteCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
+  private lazy val deleteCmdParser = token(deleteCmd) ~ (((Space ~> token(forceOpt)) | (Space ~> token(ignoreDeploymentOpt))) ?) ~ (Space ~> token(StringBasic))
 
   private lazy val cancelCmdParser = token(cancelCmd) ~ ((Space ~> token(forceOpt)) ?) ~ (Space ~> token(StringBasic))
 
@@ -184,7 +186,8 @@ object AgentsCommand extends LazyLogging {
        |  $deleteCmd%-30s delete agent, if the deployment has living nodes, $uninstallCmd will be called before the deletion
        |  $synopsisToken%-30s $deleteCmd [DELETE_OPTIONS] <deployment id>
        |  DELETE_OPTIONS:
-       |    $forceOpt%-28s force delete without un-deploying application first
+       |    $forceOpt%-28s uninstall deployment with '$uninstallCmd $forceOpt' then delete the agent
+       |    $ignoreDeploymentOpt%-28s ignore the deployment, just delete the agent
        |
        |  $startCmd%-30s start agent, agent will begin to manage deployment
        |  $synopsisToken%-30s $startCmd <deployment id>
@@ -279,7 +282,7 @@ object AgentsCommand extends LazyLogging {
     (s"Created container $containerId, " + launchInstallWorkflow(client, deploymentId), client.waitForRunningExecutionToEnd(deploymentId))
   }
 
-  def undeploy(client: ToscaRuntimeClient, deploymentId: String, force: Boolean): (String, Future[_]) = {
+  def undeploy(client: ToscaRuntimeClient, deploymentId: String, force: Boolean, teardown: Boolean): (String, Future[_]) = {
     if (force) {
       deleteAgent(client, deploymentId)
       (s"Deleted by force [$deploymentId]", Future.successful(None))
@@ -288,7 +291,11 @@ object AgentsCommand extends LazyLogging {
       if (details.executions.nonEmpty && details.executions.head.endTime.isEmpty) {
         ("Deployment has unfinished execution, please wait or cancel execution first", Future.failed(new BadRequestException("Deployment has unfinished execution, please wait or cancel execution first")))
       } else if (AgentUtil.hasLivingNodes(details)) {
-        AgentUtil.undeploy(client, deploymentId)
+        if (teardown) {
+          AgentUtil.teardownInfrastructure(client, deploymentId)
+        } else {
+          AgentUtil.undeploy(client, deploymentId)
+        }
         val deleteFuture = client.waitForRunningExecutionToEnd(deploymentId).map { _ =>
           deleteAgent(client, deploymentId)
         }
@@ -472,8 +479,8 @@ object AgentsCommand extends LazyLogging {
         case (`stopCmd`, deploymentId: String) =>
           stopAgent(client, deploymentId)
           println(s"Stopped $deploymentId")
-        case ((`deleteCmd`, force: Option[String]), deploymentId: String) =>
-          println(undeploy(client, deploymentId, force.nonEmpty)._1)
+        case ((`deleteCmd`, deleteOpt: Option[String]), deploymentId: String) =>
+          println(undeploy(client, deploymentId, deleteOpt.contains(ignoreDeploymentOpt), deleteOpt.contains(forceOpt))._1)
       }
     } catch {
       case e: Throwable =>
