@@ -216,6 +216,7 @@ You can deploy/undeploy/scale your application thanks to the agents.
   # Resume the the deployment from the last failure point
   agents resume my_deployment
   ```
+
 Deployment with other clouds
 =====================
 
