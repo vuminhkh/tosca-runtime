@@ -62,6 +62,13 @@ Getting Started
     cd docker-java/
     mvn clean install -DskipTests
   ```
+* Clone and build jclouds (temporary for the moment as some modifications are not yet merged in the official release)
+
+  ```bash
+    git clone https://github.com/vuminhkh/jclouds.git
+    cd jclouds/
+    mvn clean install -DskipTests
+  ```
 * Clone and build tosca-runtime
 
   ```bash
@@ -194,8 +201,9 @@ Deployment with other clouds
 The example, which was given util now deploys on docker as the default tosca runtime provider. You might want to work with one of the supported IAAS Openstack or AWS
 
 * Configure the provider at `path_to_toscaruntime/conf/providers/${provider_name}/${target_name}` following the template file `provider.conf.tpl`, you must then rename it to `provider.conf`.
-As you can see as `${provider_name}` between Openstack, AWS and docker, `${target_name}` enables you to have multiple configurations for the same IAAS.
-In all of your commands when no `${target_name}` is specified, toscaruntime takes the `default` target.
+As you can see as provider, you have the choice between Openstack, AWS and docker.
+Target enables you to have multiple configurations for the same IAAS.
+In all of your commands when no target is specified, toscaruntime takes the target named default.
 
 * Create your deployment for the configured cloud
 
