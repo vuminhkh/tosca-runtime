@@ -97,7 +97,7 @@ Getting Started
   # Create a deployment image
   deployments create aplb pathToProjects/tosca-runtime/test/src/it/resources/csars/docker/standalone/apache-lb/
   # Create agent to deploy
-  agents create apache-lb
+  agents create aplb
   ```
 * Inside tosca runtime shell, perform `help` command or `help sub_command` to have more commands and options, for example `help agents`, or `help deployments`
 
@@ -105,7 +105,7 @@ Architecture
 ============
 
 Basically, Tosca Runtime is a set of command line tools that make development/deployment of Tosca recipe quicker.
-Tosca Runtime for the moment target Docker and OpenStack as IaaS Provider.
+Tosca Runtime for the moment target Docker, OpenStack and EC2 as IaaS Provider.
 
 Those are main components and features:
 
@@ -188,21 +188,47 @@ You can deploy/undeploy/scale your application thanks to the agents.
   # Resume the the deployment from the last failure point
   agents resume my_deployment
   ```
+Deployment with other clouds
+=====================
+
+The example, which was given util now deploys on docker as the default tosca runtime provider. You might want to work with one of the supported IAAS Openstack or AWS
+
+* Configure the provider at `path_to_toscaruntime/conf/providers/${provider_name}/${target_name}` following the template file `provider.conf.tpl`, you must then rename it to `provider.conf`.
+As you can see as `${provider_name}` between Openstack, AWS and docker, `${target_name}` enables you to have multiple configurations for the same IAAS.
+In all of your commands when no `${target_name}` is specified, toscaruntime takes the `default` target.
+
+* Create your deployment for the configured cloud
+
+  ```bash
+  # Example with openstack
+  deployments create --provider=openstack --input=pathToTopologyInput/inputs.yaml aplbos pathToProjects/tosca-runtime/test/src/it/resources/csars/openstack/standalone/apache-lb/
+  # Create agent to deploy
+  agents create aplbos
+  # Example with aws
+  deployments create --provider=aws --input=pathToTopologyInput/inputs.yaml aplbaws pathToProjects/tosca-runtime/test/src/it/resources/csars/aws/standalone/apache-lb/
+  agents create aplbaws
+  ```
 
 Production deployment
 =====================
 
 The localhost configuration is in general suitable only for developing and testing recipe.
-You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack is available for the moment).
+You can bootstrap with Tosca Runtime a distant manager on a cloud provider (only Openstack and EC2 is available for the moment).
 The manager here is in fact a stateless proxy which dispatch the CLI's request to different deployments agents or to the docker daemon.
+
+* Configure inputs for bootstrap operations at `path_to_toscaruntime/bootstrap/${provider_name}/${target_name}` following the template file `inputs.yaml.tpl`, you must then rename it to `inputs.yaml` 
 
 * Bootstrap: The bootstrap topology was only tested with Ubuntu Willy and kernel version 4.2.0-36-generic.
 
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
   bootstrap --provider openstack
+  # On EC2
+  bootstrap --provider aws
   # To bootstrap a swarm cluster
   bootstrap --provider openstack --target swarm
+  # On EC2
+  bootstrap --provider aws --target swarm
   # Note the output key 'public_daemon_url', this is the URL of the new docker daemon
   ```
 
