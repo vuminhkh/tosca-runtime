@@ -253,13 +253,13 @@ The manager here is in fact a stateless proxy which dispatch the CLI's request t
 
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
-  bootstrap --provider openstack
+  bootstrap --provider=openstack
   # On EC2
-  bootstrap --provider aws
+  bootstrap --provider=aws
   # To bootstrap a swarm cluster
-  bootstrap --provider openstack --target swarm
+  bootstrap --provider=openstack --target=swarm
   # On EC2
-  bootstrap --provider aws --target swarm
+  bootstrap --provider=aws --target=swarm
   # Note the output key 'public_daemon_url', this is the URL of the new docker daemon
   ```
 
@@ -268,7 +268,7 @@ After the bootstrap operation, you can point the CLI to the new daemon by doing:
  
   ```bash
   # To bootstrap a single machine with a simple docker daemon and a proxy
-  use --url NEW_DAEMON_URL
+  use --url=NEW_DAEMON_URL
   # To reset to the default local docker daemon configuration
   use-default
   ```
