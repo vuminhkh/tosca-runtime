@@ -164,14 +164,15 @@ The common workflow to use Tosca Runtime to develop recipe is:
 As an example, you can see the [abstract topology](https://github.com/alien4cloud/samples/blob/master/topology-load-balancer-tomcat/topology-load-balancer-tomcat.yaml) use abstract `tosca.nodes.Compute`.
 The [specific topology](https://github.com/vuminhkh/tosca-runtime/blob/master/test/src/it/resources/csars/docker/standalone/apache-lb/template.yaml) use concrete type `com.toscaruntime.docker.nodes.Container`.
 The specific topology import the abstract topology and override nodes and inputs with the same names, you can add more nodes in the specific topology.
-```yaml
-imports:
-  - apache-load-balancer:*
+  
+  ```yaml
+  imports:
+    - apache-load-balancer:*
 
-node_templates:
-  WebServer:
-    type: com.toscaruntime.docker.nodes.Container
-```
+  node_templates:
+    WebServer:
+      type: com.toscaruntime.docker.nodes.Container
+  ```
 
 The deployment will then be created with the specific topology and so concrete type `com.toscaruntime.docker.nodes.Container` will be instantiated.
 
