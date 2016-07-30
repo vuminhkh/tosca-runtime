@@ -95,7 +95,9 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     if (!Files.exists(workDir)) {
       Files.createDirectories(workDir)
     }
-    State(configuration, commandDefinitions, Set.empty, None, Seq("shell"), State.newHistory, attributes, initialGlobalLogging, State.Continue)
+    var commands = configuration.arguments().toSeq
+    if(commands.isEmpty) commands = Seq("shell")
+    State(configuration, commandDefinitions, Set.empty, None, commands, State.newHistory, attributes, initialGlobalLogging, State.Continue)
   }
 
   /** Configures logging to log to a temporary backing file as well as to the console.

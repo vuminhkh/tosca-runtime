@@ -188,6 +188,8 @@ public class Container extends Compute {
             // Newer version with network API
             if (StringUtils.isNotBlank(bootstrapNetworkName) && response.getNetworkSettings().getNetworks().containsKey(bootstrapNetworkName)) {
                 ipAddress = response.getNetworkSettings().getNetworks().get(bootstrapNetworkName).getIpAddress();
+            } else if (response.getNetworkSettings().getNetworks().containsKey("bridge")) {
+                ipAddress = response.getNetworkSettings().getNetworks().get("bridge").getIpAddress();
             } else {
                 ipAddress = response.getNetworkSettings().getNetworks().values().iterator().next().getIpAddress();
             }

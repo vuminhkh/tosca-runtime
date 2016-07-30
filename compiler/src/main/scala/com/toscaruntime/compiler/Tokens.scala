@@ -35,6 +35,7 @@ object Tokens {
   val constraints_token = "constraints"
   val lower_bound_token = "lower_bound"
   val upper_bound_token = "upper_bound"
+  val occurrences_token = "occurrences"
   val inputs_token = "inputs"
   val outputs_token = "outputs"
   val implementation_token = "implementation"
