@@ -7,12 +7,14 @@ import com.toscaruntime.exception.deployment.execution.InvalidOperationExecution
 import com.toscaruntime.openstack.OpenstackProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
+import org.junit.Ignore;
+
 import tosca.constants.RelationshipInstanceState;
 import tosca.relationships.AttachTo;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +33,7 @@ public class OpenstackNodesTest {
                 .put("region", "RegionOne")
                 .put("password", "mqAgNPA2c6VDjoOD")
                 .put("tenant", "facebook1389662728").build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, new ArrayList<>(), Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.run(testDeployment.install()).waitForCompletion(15, TimeUnit.MINUTES);
             Compute compute = testDeployment.getNodeInstancesByType(Compute.class).iterator().next();

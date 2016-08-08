@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
+import com.toscaruntime.sdk.PluginHook;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.model.OperationInputDefinition;
@@ -163,8 +164,22 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     @Override
+    public void executePluginsHooksBeforeOperation(String interfaceName, String operationName) throws Throwable {
+        for (PluginHook pluginHook : config.getPluginHooks()) {
+            pluginHook.preExecuteRelationshipOperation(this, interfaceName, operationName);
+        }
+    }
+
+    @Override
+    public void executePluginsHooksAfterOperation(String interfaceName, String operationName) throws Throwable {
+        for (PluginHook pluginHook : config.getPluginHooks()) {
+            pluginHook.postExecuteRelationshipOperation(this, interfaceName, operationName);
+        }
+    }
+
+    @Override
     public void initialLoad() {
-        Map<String, String> rawAttributes = deployment.getDeploymentPersister().syncGetRelationshipAttributes(getSource().getId(), getTarget().getId(), node.getRelationshipName());
+        Map<String, String> rawAttributes = config.getDeploymentPersister().syncGetRelationshipAttributes(getSource().getId(), getTarget().getId(), node.getRelationshipName());
         for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
             try {
                 getAttributes().put(rawAttributeEntry.getKey(), JSONUtil.toObject(rawAttributeEntry.getValue()));
@@ -172,21 +187,21 @@ public abstract class Root extends AbstractRuntimeType {
                 throw new DeploymentPersistenceException("Cannot read as json from persistence attribute " + rawAttributeEntry.getKey() + " of relationship instance " + this, e);
             }
         }
-        List<String> outputInterfaces = deployment.getDeploymentPersister().syncGetRelationshipOutputInterfaces(getSource().getId(), getTarget().getId(), node.getRelationshipName());
+        List<String> outputInterfaces = config.getDeploymentPersister().syncGetRelationshipOutputInterfaces(getSource().getId(), getTarget().getId(), node.getRelationshipName());
         for (String interfaceName : outputInterfaces) {
-            List<String> operationNames = deployment.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName);
+            List<String> operationNames = config.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName);
             for (String operationName : operationNames) {
-                Map<String, String> outputs = deployment.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName, operationName);
+                Map<String, String> outputs = config.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName, operationName);
                 operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
             }
         }
-        this.state = deployment.getDeploymentPersister().syncGetRelationshipInstanceState(getSource().getId(), getTarget().getId(), node.getRelationshipName());
+        this.state = config.getDeploymentPersister().syncGetRelationshipInstanceState(getSource().getId(), getTarget().getId(), node.getRelationshipName());
     }
 
     @Override
     public void setState(String state) {
         if (!state.equals(this.state)) {
-            deployment.getDeploymentPersister().syncSaveRelationshipState(getSource().getId(), getTarget().getId(), node.getRelationshipName(), state);
+            config.getDeploymentPersister().syncSaveRelationshipState(getSource().getId(), getTarget().getId(), node.getRelationshipName(), state);
             this.state = state;
         }
     }
@@ -198,7 +213,7 @@ public abstract class Root extends AbstractRuntimeType {
             removeAttribute(key);
         } else if (!newValue.equals(oldValue)) {
             try {
-                deployment.getDeploymentPersister().syncSaveRelationshipAttribute(getSource().getId(), getTarget().getId(), node.getRelationshipName(), key, JSONUtil.toString(newValue));
+                config.getDeploymentPersister().syncSaveRelationshipAttribute(getSource().getId(), getTarget().getId(), node.getRelationshipName(), key, JSONUtil.toString(newValue));
             } catch (JsonProcessingException e) {
                 throw new DeploymentPersistenceException("Cannot persist attribute " + key + " with value " + newValue + " of relationship instance from " + getSource().getId() + " to " + getTarget().getId() + " of type " + node.getRelationshipName(), e);
             }
@@ -211,7 +226,7 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
-        deployment.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipName(), interfaceName, operationName, outputs);
+        config.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipName(), interfaceName, operationName, outputs);
         operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
     }
 
@@ -219,7 +234,7 @@ public abstract class Root extends AbstractRuntimeType {
     public void removeAttribute(String key) {
         getSource().removeAttribute(key);
         getTarget().removeAttribute(key);
-        deployment.getDeploymentPersister().syncDeleteRelationshipAttribute(source.getId(), target.getId(), node.getRelationshipName(), key);
+        config.getDeploymentPersister().syncDeleteRelationshipAttribute(source.getId(), target.getId(), node.getRelationshipName(), key);
         getAttributes().remove(key);
     }
 

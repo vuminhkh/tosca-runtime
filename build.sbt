@@ -45,7 +45,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-parent"
-  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, aws, mockProvider, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, docker, openstack, aws, mockProvider, consul, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
@@ -176,6 +176,7 @@ lazy val deployer = project.in(file("deployer"))
     libraryDependencies += "org.scalatestplus" %% "play" % "1.4.0" % "test",
     packageName in Docker := "toscaruntime/deployer",
     dockerExposedPorts in Docker := Seq(9000, 9443),
+    dockerBaseImage := "toscaruntime/deployer-base:" + version.value,
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(runtime, restModel, mockProvider, sdk).enablePlugins(PlayScala, DockerPlugin)
 
@@ -191,14 +192,14 @@ lazy val proxy = project.in(file("proxy"))
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(dockerUtil, rest).enablePlugins(PlayScala, DockerPlugin)
 
-val providerSettings: Seq[Setting[_]] = commonSettings ++ Seq(
+val pluginSettings: Seq[Setting[_]] = commonSettings ++ Seq(
   mappings in Universal <++= (packageBin in Compile, baseDirectory) map { (_, base) =>
     val java = base / "src" / "main" / "java"
     java.*** pair relativeTo(base)
   })
 
 lazy val docker = project.in(file("docker"))
-  .settings(providerSettings: _*)
+  .settings(pluginSettings: _*)
   .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-docker",
@@ -214,20 +215,20 @@ lazy val docker = project.in(file("docker"))
   ).dependsOn(sdk, dockerUtil).enablePlugins(JavaAppPackaging)
 
 lazy val mockProvider = project.in(file("mock-provider"))
-  .settings(providerSettings: _*)
+  .settings(pluginSettings: _*)
   .settings(
     name := "toscaruntime-mock-provider",
     libraryDependencies ++= testDependencies
   ).dependsOn(sdk).enablePlugins(JavaAppPackaging)
 
-lazy val sshProvider = project.in(file("ssh-provider"))
-  .settings(providerSettings: _*)
+lazy val providerCommon = project.in(file("provider-common"))
+  .settings(pluginSettings: _*)
   .settings(
-    name := "ssh-provider"
+    name := "provider-common"
   ).dependsOn(sdk, sshUtil).enablePlugins(UniversalPlugin)
 
 lazy val openstack = project.in(file("openstack"))
-  .settings(providerSettings: _*)
+  .settings(pluginSettings: _*)
   .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-openstack",
@@ -245,10 +246,10 @@ lazy val openstack = project.in(file("openstack"))
       (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
     },
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sshProvider).enablePlugins(JavaAppPackaging)
+  ).dependsOn(providerCommon).enablePlugins(JavaAppPackaging)
 
 lazy val aws = project.in(file("aws"))
-  .settings(providerSettings: _*)
+  .settings(pluginSettings: _*)
   .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-aws",
@@ -264,10 +265,10 @@ lazy val aws = project.in(file("aws"))
       (resources.*** pair relativeTo(classes)).map { case (key, value) => (key, "src/main/resources/" + value) }
     },
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sshProvider).enablePlugins(JavaAppPackaging)
+  ).dependsOn(providerCommon).enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.in(file("sdk"))
-  .settings(providerSettings: _*)
+  .settings(pluginSettings: _*)
   .settings(
     name := "toscaruntime-sdk",
     libraryDependencies ++= testDependencies,
@@ -340,6 +341,12 @@ lazy val cli = project.in(file("cli"))
       IO.download(url("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip"), sdkToscaTempDownloadTarget)
       IO.unzip(sdkToscaTempDownloadTarget, sdkToscaTarget)
       IO.copyDirectory(target.value / "classes" / "csars", sdkToscaTarget)
+
+      // Handle plugins
+      val consulPluginTarget = target.value / "prepare-stage" / "plugins" / "consul" / version.value
+      consulPluginTarget.mkdirs()
+      IO.copyDirectory((stage in consul).value, consulPluginTarget)
+
       val command = s"java -jar $sbtLaunchTarget @$launchConfigTarget"
       Process(command, Some(sbtLaunchTarget.getParentFile)) ! match {
         case 0 =>
@@ -383,3 +390,10 @@ lazy val itTest = project.in(file("test"))
     },
     stage <<= (stage in Universal) dependsOn copyProviders
   ).dependsOn(cli).enablePlugins(UniversalPlugin)
+
+lazy val consul = project.in(file("consul"))
+  .settings(pluginSettings: _*)
+  .settings(
+    name := "toscaruntime-consul",
+    libraryDependencies += "com.orbitz.consul" % "consul-client" % "0.12.3"
+  ).dependsOn(sdk).enablePlugins(UniversalPlugin)

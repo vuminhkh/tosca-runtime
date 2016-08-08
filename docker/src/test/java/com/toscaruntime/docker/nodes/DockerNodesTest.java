@@ -1,21 +1,21 @@
 package com.toscaruntime.docker.nodes;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
-
 import com.google.common.collect.ImmutableMap;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.docker.DockerProviderHook;
 import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
+import org.junit.Assert;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RunWith(JUnit4.class)
 public class DockerNodesTest {
@@ -30,7 +30,7 @@ public class DockerNodesTest {
                 .put(DockerUtil.DOCKER_URL_KEY, dockerDaemonConfig.getUrl())
                 .put(DockerUtil.DOCKER_CERT_PATH_KEY, dockerDaemonConfig.getCertPath())
                 .build();
-        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, Mockito.mock(DeploymentPersister.class), true);
+        testDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), providerHook, new ArrayList<>(), Mockito.mock(DeploymentPersister.class), true);
         try {
             testDeployment.run(testDeployment.install()).waitForCompletion(15, TimeUnit.MINUTES);
             Container compute = testDeployment.getNodeInstancesByType(Container.class).iterator().next();

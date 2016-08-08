@@ -1,7 +1,7 @@
 package com.toscaruntime.util;
 
 import com.toscaruntime.artifact.ArtifactExecutor;
-import com.toscaruntime.artifact.ArtifactExecutorUtil;
+import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.ArtifactUploader;
 import com.toscaruntime.exception.deployment.artifact.*;
 import net.schmizz.sshj.SSHClient;
@@ -136,8 +136,8 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
         String sheBang;
 
         try {
-            sheBang = ArtifactExecutorUtil.readSheBang(localArtifactPath);
-            Path artifactWrapper = ArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
+            sheBang = BashArtifactExecutorUtil.readSheBang(localArtifactPath);
+            Path artifactWrapper = BashArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
             SCPFileTransfer scpFileTransfer = sshClient.newSCPFileTransfer();
             remotePath = REMOTE_TEMP_DIR + artifactWrapper.getFileName().toString();
             scpFileTransfer.upload(artifactWrapper.toString(), remotePath);
@@ -154,7 +154,7 @@ public class SSHJExecutor implements Closeable, ArtifactExecutor, ArtifactUpload
             stdOutFuture = executorService.submit(stdOutLogger);
             stdErrFuture = executorService.submit(new SSHJStdErrLogger(operationName, artifactName, log, shell.getErrorStream()));
             // Trigger execution of the artifact
-            ArtifactExecutorUtil.createArtifactExecutor(commandWriter, remotePath, sheBang, statusCodeToken, environmentVariablesToken);
+            BashArtifactExecutorUtil.createArtifactExecutor(commandWriter, remotePath, sheBang, statusCodeToken, environmentVariablesToken);
             while (true) {
                 try {
                     session.join(5, TimeUnit.SECONDS);

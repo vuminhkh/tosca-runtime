@@ -1,16 +1,14 @@
 package com.toscaruntime.sdk.workflow.tasks.nodes;
 
-import java.util.Map;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.constants.InstanceState;
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Set;
 
 public class StopTask extends AbstractNodeTask {
 
@@ -21,7 +19,7 @@ public class StopTask extends AbstractNodeTask {
     }
 
     @Override
-    public void doRun() {
+    public void doRunNodeOperation() {
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STOPPING, false);
         try {
             nodeInstance.stop();

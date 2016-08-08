@@ -30,8 +30,8 @@ object SyntaxAnalyzer extends YamlParser {
 
   def deploymentArtifactEntry(indentLevel: Int) = {
     textEntry(keyValue)(indentLevel) ~ opt(indent(indentLevel) ~> textEntry(type_token)(indentLevel)) ^^ {
-      case (artifactName, artifactRef) ~ None => (artifactName, DeploymentArtifact(artifactRef, ParsedValue[String]("tosca.artifacts.File")))
-      case (artifactName, artifactRef) ~ Some((_, artifactType: ParsedValue[String])) => (artifactName, DeploymentArtifact(artifactRef, artifactType))
+      case (artifactName, artifactRef) ~ None => (artifactName, DeploymentArtifact(Some(artifactRef), None))
+      case (artifactName, artifactRef) ~ Some((_, artifactType: ParsedValue[String])) => (artifactName, DeploymentArtifact(Some(artifactRef), Some(artifactType)))
     }
   }
 
@@ -297,21 +297,38 @@ object SyntaxAnalyzer extends YamlParser {
     propertyDefinitionsEntry(indentLevel) |
       evaluableValueEntry(keyValue)(indentLevel)
 
+  def shortImplementationArtifactEntry(indentLevel: Int) = textEntry(implementation_token)(indentLevel) ^^ {
+    case (token, ref) => (token, ImplementationArtifact(Some(ref), None))
+  }
+
+  def implementationArtifactEntry(indentLevel: Int) =
+    textEntry(type_token)(indentLevel) |
+      textEntry(file_token)(indentLevel)
+
+  def implementationArtifact(indentLevel: Int) = positioned(map(implementationArtifactEntry)(indentLevel) ^^ {
+    case map => ImplementationArtifact(
+      get[ParsedValue[String]](map, file_token),
+      get[ParsedValue[String]](map, type_token))
+  })
+
+  def longImplementationArtifactEntry(indentLevel: Int) = complexEntry(implementation_token)(implementationArtifact)(indentLevel)
+
   def operationEntry(indentLevel: Int) =
     textEntry(description_token)(indentLevel) |
       mapEntry(inputs_token)(operationInputEntry)(indentLevel) |
-      textEntry(implementation_token)(indentLevel) | failure(s"Expecting one of '$description_token', '$inputs_token', '$implementation_token'")
+      longImplementationArtifactEntry(indentLevel) |
+      shortImplementationArtifactEntry(indentLevel) | failure(s"Expecting one of '$description_token', '$inputs_token', '$implementation_token'")
 
   def operation(indentLevel: Int) = positioned(
     map(operationEntry)(indentLevel) ^^ {
       case map => Operation(
         get[ParsedValue[String]](map, description_token),
         get[Map[ParsedValue[String], FieldValue]](map, inputs_token),
-        get[ParsedValue[String]](map, implementation_token))
+        get[ImplementationArtifact](map, implementation_token))
     })
 
   def simpleOperation = positioned(textValue ^^ {
-    case implementation => Operation(None, None, if (implementation.value == null || implementation.value.isEmpty) None else Some(implementation))
+    case implementation => Operation(None, None, if (implementation.value == null || implementation.value.isEmpty) None else Some(ImplementationArtifact(Some(implementation), None)))
   })
 
   def operationsEntry(indentLevel: Int) =

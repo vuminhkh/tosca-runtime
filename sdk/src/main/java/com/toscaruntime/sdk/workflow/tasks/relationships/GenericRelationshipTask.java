@@ -29,7 +29,7 @@ public class GenericRelationshipTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() throws Throwable {
+    protected void doRunRelationshipOperation() throws Throwable {
         WorkflowUtil.invokeRuntimeTypeMethod(relationshipInstance, nodeInstances, relationshipInstances, interfaceName, operationName);
     }
 }

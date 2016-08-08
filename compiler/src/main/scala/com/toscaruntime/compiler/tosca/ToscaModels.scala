@@ -89,8 +89,16 @@ case class TopologyTemplate(description: Option[ParsedValue[String]],
                             outputs: Option[Map[ParsedValue[String], Output]],
                             nodeTemplates: Option[Map[ParsedValue[String], NodeTemplate]]) extends Positional
 
-case class DeploymentArtifact(ref: ParsedValue[String],
-                              typeName: ParsedValue[String]) extends Positional
+trait Artifact extends Positional {
+  val ref: Option[ParsedValue[String]]
+  val typeName: Option[ParsedValue[String]]
+}
+
+case class DeploymentArtifact(ref: Option[ParsedValue[String]],
+                              typeName: Option[ParsedValue[String]]) extends Artifact
+
+case class ImplementationArtifact(ref: Option[ParsedValue[String]],
+                                  typeName: Option[ParsedValue[String]]) extends Artifact
 
 case class NodeType(name: ParsedValue[String],
                     isAbstract: ParsedValue[Boolean],
@@ -193,7 +201,7 @@ case class Interface(description: Option[ParsedValue[String]],
 
 case class Operation(description: Option[ParsedValue[String]],
                      inputs: Option[Map[ParsedValue[String], FieldValue]],
-                     implementation: Option[ParsedValue[String]]) extends Positional
+                     implementation: Option[ImplementationArtifact]) extends Positional
 
 case class Function(function: ParsedValue[String], paths: Seq[ParsedValue[String]]) extends EvaluableFieldValue
 

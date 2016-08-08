@@ -22,4 +22,6 @@ public class InstanceState {
 
     public static final String STOPPING = "stopping";
 
+    public static final String ERROR = "error";
+
 }

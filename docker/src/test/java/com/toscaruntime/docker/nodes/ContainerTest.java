@@ -37,7 +37,6 @@ public class ContainerTest {
 
     private Container createContainer(String imageId) throws MalformedURLException {
         Container container = new Container();
-        container.setDeployment(mockDeployment());
         DeploymentConfig deploymentConfig = new DeploymentConfig();
         deploymentConfig.setDeploymentName("testContainer");
         deploymentConfig.setBootstrap(true);
@@ -84,7 +83,6 @@ public class ContainerTest {
     public void testContainerWithNetwork() throws MalformedURLException {
         Container container = createContainer("toscaruntime/ubuntu-trusty");
         Network network = new Network();
-        network.setDeployment(mockDeployment());
         network.setDockerClient(container.getDockerClient());
         network.setIndex(1);
         network.setName("dockerNet");

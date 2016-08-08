@@ -1,5 +1,9 @@
 package com.toscaruntime.util;
 
+import org.apache.commons.compress.utils.Charsets;
+import org.apache.commons.compress.utils.IOUtils;
+import org.apache.commons.lang.StringUtils;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.FileNotFoundException;
@@ -14,6 +18,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -25,10 +30,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import org.apache.commons.compress.utils.Charsets;
-import org.apache.commons.compress.utils.IOUtils;
-import org.apache.commons.lang.StringUtils;
 
 public final class FileUtil {
 
@@ -333,5 +334,15 @@ public final class FileUtil {
         URI uri = URI.create("jar:file:" + path.toUri().getPath());
         FileSystem fileSystem = FileSystems.newFileSystem(uri, env, null);
         return fileSystem.getPath("/");
+    }
+
+    public static String getFileExtension(String path) {
+        String fileName = Paths.get(path).getFileName().toString();
+        int indexOfExtension = fileName.lastIndexOf('.');
+        if (indexOfExtension > 0) {
+            return fileName.substring(indexOfExtension + 1);
+        } else {
+            return null;
+        }
     }
 }

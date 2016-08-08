@@ -5,7 +5,7 @@ import java.nio.file._
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.deployment.DeploymentPersister
 import com.toscaruntime.exception.deployment.creation.{MultipleProviderHooksFoundException, ProviderHookNotFoundException}
-import com.toscaruntime.sdk.{Deployment, ProviderHook}
+import com.toscaruntime.sdk.{Deployment, PluginHook, ProviderHook}
 import com.toscaruntime.util.JavaScalaConversionUtil
 
 import scala.collection.JavaConverters._
@@ -81,12 +81,15 @@ object Deployer {
     }
     val providerHookClass = providerHookClasses.head
     val providerHookInstance = providerHookClass.newInstance().asInstanceOf[ProviderHook]
+
+    val pluginHooks = DeployerUtil.findImplementations(loadedClasses, deploymentClassLoader, classOf[PluginHook]).map(_.newInstance().asInstanceOf[PluginHook])
     deployment.initializeConfig(deploymentName,
       deploymentRecipeFolder,
       JavaScalaConversionUtil.toJavaMap(inputs),
       providerProperties.asJava,
       JavaScalaConversionUtil.toJavaMap(bootstrapContext),
       providerHookInstance,
+      pluginHooks.asJava,
       deploymentPersister,
       bootstrap
     )

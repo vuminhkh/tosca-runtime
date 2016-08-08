@@ -16,7 +16,7 @@ public class PostConfigureTargetTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         if (relationshipInstance.getTarget().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())) {
             relationshipInstance.postConfigureTarget();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.POST_CONFIGURING, RelationshipInstanceState.POST_CONFIGURED);

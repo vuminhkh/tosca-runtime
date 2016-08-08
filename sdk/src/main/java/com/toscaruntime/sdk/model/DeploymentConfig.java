@@ -1,11 +1,15 @@
 package com.toscaruntime.sdk.model;
 
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.sdk.PluginHook;
+
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * This hold deployment's configuration
+ * This hold deployment's configuration, which is shared with nodes and relationships
  *
  * @author Minh Khang VU
  */
@@ -50,6 +54,10 @@ public class DeploymentConfig {
      * Name of the csar that contains the topology from whom this deployment has been generated
      */
     private Path topologyResourcePath;
+
+    private DeploymentPersister deploymentPersister;
+
+    private List<PluginHook> pluginHooks;
 
     public Map<String, String> getProviderProperties() {
         return providerProperties;
@@ -113,5 +121,21 @@ public class DeploymentConfig {
 
     public void setBootstrapContext(Map<String, Object> bootstrapContext) {
         this.bootstrapContext = bootstrapContext;
+    }
+
+    public DeploymentPersister getDeploymentPersister() {
+        return deploymentPersister;
+    }
+
+    public void setDeploymentPersister(DeploymentPersister deploymentPersister) {
+        this.deploymentPersister = deploymentPersister;
+    }
+
+    public List<PluginHook> getPluginHooks() {
+        return pluginHooks;
+    }
+
+    public void setPluginHooks(List<PluginHook> pluginHooks) {
+        this.pluginHooks = pluginHooks;
     }
 }

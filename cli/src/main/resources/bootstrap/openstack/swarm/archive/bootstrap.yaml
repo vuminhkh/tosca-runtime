@@ -66,6 +66,12 @@ topology_template:
     node_public_ip_addresses:
       description: The public ip addressse of swarm node machines
       value: { get_attribute: [ swarmNodeMachine, public_ip_address ] }
+    consul_server_addresses:
+      description: Rest API URL of consul server agents
+      value: { get_attribute: [ consulServer, consul_client_address ] }
+    consul_client_addresses:
+      description: Rest API URL of consul client agents
+      value: { get_attribute: [ consulClient, consul_client_address ] }
 
   node_templates:
 

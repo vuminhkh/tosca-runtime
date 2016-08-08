@@ -21,7 +21,7 @@ public class RemoveSourceTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         synchronized (relationshipInstance.getTarget()) {
             try {
                 relationshipInstance.removeSource();

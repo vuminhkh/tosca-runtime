@@ -5,7 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.toscaruntime.aws.util.FailSafeConfigUtil;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
-import com.toscaruntime.nodes.SSHEnabledCompute;
+import com.toscaruntime.nodes.SSHCompute;
 import com.toscaruntime.util.SynchronizationUtil;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.aws.ec2.options.AWSRunInstancesOptions;
@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-public class Instance extends SSHEnabledCompute {
+public class Instance extends SSHCompute {
 
     private static final Logger log = LoggerFactory.getLogger(Instance.class);
 

@@ -7,7 +7,7 @@ import com.github.dockerjava.api.command.InspectExecResponse;
 import com.github.dockerjava.api.model.StreamType;
 import com.github.dockerjava.core.async.ResultCallbackTemplate;
 import com.toscaruntime.artifact.ArtifactExecutor;
-import com.toscaruntime.artifact.ArtifactExecutorUtil;
+import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.ArtifactUploader;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
@@ -55,8 +55,8 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
         String remotePath;
         String sheBang;
         try {
-            sheBang = ArtifactExecutorUtil.readSheBang(localArtifactPath);
-            Path artifactWrapper = ArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
+            sheBang = BashArtifactExecutorUtil.readSheBang(localArtifactPath);
+            Path artifactWrapper = BashArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, env, statusCodeToken, environmentVariablesToken, sheBang, elevatePrivilege);
             remotePath = REMOTE_TEMP_DIR + artifactWrapper.getFileName().toString();
             dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(artifactWrapper.toString()).withRemotePath(REMOTE_TEMP_DIR).exec();
         } catch (IOException e) {
@@ -65,7 +65,7 @@ public class DockerExecutor implements Closeable, ArtifactExecutor, ArtifactUplo
         // Not need to close byte array streams as they are in memory
         ByteArrayOutputStream scriptToExecute = new ByteArrayOutputStream();
         PrintWriter commandWriter = new PrintWriter(new OutputStreamWriter(scriptToExecute, StandardCharsets.UTF_8), true);
-        ArtifactExecutorUtil.createArtifactExecutor(commandWriter, remotePath, sheBang, statusCodeToken, environmentVariablesToken);
+        BashArtifactExecutorUtil.createArtifactExecutor(commandWriter, remotePath, sheBang, statusCodeToken, environmentVariablesToken);
 
         DockerStdOutLogger dockerStdOutLogger = new DockerStdOutLogger(statusCodeToken, environmentVariablesToken);
         CommandLogger commandLogger = line -> {

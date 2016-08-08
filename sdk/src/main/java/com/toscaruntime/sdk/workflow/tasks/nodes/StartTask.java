@@ -1,13 +1,12 @@
 package com.toscaruntime.sdk.workflow.tasks.nodes;
 
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-
 import tosca.constants.InstanceState;
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Set;
 
 public class StartTask extends AbstractNodeTask {
 
@@ -16,7 +15,7 @@ public class StartTask extends AbstractNodeTask {
     }
 
     @Override
-    public void doRun() {
+    public void doRunNodeOperation() {
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STARTING, false);
         nodeInstance.start();
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.STARTED, true);

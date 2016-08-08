@@ -1,17 +1,16 @@
 package com.toscaruntime.sdk;
 
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.exception.deployment.creation.InvalidDeploymentStateException;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.util.DeploymentUtil;
-
 import tosca.nodes.Root;
 import tosca.relationships.ManyToMany;
+
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Utility methods to initialize nodes and instances of a deployment
@@ -53,7 +52,6 @@ public class DeploymentInitializer {
             instance.setNode(node);
             instance.setProperties(node.getProperties());
             instance.setCapabilitiesProperties(node.getCapabilitiesProperties());
-            instance.setDeployment(deployment);
             instance.setConfig(deployment.getConfig());
             return instance;
         } catch (Exception e) {
@@ -109,7 +107,6 @@ public class DeploymentInitializer {
                         relationshipInstance.setTarget(targetInstance);
                         relationshipInstance.setNode(relationshipNode);
                         relationshipInstance.setProperties(relationshipNode.getProperties());
-                        relationshipInstance.setDeployment(deployment);
                         newRelationshipInstances.add(relationshipInstance);
                     } catch (InstantiationException | IllegalAccessException e) {
                         throw new InvalidDeploymentStateException("Could not create relationship instance of type " + relationshipNode.getRelationshipType().getName(), e);

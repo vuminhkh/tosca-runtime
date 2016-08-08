@@ -22,11 +22,11 @@ import java.util.concurrent.TimeUnit;
 /**
  * Compute which is accessible by SSH
  */
-public abstract class SSHEnabledCompute extends Compute {
+public abstract class SSHCompute extends Compute {
 
-    private static final Logger log = LoggerFactory.getLogger(SSHEnabledCompute.class);
+    private static final Logger log = LoggerFactory.getLogger(SSHCompute.class);
 
-    protected SSHJExecutor artifactExecutor;
+    protected SSHJExecutor sshExecutor;
 
     protected String ipAddress;
 
@@ -70,8 +70,8 @@ public abstract class SSHEnabledCompute extends Compute {
     }
 
     protected void destroySshExecutor() {
-        if (artifactExecutor != null) {
-            artifactExecutor.close();
+        if (sshExecutor != null) {
+            sshExecutor.close();
         }
     }
 
@@ -84,15 +84,16 @@ public abstract class SSHEnabledCompute extends Compute {
         long waitBetweenConnectRetry = getWaitBetweenConnectRetry();
         try {
             // Create the executor
-            this.artifactExecutor = createExecutor(ipForSSSHSession);
+            this.sshExecutor = createExecutor(ipForSSSHSession);
             // Wait before initializing the connection
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeConnection()));
             // Initialize the connection
-            FailSafeUtil.doActionWithRetry(() -> artifactExecutor.initialize(), operationName, connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class, ArtifactAuthenticationFailureException.class);
+            FailSafeUtil.doActionWithRetry(() -> sshExecutor.initialize(), operationName, connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class, ArtifactAuthenticationFailureException.class);
             // Sometimes the created VM needs sometimes to initialize and to resolve DNS
             Thread.sleep(TimeUnit.SECONDS.toMillis(getWaitBeforeArtifactExecution()));
             // Upload the recipe to the remote host
             FailSafeUtil.doActionWithRetry(this::uploadRecipe, "Upload recipe", connectRetry, waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
+            registerArtifactExecutor("tosca.artifacts.Implementation.Bash", sshExecutor);
         } catch (ArtifactInterruptedException e) {
             throw e;
         } catch (Throwable e) {
@@ -105,25 +106,26 @@ public abstract class SSHEnabledCompute extends Compute {
     public void initialLoad() {
         super.initialLoad();
         this.ipAddress = getAttributeAsString("ip_address");
-        this.artifactExecutor = createExecutor(getIpAddressForSSHSession());
-        this.artifactExecutor.initialize();
+        this.sshExecutor = createExecutor(getIpAddressForSSHSession());
+        registerArtifactExecutor("tosca.artifacts.Implementation.Bash", sshExecutor);
+        this.sshExecutor.initialize();
     }
 
     @Override
     public void uploadRecipe() {
-        if (artifactExecutor == null) {
+        if (sshExecutor == null) {
             log.warn("Compute is not fully initialized, ignoring recipe update request");
             return;
         }
         String recipeLocation = getMandatoryPropertyAsString("recipe_location");
-        artifactExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation);
+        sshExecutor.upload(this.config.getArtifactsPath().toString(), recipeLocation);
     }
 
     protected Map<String, String> executeBySSH(String nodeId, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         String recipeLocation = getMandatoryPropertyAsString("recipe_location");
         try {
             return FailSafeUtil.doActionWithRetry(
-                    () -> artifactExecutor.executeArtifact(
+                    () -> sshExecutor.executeArtifact(
                             nodeId,
                             config.getArtifactsPath().resolve(operationArtifactPath),
                             recipeLocation + "/" + operationArtifactPath,

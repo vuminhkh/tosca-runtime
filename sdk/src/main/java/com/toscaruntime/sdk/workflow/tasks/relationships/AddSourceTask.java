@@ -16,7 +16,7 @@ public class AddSourceTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         synchronized (relationshipInstance.getTarget()) {
             // Do not add source on the same target instance in concurrence
             relationshipInstance.addSource();

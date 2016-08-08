@@ -16,7 +16,7 @@ public class PostConfigureSourceTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         if (relationshipInstance.getSource().getPostConfiguredRelationshipNodes().add(relationshipInstance.getNode())) {
             relationshipInstance.postConfigureSource();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.POST_CONFIGURING, RelationshipInstanceState.POST_CONFIGURED);

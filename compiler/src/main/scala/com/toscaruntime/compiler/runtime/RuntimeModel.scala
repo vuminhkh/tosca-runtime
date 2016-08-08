@@ -66,11 +66,14 @@ case class ListValue(value: String) extends StaticValue
 
 case class ComplexValue(value: String) extends StaticValue
 
+case class Artifact(reference: String,
+                    artifactType: String)
+
 case class Method(interfaceName: String,
                   operation: String,
                   // One of StaticValue, Function or CompositeFunction
                   inputs: Map[String, Value],
-                  implementation: Option[String]) {
+                  implementation: Option[Artifact]) {
   val interface = CodeGeneratorUtil.normalizeInterfaceName(interfaceName)
   val name = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operation)
 }

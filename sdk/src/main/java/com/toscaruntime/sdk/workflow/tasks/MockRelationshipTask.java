@@ -1,12 +1,11 @@
 package com.toscaruntime.sdk.workflow.tasks;
 
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.sdk.workflow.tasks.relationships.AbstractRelationshipTask;
 import com.toscaruntime.util.CodeGeneratorUtil;
-
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Set;
 
 /**
  * This task is used in case of scaling where we have connections to the outside or from the outside, we need to mock the lifecycle of the external source or target that they have already been created/started.
@@ -26,8 +25,8 @@ public class MockRelationshipTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
-        // Mock task do not run
+    protected void doRunRelationshipOperation() throws Throwable {
+        // Mock task does not run
     }
 
     @Override

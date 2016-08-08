@@ -1,17 +1,14 @@
 package com.toscaruntime.sdk.model;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.commons.lang.StringUtils;
-
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
-import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
-
+import org.apache.commons.lang.StringUtils;
 import tosca.constants.InstanceState;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public abstract class AbstractRuntimeType {
     /**
@@ -23,8 +20,6 @@ public abstract class AbstractRuntimeType {
      * Hold last operation outputs : operation name to key to value
      */
     protected Map<String, Map<String, String>> operationOutputs = new HashMap<>();
-
-    protected Deployment deployment;
 
     protected DeploymentConfig config;
 
@@ -41,6 +36,23 @@ public abstract class AbstractRuntimeType {
     public String getState() {
         return state;
     }
+
+    /**
+     * Method is called to notify plugin hooks, before entering an operation
+     *
+     * @param interfaceName name of the interface
+     * @param operationName name of the operation
+     */
+    public abstract void executePluginsHooksBeforeOperation(String interfaceName, String operationName) throws Throwable;
+
+
+    /**
+     * Method is called to notify plugin hooks, after execution of an operation with success
+     *
+     * @param interfaceName name of the interface
+     * @param operationName name of the operation
+     */
+    public abstract void executePluginsHooksAfterOperation(String interfaceName, String operationName) throws Throwable;
 
     /**
      * This method is called to set the state of the instance, it will trigger the persistence of the state
@@ -172,14 +184,6 @@ public abstract class AbstractRuntimeType {
 
     public void setDeploymentArtifacts(Map<String, String> deploymentArtifacts) {
         this.deploymentArtifacts = deploymentArtifacts;
-    }
-
-    public Deployment getDeployment() {
-        return deployment;
-    }
-
-    public void setDeployment(Deployment deployment) {
-        this.deployment = deployment;
     }
 
     public Map<String, Map<String, OperationInputDefinition>> getOperationInputs() {

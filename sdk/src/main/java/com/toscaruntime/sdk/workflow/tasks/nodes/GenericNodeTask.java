@@ -34,7 +34,7 @@ public class GenericNodeTask extends AbstractNodeTask {
     }
 
     @Override
-    protected void doRun() throws Throwable {
+    protected void doRunNodeOperation() throws Throwable {
         WorkflowUtil.invokeRuntimeTypeMethod(nodeInstance, nodeInstances, relationshipInstances, interfaceName, operationName);
     }
 }

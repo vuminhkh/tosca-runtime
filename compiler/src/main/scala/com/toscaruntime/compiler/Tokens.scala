@@ -44,6 +44,7 @@ object Tokens {
   val valid_target_types_token = "valid_target_types"
   val valid_sources_token = "valid_sources"
   val valid_targets_token = "valid_targets"
+  val file_token = "file"
   val file_ext_token = "file_ext"
   val relationship_token = "relationship"
   val relationship_type_token = "relationship_type"

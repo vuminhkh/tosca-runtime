@@ -141,6 +141,7 @@ public abstract class Deployment {
                                  Map<String, String> providerProperties,
                                  Map<String, Object> bootstrapContext,
                                  ProviderHook providerHook,
+                                 List<PluginHook> pluginHooks,
                                  DeploymentPersister deploymentPersister,
                                  boolean bootstrap) {
         this.config = new DeploymentConfig();
@@ -150,6 +151,7 @@ public abstract class Deployment {
         this.config.setBootstrapContext(bootstrapContext);
         this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
         this.config.setProviderProperties(providerProperties);
+        this.config.setPluginHooks(pluginHooks);
         this.deploymentPersister = deploymentPersister;
         this.providerHook = providerHook;
         this.workflowEngine.setProviderHook(providerHook);

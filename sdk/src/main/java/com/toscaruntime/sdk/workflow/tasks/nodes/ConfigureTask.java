@@ -16,7 +16,7 @@ public class ConfigureTask extends AbstractNodeTask {
     }
 
     @Override
-    public void doRun() {
+    public void doRunNodeOperation() {
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.CONFIGURING, false);
         nodeInstance.configure();
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.CONFIGURED, true);

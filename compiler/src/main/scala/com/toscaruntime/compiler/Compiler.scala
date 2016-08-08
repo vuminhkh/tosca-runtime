@@ -2,12 +2,13 @@ package com.toscaruntime.compiler
 
 import java.nio.file._
 import java.util.Comparator
+import java.util.function.Predicate
 import java.util.regex.Pattern
 
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.exception.compilation.{InvalidTopologyException, DependencyNotFoundException, EmptyArchiveException}
+import com.toscaruntime.exception.compilation.{DependencyNotFoundException, EmptyArchiveException, InvalidTopologyException}
 import com.toscaruntime.tosca.ToscaVersion
 import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
@@ -46,7 +47,9 @@ object Compiler extends LazyLogging {
       } else {
         val dependencyVersion = matcher.group(2)
         if ("*" == dependencyVersion) {
-          val maxVersionFound = Files.list(dependencyPath).max(new Comparator[Path] {
+          val maxVersionFound = Files.list(dependencyPath).filter(new Predicate[Path] {
+            override def test(t: Path): Boolean = Files.isReadable(t) && Files.isDirectory(t) && !Files.isHidden(t)
+          }).max(new Comparator[Path] {
             override def compare(o1: Path, o2: Path): Int = ToscaVersion(o1.getFileName.toString).compare(ToscaVersion(o2.getFileName.toString))
           })
           if (maxVersionFound.isPresent) {

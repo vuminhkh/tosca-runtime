@@ -1,27 +1,16 @@
 package com.toscaruntime.sdk;
 
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipInstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.RelationshipUninstallLifeCycleTasks;
 import com.toscaruntime.sdk.workflow.tasks.UninstallLifeCycleTasks;
-
 import tosca.nodes.Root;
 
-public interface ProviderHook {
+import java.util.Map;
+import java.util.Set;
 
-    /**
-     * Post construct a deployment. This provides a hook to inject provider's configuration and bootstrap context's information into the deployment.
-     * This method is executed just after the initialization of the deployment but before any workflow execution.
-     *
-     * @param deployment         the deployment to post process
-     * @param providerProperties properties of the provider
-     * @param bootstrapContext   bootstrap information
-     */
-    void postConstruct(Deployment deployment, Map<String, String> providerProperties, Map<String, Object> bootstrapContext);
+public interface ProviderHook extends Hook {
 
     /**
      * Post construct created instances for the deployment. This method is used to post construct newly created instances for the deployment.

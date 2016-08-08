@@ -21,7 +21,7 @@ public class DeleteTask extends AbstractNodeTask {
     }
 
     @Override
-    public void doRun() {
+    public void doRunNodeOperation() {
         WorkflowUtil.refreshDeploymentState(nodeInstances, relationshipInstances, nodeInstance, InstanceState.DELETING, false);
         try {
             nodeInstance.delete();

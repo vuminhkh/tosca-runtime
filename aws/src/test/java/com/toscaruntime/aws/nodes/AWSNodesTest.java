@@ -12,6 +12,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +43,7 @@ public class AWSNodesTest {
                 .put("access_key_id", System.getenv("AWS_ACCESS_KEY_ID"))
                 .put("access_key_secret", System.getenv("AWS_ACCESS_KEY_SECRET"))
                 .put("region", System.getenv("AWS_REGION")).build();
-        awsTestDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), awsProviderHook, Mockito.mock(DeploymentPersister.class), true);
+        awsTestDeployment.initializeConfig("testDeployment", ClassLoaderUtil.getPathForResource("recipe/"), new HashMap<>(), providerProperties, new HashMap<>(), awsProviderHook, new ArrayList<>(), Mockito.mock(DeploymentPersister.class), true);
         try {
             awsTestDeployment.run(awsTestDeployment.install()).waitForCompletion(15, TimeUnit.MINUTES);
             Instance compute = awsTestDeployment.getNodeInstancesByType(Instance.class).iterator().next();

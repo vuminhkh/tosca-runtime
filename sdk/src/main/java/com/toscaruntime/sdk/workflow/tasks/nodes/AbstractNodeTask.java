@@ -1,11 +1,10 @@
 package com.toscaruntime.sdk.workflow.tasks.nodes;
 
+import com.toscaruntime.sdk.workflow.tasks.AbstractOperationTask;
+import tosca.nodes.Root;
+
 import java.util.Map;
 import java.util.Set;
-
-import com.toscaruntime.sdk.workflow.tasks.AbstractOperationTask;
-
-import tosca.nodes.Root;
 
 public abstract class AbstractNodeTask extends AbstractOperationTask {
 
@@ -19,6 +18,15 @@ public abstract class AbstractNodeTask extends AbstractOperationTask {
     public Root getNodeInstance() {
         return nodeInstance;
     }
+
+    @Override
+    protected void doRun() throws Throwable {
+        nodeInstance.executePluginsHooksBeforeOperation(getInterfaceName(), getOperationName());
+        doRunNodeOperation();
+        nodeInstance.executePluginsHooksAfterOperation(getInterfaceName(), getOperationName());
+    }
+
+    protected abstract void doRunNodeOperation() throws Throwable;
 
     @Override
     public boolean equals(Object o) {

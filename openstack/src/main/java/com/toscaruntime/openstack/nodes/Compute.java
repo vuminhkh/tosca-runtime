@@ -3,7 +3,7 @@ package com.toscaruntime.openstack.nodes;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Sets;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
-import com.toscaruntime.nodes.SSHEnabledCompute;
+import com.toscaruntime.nodes.SSHCompute;
 import com.toscaruntime.openstack.util.FailSafeConfigUtil;
 import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SynchronizationUtil;
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
-public class Compute extends SSHEnabledCompute {
+public class Compute extends SSHCompute {
 
     private static final Logger log = LoggerFactory.getLogger(Compute.class);
 

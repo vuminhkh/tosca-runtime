@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  *
  * @author Minh Khang VU
  */
-public class ArtifactExecutorUtil {
+public class BashArtifactExecutorUtil {
 
     public static void createArtifactExecutor(PrintWriter commandWriter, String remotePath, String sheBang, String statusCodeToken, String environmentVariablesToken) {
         // Remove #! from the shebang to get the path to shell binary
@@ -50,7 +50,7 @@ public class ArtifactExecutorUtil {
                 commandWriter.println("sudo -s");
             }
             // Set env
-            List<String> setEnvCommands = ArtifactExecutorUtil.getSetEnvCommands(env);
+            List<String> setEnvCommands = BashArtifactExecutorUtil.getSetEnvCommands(env);
             setEnvCommands.stream().forEach(commandWriter::println);
             // Make executable
             commandWriter.println("chmod +x " + artifactPath);

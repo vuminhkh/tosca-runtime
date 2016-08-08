@@ -1,14 +1,9 @@
 package com.toscaruntime.docker.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class IpAddressUtil {
-
-    private static final Logger log = LoggerFactory.getLogger(IpAddressUtil.class);
 
     public static Map<String, String> extractSwarmNodesIpsMappings(Map<String, Object> bootstrapContext) {
         Map<String, String> ipMappings = extractSwarmNodesIpsMappings(bootstrapContext, "manager_ip_addresses", "manager_public_ip_addresses");

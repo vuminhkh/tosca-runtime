@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path}
 
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
+import com.toscaruntime.util.FileUtil
 
 import scala.collection.mutable.ListBuffer
 import scala.util.parsing.input.Positional
@@ -302,11 +303,17 @@ object SemanticAnalyzer {
     }.toList
   }
 
-  def analyzeOperation(runtimeType: RuntimeType, operationId: ParsedValue[String], operation: Operation, recipePath: Path): List[CompilationError] = {
+  def analyzeOperation(runtimeType: RuntimeType, operationId: ParsedValue[String], operation: Operation, recipePath: Path, csarPath: List[Csar]): List[CompilationError] = {
     val compilationErrors = ListBuffer[CompilationError]()
     operation.implementation.map { implementation =>
-      if (!Files.isRegularFile(recipePath.resolve(implementation.value))) {
-        compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.value))
+      if (implementation.ref.isEmpty) {
+        compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact's reference is missing", implementation.pos, None)
+      } else if (!Files.isRegularFile(recipePath.resolve(implementation.ref.get.value))) {
+        compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.ref.get.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.ref.get.value))
+      } else if (implementation.typeName.nonEmpty && TypeLoader.loadArtifactType(implementation.typeName.get.value, csarPath).isEmpty) {
+        compilationErrors += CompilationError(s"Operation [${operationId.value}]'s implementation artifact's type [${implementation.typeName.get.value}] is unknown", implementation.typeName.get.pos, Some(implementation.typeName.get.value))
+      } else if (implementation.typeName.isEmpty && TypeLoader.loadArtifactByFileExtension(FileUtil.getFileExtension(implementation.ref.get.value), csarPath).isEmpty) {
+        compilationErrors += CompilationError(s"Operation [${operationId.value}]'s implementation artifact's type [${implementation.ref.get.value}] cannot be deduced from its extension", implementation.ref.get.pos, Some(implementation.ref.get.value))
       }
     }
     operation.inputs.getOrElse(Map.empty).values.map {
@@ -317,14 +324,27 @@ object SemanticAnalyzer {
     compilationErrors.toList
   }
 
-  def analyzeInterfaces(runtimeType: RuntimeType, recipePath: Path) = {
+  def analyzeInterfaces(runtimeType: RuntimeType, recipePath: Path, csarPath: List[Csar]) = {
     runtimeType.interfaces.map { interfaces =>
       interfaces.values.flatMap { interface =>
         interface.operations.flatMap {
-          case (operationId: ParsedValue[String], operation: Operation) => analyzeOperation(runtimeType, operationId, operation, recipePath)
+          case (operationId: ParsedValue[String], operation: Operation) => analyzeOperation(runtimeType, operationId, operation, recipePath, csarPath)
         }
       }
     }.getOrElse(List.empty).toList
+  }
+
+  def analyzeDeploymentArtifacts(runtimeType: RuntimeType, recipePath: Path) = {
+    runtimeType.artifacts.getOrElse(Map.empty).flatMap {
+      case (name, artifact) =>
+        if (artifact.ref.isEmpty) {
+          Some(CompilationError("Deployment artifact [" + name.value + "]'s reference is missing", name.pos, Some(name.value)))
+        } else if (!Files.isRegularFile(recipePath.resolve(artifact.ref.get.value))) {
+          Some(CompilationError("Deployment artifact [" + name.value + "]'s reference [" + artifact.ref.get.value + "] is not found in recipe path [" + recipePath + "]", artifact.pos, Some(artifact.ref.get.value)))
+        } else {
+          None
+        }
+    }.toList
   }
 
   def analyzeNodeType(nodeType: NodeType, recipePath: Path, csarPath: List[Csar]) = {
@@ -334,7 +354,8 @@ object SemanticAnalyzer {
     compilationErrors ++= analyzeAttributeDefinitions(nodeType, csarPath)
     compilationErrors ++= analyzeRequirementDefinition(nodeType, csarPath)
     compilationErrors ++= analyzeCapabilityDefinition(nodeType, csarPath)
-    compilationErrors ++= analyzeInterfaces(nodeType, recipePath)
+    compilationErrors ++= analyzeInterfaces(nodeType, recipePath, csarPath)
+    compilationErrors ++= analyzeDeploymentArtifacts(nodeType, recipePath)
     compilationErrors.toList
   }
 
@@ -349,7 +370,8 @@ object SemanticAnalyzer {
     val compilationErrors = ListBuffer[CompilationError]()
     compilationErrors ++= analyzeDerivedFrom(relationshipType, csarPath, TypeLoader.loadRelationshipType)
     compilationErrors ++= analyzePropertyDefinitions(relationshipType, csarPath)
-    compilationErrors ++= analyzeInterfaces(relationshipType, recipePath)
+    compilationErrors ++= analyzeInterfaces(relationshipType, recipePath, csarPath)
+    compilationErrors ++= analyzeDeploymentArtifacts(relationshipType, recipePath)
     compilationErrors.toList
   }
 
@@ -522,7 +544,7 @@ object SemanticAnalyzer {
     topologyTemplate.nodeTemplates.getOrElse(Map.empty).values.foreach { nodeTemplate =>
       // Type not found should be detected long before reaching here
       TypeLoader.loadNodeType(nodeTemplate.typeName.get.value, csarPath).map { nodeType =>
-        if(nodeType.isAbstract.value) compilationErrors += CompilationError(s"Type ${nodeTemplate.typeName.get.value} is abstract and cannot be used in a deployment topology", nodeTemplate.typeName.get.pos, nodeTemplate.typeName.map(_.value))
+        if (nodeType.isAbstract.value) compilationErrors += CompilationError(s"Type ${nodeTemplate.typeName.get.value} is abstract and cannot be used in a deployment topology", nodeTemplate.typeName.get.pos, nodeTemplate.typeName.map(_.value))
       }
     }
     compilationErrors.toList

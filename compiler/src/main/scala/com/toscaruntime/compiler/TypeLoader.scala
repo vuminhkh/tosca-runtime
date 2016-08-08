@@ -24,6 +24,10 @@ object TypeLoader {
 
   def loadArtifactType(typeName: String, csarsPath: Seq[Csar]) = loadArtifactTypes(csarsPath).get(typeName)
 
+  def loadArtifactByFileExtension(fileExtension: String, csarsPath: Seq[Csar]) = {
+    loadArtifactTypes(csarsPath).values.find(artifactType => artifactType.fileExtension.nonEmpty && artifactType.fileExtension.get.contains(ParsedValue(fileExtension)))
+  }
+
   def loadArtifactTypes(csarsPath: Seq[Csar]) = csarsPath.flatMap(_.definitions.values.flatMap(_.artifactTypes.getOrElse(Map.empty).map(entry => (entry._1.value, entry._2)))).toMap
 
   def loadDataType(typeName: String, csarsPath: Seq[Csar]) = loadDataTypes(csarsPath).get(typeName)

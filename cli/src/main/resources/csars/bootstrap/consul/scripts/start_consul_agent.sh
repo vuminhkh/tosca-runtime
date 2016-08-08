@@ -9,6 +9,7 @@ fi
 sudo nohup consul agent ${SERVER_MODE} ${BOOTSTRAP_EXPECT} \
   -data-dir ${CONSUL_DATA_DIR} \
   -bind ${CONSUL_BIND_ADDRESS} \
+  -ui \
   -client 0.0.0.0 >/tmp/consul.log 2>&1 &
 
 # TODO Export the consul address by using consul members for later injection, for now we'll use default static address

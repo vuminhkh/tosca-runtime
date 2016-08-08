@@ -1,16 +1,14 @@
 package com.toscaruntime.sdk.workflow.tasks.relationships;
 
-import java.util.Map;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tosca.constants.RelationshipInstanceState;
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Set;
 
 public class RemoveTargetTask extends AbstractRelationshipTask {
 
@@ -21,7 +19,7 @@ public class RemoveTargetTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         synchronized (relationshipInstance.getSource()) {
             try {
                 relationshipInstance.removeTarget();

@@ -16,7 +16,7 @@ public class PreConfigureSourceTask extends AbstractRelationshipTask {
     }
 
     @Override
-    protected void doRun() {
+    protected void doRunRelationshipOperation() {
         if (relationshipInstance.getSource().getPreConfiguredRelationshipNodes().add(relationshipInstance.getNode())) {
             relationshipInstance.preConfigureSource();
             WorkflowUtil.changeRelationshipState(relationshipInstance, nodeInstances, relationshipInstances, RelationshipInstanceState.PRE_CONFIGURING, RelationshipInstanceState.PRE_CONFIGURED);

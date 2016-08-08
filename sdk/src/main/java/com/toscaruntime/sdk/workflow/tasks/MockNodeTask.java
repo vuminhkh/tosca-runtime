@@ -1,12 +1,11 @@
 package com.toscaruntime.sdk.workflow.tasks;
 
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.sdk.workflow.tasks.nodes.AbstractNodeTask;
 import com.toscaruntime.util.CodeGeneratorUtil;
-
 import tosca.nodes.Root;
+
+import java.util.Map;
+import java.util.Set;
 
 public class MockNodeTask extends AbstractNodeTask {
 
@@ -21,8 +20,8 @@ public class MockNodeTask extends AbstractNodeTask {
     }
 
     @Override
-    protected void doRun() {
-        // Mock task do not run
+    protected void doRunNodeOperation() throws Throwable {
+        // Mock task does not run
     }
 
     @Override
