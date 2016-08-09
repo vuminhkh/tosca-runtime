@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.toscaruntime.aws.util.FailSafeConfigUtil;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.nodes.SSHEnabledCompute;
+import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SynchronizationUtil;
 import org.apache.commons.lang.StringUtils;
 import org.jclouds.aws.ec2.options.AWSRunInstancesOptions;
@@ -84,8 +85,14 @@ public class Instance extends SSHEnabledCompute {
         if (StringUtils.isNotBlank(subnetId)) {
             runInstancesOptions.withSubnetId(subnetId);
         }
-        instance = instanceApi.runInstancesInRegion(null, availabilityZone, imageId, 1, 1, runInstancesOptions).iterator().next();
-        tagApi.applyToResources(ImmutableMap.of("Name", config.getDeploymentName() + "_" + getId()), ImmutableSet.of(instance.getId()));
+        int retryNumber = getAWSOperationRetry();
+        long coolDownPeriod = getAWSWaitBetweenOperationRetry();
+        FailSafeUtil.doActionWithRetry(() -> {
+            instance = instanceApi.runInstancesInRegion(null, availabilityZone, imageId, 1, 1, runInstancesOptions).iterator().next();
+        }, "Create compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS);
+        FailSafeUtil.doActionWithRetry(() -> {
+            tagApi.applyToResources(ImmutableMap.of("Name", config.getDeploymentName() + "_" + getId()), ImmutableSet.of(instance.getId()));
+        }, "Create name tag for compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS);
     }
 
     @Override
