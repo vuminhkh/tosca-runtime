@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path}
 
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
+import com.toscaruntime.constant.ToscaDataTypeConstant
 import com.toscaruntime.util.FileUtil
 
 import scala.collection.mutable.ListBuffer
@@ -83,32 +84,36 @@ object SemanticAnalyzer {
 
   def analyzeValue(value: FieldValue, valueType: FieldDefinition, csarPath: List[Csar]): List[CompilationError] = {
     val compilationErrors = ListBuffer[CompilationError]()
-    value match {
-      case scalar: ScalarValue =>
-        if (!FieldDefinition.isToscaPrimitiveType(valueType.valueType.value)) {
-          compilationErrors += CompilationError(s"Expect non primitive type [${valueType.valueType.value}] but found primitive value [${scalar.value}]", scalar.pos, Some(scalar.value))
-        } else {
-          compilationErrors ++= analyzeScalarValue(scalar, valueType, csarPath)
-        }
-      case list: ListValue =>
-        if (FieldDefinition.LIST != valueType.valueType.value) {
-          val listValueAsText = CompilerUtil.serializePropertyValueToJson(list)
-          compilationErrors += CompilationError(s"Value [$listValueAsText] is not valid for type [$valueType]", list.pos, Some(listValueAsText))
-        } else {
-          compilationErrors ++= analyzeListValue(list, valueType, csarPath)
-        }
-      case complex: ComplexValue =>
-        if (!FieldDefinition.isToscaNativeType(valueType.valueType.value)) {
-          val dataType = TypeLoader.loadDataTypeWithHierarchy(valueType.valueType.value, csarPath)
-          if (dataType.isEmpty) {
-            compilationErrors += CompilationError(s"Type [${valueType.valueType.value}] is not valid or cannot be found", valueType.valueType.pos, Some(valueType.valueType.value))
+    // If the value type is ToscaDataTypeConstant.ROOT, it means that it's a wild card type and it can be anything
+    // In this case don't try to validate the value
+    if (ToscaDataTypeConstant.ROOT != valueType.valueType.value) {
+      value match {
+        case scalar: ScalarValue =>
+          if (!FieldDefinition.isToscaPrimitiveType(valueType.valueType.value)) {
+            compilationErrors += CompilationError(s"Expect non primitive type [${valueType.valueType.value}] but found primitive value [${scalar.value}]", scalar.pos, Some(scalar.value))
           } else {
-            compilationErrors ++= analyzeDataTypeValue(complex, dataType.get.properties, csarPath)
+            compilationErrors ++= analyzeScalarValue(scalar, valueType, csarPath)
           }
-        } else {
-          compilationErrors ++= analyzeMapValue(complex, valueType, csarPath)
-        }
-      case _ =>
+        case list: ListValue =>
+          if (FieldDefinition.LIST != valueType.valueType.value) {
+            val listValueAsText = CompilerUtil.serializePropertyValueToJson(list)
+            compilationErrors += CompilationError(s"Value [$listValueAsText] is not valid for type [$valueType]", list.pos, Some(listValueAsText))
+          } else {
+            compilationErrors ++= analyzeListValue(list, valueType, csarPath)
+          }
+        case complex: ComplexValue =>
+          if (!FieldDefinition.isToscaNativeType(valueType.valueType.value)) {
+            val dataType = TypeLoader.loadDataTypeWithHierarchy(valueType.valueType.value, csarPath)
+            if (dataType.isEmpty) {
+              compilationErrors += CompilationError(s"Type [${valueType.valueType.value}] is not valid or cannot be found", valueType.valueType.pos, Some(valueType.valueType.value))
+            } else {
+              compilationErrors ++= analyzeDataTypeValue(complex, dataType.get.properties, csarPath)
+            }
+          } else {
+            compilationErrors ++= analyzeMapValue(complex, valueType, csarPath)
+          }
+        case _ =>
+      }
     }
     compilationErrors.toList
   }
@@ -312,7 +317,7 @@ object SemanticAnalyzer {
         compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.ref.get.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.ref.get.value))
       } else if (implementation.typeName.nonEmpty && TypeLoader.loadArtifactType(implementation.typeName.get.value, csarPath).isEmpty) {
         compilationErrors += CompilationError(s"Operation [${operationId.value}]'s implementation artifact's type [${implementation.typeName.get.value}] is unknown", implementation.typeName.get.pos, Some(implementation.typeName.get.value))
-      } else if (implementation.typeName.isEmpty && TypeLoader.loadArtifactByFileExtension(FileUtil.getFileExtension(implementation.ref.get.value), csarPath).isEmpty) {
+      } else if (implementation.typeName.isEmpty && TypeLoader.loadArtifactTypeByFileExtension(FileUtil.getFileExtension(implementation.ref.get.value), csarPath).isEmpty) {
         compilationErrors += CompilationError(s"Operation [${operationId.value}]'s implementation artifact's type [${implementation.ref.get.value}] cannot be deduced from its extension", implementation.ref.get.pos, Some(implementation.ref.get.value))
       }
     }
@@ -339,7 +344,7 @@ object SemanticAnalyzer {
       case (name, artifact) =>
         if (artifact.ref.isEmpty) {
           Some(CompilationError("Deployment artifact [" + name.value + "]'s reference is missing", name.pos, Some(name.value)))
-        } else if (!Files.isRegularFile(recipePath.resolve(artifact.ref.get.value))) {
+        } else if (!Files.exists(recipePath.resolve(artifact.ref.get.value))) {
           Some(CompilationError("Deployment artifact [" + name.value + "]'s reference [" + artifact.ref.get.value + "] is not found in recipe path [" + recipePath + "]", artifact.pos, Some(artifact.ref.get.value)))
         } else {
           None
@@ -488,9 +493,7 @@ object SemanticAnalyzer {
           }
         }.getOrElse(List.empty)
         nodeTemplate.requirements.foreach { requirements =>
-          requirements.foreach {
-            case requirement => compilationErrors ++= analyzeRequirement(topologyTemplate, nodeTemplate.name.value, typeFound.get, typeFound.get.requirements, requirement, csarPath)
-          }
+          requirements.foreach(requirement => compilationErrors ++= analyzeRequirement(topologyTemplate, nodeTemplate.name.value, typeFound.get, typeFound.get.requirements, requirement, csarPath))
         }
       }
     } else {

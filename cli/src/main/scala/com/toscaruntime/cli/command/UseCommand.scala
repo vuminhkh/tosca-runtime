@@ -92,11 +92,11 @@ object UseCommand {
     }
     var config =
       s"""# Attention this file is auto-generated and might be overwritten when configuration changes
-          |docker.io.url="$url"""".stripMargin
+          |${DockerUtil.DOCKER_URL_KEY}="$url"""".stripMargin
     if (StringUtils.isNotBlank(cert)) {
       config +=
         s"""
-           |docker.io.dockerCertPath=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
+           |${DockerUtil.DOCKER_CERT_PATH_KEY}=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
 

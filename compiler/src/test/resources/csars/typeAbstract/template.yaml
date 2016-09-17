@@ -5,7 +5,7 @@ template_author: MKV
 
 imports:
   - tosca-normative-types:*
-  - docker-provider-types:*
+  - toscaruntime-docker-provider-types:*
 
 topology_template:
 

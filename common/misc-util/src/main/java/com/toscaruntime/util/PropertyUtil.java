@@ -1,18 +1,75 @@
 package com.toscaruntime.util;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.commons.lang.StringUtils;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.configuration.PropertyAccessException;
 import com.toscaruntime.exception.deployment.configuration.PropertyRequiredException;
+import org.apache.commons.lang.StringUtils;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 public class PropertyUtil {
+
+    public static Map<String, String> flatten(Map<String, Object> properties) {
+        Map<String, String> result = new HashMap<>();
+        for (Map.Entry<String, Object> propertyEntry : properties.entrySet()) {
+            Object flatten = doFlatten(propertyEntry.getKey(), propertyEntry.getValue());
+            if (flatten instanceof String) {
+                result.put(propertyEntry.getKey(), (String) flatten);
+            } else if (flatten instanceof Map) {
+                result.putAll((Map<String, String>) flatten);
+            }
+        }
+        return result;
+    }
+
+    private static Object doFlatten(String prefix, Object property) {
+        if (property instanceof Map) {
+            return doFlattenMap(prefix, (Map<String, Object>) property);
+        } else if (property instanceof Object[]) {
+            return doFlattenList(prefix, Arrays.asList((Object[]) property));
+        } else if (property instanceof Collection) {
+            return doFlattenList(prefix, (Collection<Object>) property);
+        } else {
+            return property != null ? String.valueOf(property) : null;
+        }
+    }
+
+    private static Map<String, String> doFlattenMap(String prefix, Map<String, Object> mapProperty) {
+        Map<String, String> flattenProperties = new HashMap<>();
+        for (Map.Entry<String, Object> propertyEntry : mapProperty.entrySet()) {
+            String entryPrefix = prefix + "." + propertyEntry.getKey();
+            Object flattenValue = doFlatten(entryPrefix, propertyEntry.getValue());
+            if (flattenValue instanceof String) {
+                flattenProperties.put(entryPrefix, (String) flattenValue);
+            } else if (flattenValue instanceof Map) {
+                flattenProperties.putAll((Map<String, String>) flattenValue);
+            }
+        }
+        return flattenProperties;
+    }
+
+    private static Map<String, String> doFlattenList(String prefix, Collection<Object> listProperty) {
+        Map<String, String> flattenProperties = new HashMap<>();
+        int i = 0;
+        for (Object property : listProperty) {
+            String entryPrefix = prefix + "[" + i + "]";
+            Object flattenValue = doFlatten(entryPrefix, property);
+            if (flattenValue instanceof String) {
+                flattenProperties.put(entryPrefix, (String) flattenValue);
+            } else if (flattenValue instanceof Map) {
+                flattenProperties.putAll((Map<String, String>) flattenValue);
+            }
+            i++;
+        }
+        return flattenProperties;
+    }
 
     public static List<Object> toList(String propertyValue) {
         try {

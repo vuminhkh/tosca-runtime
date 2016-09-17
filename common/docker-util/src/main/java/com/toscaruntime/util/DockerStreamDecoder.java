@@ -1,87 +1,83 @@
 package com.toscaruntime.util;
 
 import com.github.dockerjava.api.model.Frame;
-import com.github.dockerjava.api.model.StreamType;
 import com.github.dockerjava.core.async.ResultCallbackTemplate;
-import com.google.common.collect.Lists;
+import com.toscaruntime.exception.UnexpectedException;
 
 import java.io.IOException;
-import java.util.List;
+import java.io.InputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 
 /**
  * Decoder for docker stream protocol
  */
 public class DockerStreamDecoder extends ResultCallbackTemplate<DockerStreamDecoder, Frame> {
 
-    private CommandLogger logger;
+    private PipedInputStream stdOut;
 
-    private StringBuilder stdinBuffer;
+    private PipedOutputStream stdOutWriter;
 
-    private StringBuilder stdoutBuffer;
+    private PipedInputStream stdErr;
 
-    private StringBuilder stderrBuffer;
+    private PipedOutputStream stdErrWriter;
 
-    DockerStreamDecoder(CommandLogger logger) {
-        this.logger = logger;
-        this.stdinBuffer = new StringBuilder();
-        this.stdoutBuffer = new StringBuilder();
-        this.stderrBuffer = new StringBuilder();
+    public DockerStreamDecoder() {
+        try {
+            this.stdErrWriter = new PipedOutputStream();
+            this.stdErr = new PipedInputStream();
+            this.stdErr.connect(this.stdErrWriter);
+            this.stdOut = new PipedInputStream();
+            this.stdOutWriter = new PipedOutputStream();
+            this.stdOut.connect(this.stdOutWriter);
+        } catch (IOException e) {
+            throw new UnexpectedException("Could not create piped stream", e);
+        }
     }
 
-    private StringBuilder getBuffer(StreamType streamType) throws IOException {
-        switch (streamType) {
-            case STDIN:
-                return stdinBuffer;
-            case RAW:
-            case STDOUT:
-                return stdoutBuffer;
-            case STDERR:
-                return stderrBuffer;
-            default:
-                throw new IOException("Docker stream is corrupted");
+    private void closeStreams() {
+        try {
+            this.stdOutWriter.close();
+            this.stdErrWriter.close();
+        } catch (IOException e) {
+            throw new UnexpectedException("Could not close piped stream", e);
         }
     }
 
     @Override
+    public void onComplete() {
+        super.onComplete();
+        closeStreams();
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        super.onError(throwable);
+        closeStreams();
+    }
+
+    @Override
     public void onNext(Frame frame) {
-        List<DecoderResult> result = Lists.newArrayList();
         try {
-            StringBuilder currentLine = getBuffer(frame.getStreamType());
-            String newData = new String(frame.getPayload(), "UTF-8");
-            for (int i = 0; i < newData.length(); i++) {
-                char c = newData.charAt(i);
-                if (c == '\n') {
-                    result.add(new DecoderResult(frame.getStreamType(), currentLine.toString()));
-                    currentLine.setLength(0);
-                } else {
-                    currentLine.append(c);
-                }
-            }
-            for (DecoderResult line : result) {
-                logger.log(line);
+            switch (frame.getStreamType()) {
+                case RAW:
+                case STDOUT:
+                    this.stdOutWriter.write(frame.getPayload());
+                    break;
+                default:
+                    this.stdErrWriter.write(frame.getPayload());
+                    break;
             }
         } catch (IOException e) {
-            onError(e);
+            throw new UnexpectedException("Could not read frame", e);
         }
     }
 
-    static class DecoderResult {
+    public InputStream getStdOutStream() {
+        return this.stdOut;
+    }
 
-        private StreamType streamType;
-
-        private String line;
-
-        DecoderResult(StreamType streamType, String line) {
-            this.streamType = streamType;
-            this.line = line;
-        }
-
-        StreamType getStreamType() {
-            return streamType;
-        }
-
-        public String getData() {
-            return line;
-        }
+    public InputStream getStdErrStream() {
+        return this.stdErr;
     }
 }

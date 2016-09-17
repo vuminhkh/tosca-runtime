@@ -2,7 +2,6 @@ package com.toscaruntime.compiler.util
 
 import java.nio.file.Path
 
-import com.google.common.base.CaseFormat
 import com.toscaruntime.compiler.tosca._
 
 import scala.util.parsing.json._
@@ -49,9 +48,7 @@ object CompilerUtil {
   }
 
   private def convertList(list: Iterable[Any]) = {
-    JSONArray(list.map {
-      case el => convertObject(el)
-    }.toList)
+    JSONArray(list.map(convertObject).toList)
   }
 
   def serializePropertyValueToJson(obj: PropertyValue[_]) = {
@@ -60,5 +57,24 @@ object CompilerUtil {
 
   def normalizeCSARName(csarName: String) = {
     csarName.replaceAll("[\\s:]", "_")
+  }
+
+  def isProviderTypes(csarName: String): Boolean = {
+    csarName.startsWith("toscaruntime-") && csarName.endsWith("-provider-types") && csarName != "toscaruntime-common-provider-types"
+  }
+
+  def isPluginTypes(csarName: String): Boolean = {
+    csarName.startsWith("toscaruntime-") && csarName.endsWith("-plugin-types")
+  }
+
+  def isSdkTypes(csarName: String): Boolean = {
+    csarName == "toscaruntime-common-provider-types" ||
+      csarName == "tosca-normative-types"
+  }
+
+  def pluginNameFromCsarName(csarName: String) = {
+    if (isProviderTypes(csarName)) csarName.substring("toscaruntime-".length, csarName.length - "-provider-types".length)
+    else if (isPluginTypes(csarName)) csarName.substring("toscaruntime-".length, csarName.length - "-plugin-types".length)
+    else throw new IllegalArgumentException(s"$csarName does not match a plugin of a provider")
   }
 }

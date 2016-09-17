@@ -15,7 +15,12 @@ import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -200,7 +205,7 @@ public abstract class Root extends AbstractRuntimeType {
         return postConfiguredRelationshipNodes;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath) {
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
         Compute host = getComputableHost();
         if (host == null) {
             // This error should be avoided by validating the recipe in compilation phase
@@ -217,7 +222,7 @@ public abstract class Root extends AbstractRuntimeType {
             Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
             inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getId(), siblingInputDefinitions));
         }
-        return host.execute(getId(), operationArtifactPath, inputs, getDeploymentArtifacts());
+        return host.execute(getId(), operationName, operationArtifactPath, artifactType, inputs, getDeploymentArtifacts());
     }
 
     public void create() {

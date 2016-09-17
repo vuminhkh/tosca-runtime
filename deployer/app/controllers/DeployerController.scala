@@ -1,7 +1,7 @@
 package controllers
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.{Files, Path, Paths}
 import javax.inject.Inject
 
 import com.toscaruntime.constant.{DeployerConstant, ToscaInterfaceConstant}
@@ -9,9 +9,9 @@ import com.toscaruntime.exception.BadUsageException
 import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowArgumentException
 import com.toscaruntime.rest.model._
-import com.toscaruntime.runtime.Deployer
+import com.toscaruntime.runtime.{Deployer, PluginConfiguration, ProviderConfiguration, TargetConfiguration}
 import com.toscaruntime.sdk.Deployment
-import com.toscaruntime.util.JavaScalaConversionUtil
+import com.toscaruntime.util.{JavaScalaConversionUtil, ScalaFileUtil}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
 import dao.DeploymentDAO
@@ -47,20 +47,28 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
 
   lazy val bootstrap = deploymentConfiguration.getBoolean(DeployerConstant.BOOTSTRAP_KEY)
 
-  lazy val providerConfiguration = {
-    val providerConfig = ConfigFactory.parseFile(
-      new File(play.Play.application().configuration().getString("com.toscaruntime.provider.confFile"))
-    ).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
-    providerConfig.entrySet().asScala.map { entry =>
-      (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])
-    }.toMap
+  private def loadTarget(targetPath: Path) = {
+    val providerConfig = ConfigFactory.parseFile(targetPath.toFile).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
+    TargetConfiguration(targetPath.getFileName.toString, providerConfig.root().unwrapped())
+  }
+
+  private def loadProvider(providerPath: Path) = ProviderConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget))
+
+  private def loadPlugin(providerPath: Path) = PluginConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget))
+
+  lazy val providerConfigurations = {
+    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.provider.confDir"))).map(loadProvider)
+  }
+
+  lazy val pluginConfigurations = {
+    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.plugin.confDir"))).map(loadPlugin)
   }
 
   lazy val deployment: Deployment = {
     if (!deploymentDAO.isSchemaCreated) {
       deploymentDAO.createSchema()
     }
-    Deployer.createDeployment(deploymentName, recipePath, deploymentInputsPath, providerConfiguration, bootstrapContextPath, bootstrap, play.Play.application().classloader(), deploymentDAO)
+    Deployer.createDeployment(deploymentName, recipePath, deploymentInputsPath, providerConfigurations, pluginConfigurations, bootstrapContextPath, bootstrap, play.Play.application().classloader(), deploymentDAO)
   }
 
   private def createExecution(workflowExecutionRequest: WorkflowExecutionRequest) = {

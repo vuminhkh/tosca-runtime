@@ -1,0 +1,81 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+template_name: toscaruntime-openstack-provider-types
+template_version: ${version}
+template_author: mkv
+
+imports:
+  - tosca-normative-types:*
+  - toscaruntime-common-provider-types:${version}
+
+node_types:
+
+  com.toscaruntime.openstack.nodes.Compute:
+    derived_from: com.toscaruntime.common.nodes.Compute
+    properties:
+      image:
+        type: string
+      flavor:
+        type: string
+      admin_pass:
+        type: string
+        required: false
+      key_pair_name:
+        type: string
+      networks:
+        type: list
+        entry_schema:
+          type: string
+        required: false
+      security_group_names:
+        type: list
+        entry_schema:
+          type: string
+        required: false
+      availability_zone:
+        type: string
+        required: false
+      user_data:
+        type: string
+        required: false
+      config_drive:
+        type: boolean
+        required: false
+
+  com.toscaruntime.openstack.nodes.Network:
+    derived_from: tosca.nodes.Network
+    properties:
+      dns_name_servers:
+        type: list
+        entry_schema:
+          type: string
+        required: false
+
+  com.toscaruntime.openstack.nodes.ExternalNetwork:
+    derived_from: tosca.nodes.Network
+
+  com.toscaruntime.openstack.nodes.Volume:
+    derived_from: tosca.nodes.BlockStorage
+    properties:
+      availability_zone:
+        type: string
+        required: false
+      device:
+        type: string
+        required: false
+      volume_description:
+        type: string
+        required: false
+      volume_type:
+        type: string
+        required: false
+      snapshot_id:
+        type: string
+        required: false
+      metadata:
+        type: map
+        required: false
+        entry_schema:
+          type: string
+
+  com.toscaruntime.openstack.nodes.DeletableVolume:
+    derived_from: com.toscaruntime.openstack.nodes.Volume

@@ -25,7 +25,7 @@ object Compiler extends LazyLogging {
 
   val repositoryDependencyPattern = """([^:]*):([^:]*)""".r
 
-  private def resolveToscaRecipe(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
+  private def resolveToscaRecipe(repository: Path) = { dependencyDefinition: String =>
     doResolve(repositoryDependencyPattern.pattern, dependencyDefinition, repository).map {
       case (dependencyName, dependencyVersion, resolvedDependency) =>
         (dependencyName + ":" + dependencyVersion,
@@ -33,7 +33,7 @@ object Compiler extends LazyLogging {
     }
   }
 
-  private def resolveCsarPath(repository: Path) = { (dependencyDefinition: String, basePath: Option[Path]) =>
+  private def resolveCsarPath(repository: Path) = { dependencyDefinition: String =>
     doResolve(repositoryDependencyPattern.pattern, dependencyDefinition, repository)
   }
 
@@ -76,7 +76,7 @@ object Compiler extends LazyLogging {
     */
   def getCsarToscaRecipePath(csarName: String, csarVersion: String, repository: Path) = {
     val dependencyResolver = resolveToscaRecipe(repository)
-    dependencyResolver(csarName + ":" + csarVersion, None).map(_._2)
+    dependencyResolver(csarName + ":" + csarVersion).map(_._2)
   }
 
   /**
@@ -89,14 +89,14 @@ object Compiler extends LazyLogging {
     */
   def getCsarPath(csarName: String, csarVersion: String, repository: Path) = {
     val dependencyResolver = resolveCsarPath(repository)
-    dependencyResolver(csarName + ":" + csarVersion, None).map(_._3)
+    dependencyResolver(csarName + ":" + csarVersion).map(_._3)
   }
 
   def compile(csarName: String,
               csarVersion: String,
               repository: Path): CompilationResult = {
     val dependencyResolver = resolveToscaRecipe(repository)
-    val csarPathOpt = dependencyResolver(csarName + ":" + csarVersion, None)
+    val csarPathOpt = dependencyResolver(csarName + ":" + csarVersion)
     csarPathOpt.map(csarPath => compile(csarPath._2, dependencyResolver)).getOrElse(throw new DependencyNotFoundException(s"Csar $csarName:$csarVersion not found in repository $repository"))
   }
 
@@ -104,10 +104,15 @@ object Compiler extends LazyLogging {
     compile(path, resolveToscaRecipe(repository))
   }
 
+  private def getDependenciesBinaries(repository: Path, compilationResult: CompilationResult) = {
+    val installedDependencyResolver = resolveCsarPath(repository)
+    compilationResult.dependencies.keys.map(installedDependencyResolver).map(_.get).map(_._3.resolve(CompilerConstant.TARGET_FOLDER)).toList
+  }
+
   def install(path: Path, repository: Path): CompilationResult = {
-    val dependencyResolver = resolveToscaRecipe(repository)
-    compile(path, dependencyResolver, mutable.Map.empty, {
-      case compilationResult: CompilationResult =>
+    val dependencyToscaRecipeResolver = resolveToscaRecipe(repository)
+    compile(path, dependencyToscaRecipeResolver, mutable.Map.empty, {
+      compilationResult: CompilationResult =>
         if (compilationResult.isSuccessful) {
           logger.info("Build successful for path {}", path.toString)
           logger.info("Installing {} to {}", compilationResult.csar.csarName + ":" + compilationResult.csar.csarVersion, repository.toString)
@@ -116,7 +121,7 @@ object Compiler extends LazyLogging {
             FileUtil.delete(compilationOutput)
           }
           Files.createDirectories(compilationOutput)
-          CodeGenerator.generate(compilationResult.csar, compilationResult.dependencies.values.toList, path, compilationOutput)
+          CodeGenerator.generate(compilationResult.csar, compilationResult.dependencies.values.toList, getDependenciesBinaries(repository, compilationResult), path, compilationOutput)
         } else {
           logger.info("Build failed for path {}, will not install the csar", path.toString)
         }
@@ -124,7 +129,7 @@ object Compiler extends LazyLogging {
   }
 
   def compile(path: Path,
-              dependencyResolver: (String, Option[Path]) => Option[(String, Path)],
+              dependencyResolver: String => Option[(String, Path)],
               compilationCache: mutable.Map[String, CompilationResult] = mutable.Map.empty,
               postCompilation: (CompilationResult) => Unit = { _ => },
               switchOnAnalyzeSemantic: Boolean = true): CompilationResult = {
@@ -151,7 +156,7 @@ object Compiler extends LazyLogging {
           (definition._1, defImport)
         }
       }.map { dependency =>
-        (dependency, dependencyResolver(dependency._2.value, Some(absPath)))
+        (dependency, dependencyResolver(dependency._2.value))
       }
 
       val importErrors = dependencies.filter(_._2.isEmpty).map {
@@ -169,7 +174,7 @@ object Compiler extends LazyLogging {
           case ((defFile, ParsedValue(dependency)), Some((dependencyId, dependencyPath))) =>
             if (compilationCache.contains(dependencyId)) {
               logger.debug("Compile {}, hit cache for dependency {}", path, dependency)
-              val dependencyCompilationResult = compilationCache.get(dependencyId).get
+              val dependencyCompilationResult = compilationCache(dependencyId)
               (dependencyId, dependencyCompilationResult)
             } else {
               logger.debug("Compile {}, compiling transitive dependency {}", path, dependency)
@@ -206,15 +211,17 @@ object Compiler extends LazyLogging {
   def assembly(topologyPath: Path,
                outputPath: Path,
                repositoryPath: Path,
-               inputs: Option[Path]): CompilationResult = {
-    assembly(topologyPath, outputPath, repositoryPath, inputs, resolveCsarPath(repositoryPath))
+               inputs: Option[Path],
+               pluginsPaths: List[Path] = List.empty): CompilationResult = {
+    assembly(topologyPath, outputPath, repositoryPath, inputs, resolveCsarPath(repositoryPath), pluginsPaths)
   }
 
   def assembly(topologyPath: Path,
                outputPath: Path,
                repositoryPath: Path,
                inputs: Option[Path],
-               assemblyDependenciesResolver: (String, Option[Path]) => Option[(String, String, Path)]): CompilationResult = {
+               assemblyDependenciesResolver: String => Option[(String, String, Path)],
+               pluginsPaths: List[Path]): CompilationResult = {
     val topologyCompilationResult = compile(topologyPath, resolveToscaRecipe(repositoryPath), mutable.Map.empty, _ => {}, switchOnAnalyzeSemantic = false)
     val inputsParseResult = inputs.map { inputsPath =>
       SyntaxAnalyzer.parse(SyntaxAnalyzer.topologyExternalInputs, FileUtil.readTextFile(inputsPath))
@@ -259,15 +266,25 @@ object Compiler extends LazyLogging {
       if (inputErrors.isEmpty && semanticErrors.isEmpty && beforeDeploymentSemanticErrors.isEmpty) {
         val mergedDefinitions = topologyCompilationResult.csar.definitions + (definitionWithTopologyEntry.get._1 -> definitionWithTopologyEntry.get._2.copy(topologyTemplate = Some(mergedTopology)))
         val mergedCsar = Csar(topologyPath.toAbsolutePath.toString, mergedDefinitions)
-        val recipePath = outputPath.resolve("recipe")
-        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, recipePath)
+        val recipePath = outputPath.resolve(CompilerConstant.ASSEMBLY_RECIPE_FOLDER)
+        Files.createDirectories(outputPath.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER))
+        Files.createDirectories(outputPath.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER))
         topologyCompilationResult.dependencies.foreach {
+          // Do not assembly normative types with the topology as it's provided by the framework
           case (csarId, csar) =>
-            val assemblyDependency = assemblyDependenciesResolver(csarId, None).get._3
-            FileUtil.copy(assemblyDependency, recipePath, StandardCopyOption.REPLACE_EXISTING)
+            val assemblyDependency = assemblyDependenciesResolver(csarId).get._3
+            val isProvider = CompilerUtil.isProviderTypes(csar.csarName)
+            val isPlugin = CompilerUtil.isPluginTypes(csar.csarName)
+            if (isProvider) {
+              FileUtil.copy(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
+            } else if (isPlugin) {
+              FileUtil.copy(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
+            } else {
+              FileUtil.copy(assemblyDependency, recipePath, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
-        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, topologyPath, recipePath)
         if (inputs.isDefined) Files.copy(inputs.get, outputPath.resolve("inputs.yaml"), StandardCopyOption.REPLACE_EXISTING)
+        CodeGenerator.generate(mergedCsar, topologyCompilationResult.dependencies.values.toList, getDependenciesBinaries(repositoryPath, topologyCompilationResult), topologyPath, recipePath)
         topologyCompilationResult.copy(csar = mergedCsar)
       } else {
         val errorsWithInput = beforeDeploymentSemanticErrors ++ inputErrors ++ topologyCompilationResult.errors.getOrElse(definitionWithTopologyEntry.get._1, List.empty)

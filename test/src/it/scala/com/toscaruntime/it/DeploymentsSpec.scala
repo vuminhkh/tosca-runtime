@@ -20,7 +20,7 @@ class DeploymentsSpec extends AbstractSpec with MustMatchers {
 
       Given("I download and install all necessary types for wordpress deployment")
       installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/alien4cloud/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("mysql")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("php")))

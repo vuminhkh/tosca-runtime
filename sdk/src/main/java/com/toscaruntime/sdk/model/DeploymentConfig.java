@@ -1,5 +1,6 @@
 package com.toscaruntime.sdk.model;
 
+import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.sdk.PluginHook;
 
@@ -21,24 +22,9 @@ public class DeploymentConfig {
     private String deploymentName;
 
     /**
-     * Properties to initialize the providers, it can be openstack account information, docker url etc ...
-     */
-    private Map<String, String> providerProperties;
-
-    /**
      * Inputs of the deployment
      */
     private Map<String, Object> inputs = new HashMap<>();
-
-    /**
-     * The bootstrap context hold information about the context of the daemon application server (id of network on openstack etc ...)
-     */
-    private Map<String, Object> bootstrapContext;
-
-    /**
-     * Path to the deployment recipe (which must contain artifacts, provider dependencies, deployment, provider configurations ...)
-     */
-    private Path recipePath;
 
     /**
      * Path to the tosca artifacts (scripts, binaries etc ...)
@@ -59,12 +45,17 @@ public class DeploymentConfig {
 
     private List<PluginHook> pluginHooks;
 
-    public Map<String, String> getProviderProperties() {
-        return providerProperties;
+    /**
+     * Executor's registry for the deployment
+     */
+    private Map<String, Class<? extends Executor>> artifactExecutorRegistry = new HashMap<>();
+
+    public Map<String, Class<? extends Executor>> getArtifactExecutorRegistry() {
+        return artifactExecutorRegistry;
     }
 
-    public void setProviderProperties(Map<String, String> providerProperties) {
-        this.providerProperties = providerProperties;
+    public void setArtifactExecutorRegistry(Map<String, Class<? extends Executor>> artifactExecutorRegistry) {
+        this.artifactExecutorRegistry = artifactExecutorRegistry;
     }
 
     public String getDeploymentName() {
@@ -81,14 +72,6 @@ public class DeploymentConfig {
 
     public void setInputs(Map<String, Object> inputs) {
         this.inputs = inputs;
-    }
-
-    public Path getRecipePath() {
-        return recipePath;
-    }
-
-    public void setRecipePath(Path recipePath) {
-        this.recipePath = recipePath;
     }
 
     public Path getArtifactsPath() {
@@ -113,14 +96,6 @@ public class DeploymentConfig {
 
     public void setTopologyResourcePath(Path topologyResourcePath) {
         this.topologyResourcePath = topologyResourcePath;
-    }
-
-    public Map<String, Object> getBootstrapContext() {
-        return bootstrapContext;
-    }
-
-    public void setBootstrapContext(Map<String, Object> bootstrapContext) {
-        this.bootstrapContext = bootstrapContext;
     }
 
     public DeploymentPersister getDeploymentPersister() {

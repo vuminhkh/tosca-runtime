@@ -2,6 +2,7 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.Path
 
+import com.toscaruntime.cli.Args._
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.exception.client.BadRequestException
@@ -264,7 +265,7 @@ object AgentsCommand extends LazyLogging {
        |  $synopsisToken%-30s $executeRelationshipInstanceCmd [EXECUTE_OPTIONS] <deployment id> <source instance> <target instance> <relationship type> <operation>
        |
        |  EXECUTE_OPTIONS:
-       |    $inputOpt%-28s define operation input "$inputOpt key=value" (can be repeated for multiple inputs)
+       |    $inputOpt%-28s define operation input "$inputOpt=key:value" (can be repeated for multiple inputs)
        |    $transientOpt%-28s an execution is transient then can be executed even if there's unfinished execution
        |    $interfaceOpt%-28s custom interface for the operation if it's not a standard lifecycle
     """.stripMargin
@@ -382,28 +383,6 @@ object AgentsCommand extends LazyLogging {
     AgentUtil.updateDeploymentRecipe(client, deploymentId, workDir.resolve(deploymentId))
   }
 
-  def getInterfaceOption(opts: Seq[Any]) = {
-    opts.find {
-      case (`interfaceOpt`, _) => true
-      case _ => false
-    }.map {
-      case (`interfaceOpt`, interface: String) => interface
-    }
-  }
-
-  def getTransientOption(opts: Seq[Any]) = {
-    opts.contains(transientOpt)
-  }
-
-  def getInputOption(opts: Seq[Any]) = {
-    opts.filter {
-      case (`inputOpt`, _) => true
-      case _ => false
-    }.map {
-      case (`inputOpt`, (key: String, value: String)) => (key, value)
-    }.toMap
-  }
-
   lazy val instance = Command(commandName, agentsActionsHelp)(_ => agentsCmdParser) { (state, args) =>
     val client = state.attributes.get(Attributes.clientAttribute).get
     var fail = false
@@ -436,13 +415,13 @@ object AgentsCommand extends LazyLogging {
           println(scaleExecution(client, deploymentId, nodeId, newInstancesCount))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")
         case ((((`executeNodeCmd`, options: Seq[(String, Object)]), deploymentId: String), nodeId: String), operation: String) =>
-          println(executeNodeOperation(client, deploymentId, Some(nodeId), None, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+          println(executeNodeOperation(client, deploymentId, Some(nodeId), None, getStringOption(options, interfaceOpt), operation, getMapOption(options, inputOpt), getFlagOption(options, transientOpt)))
         case ((((`executeNodeInstanceCmd`, options: Seq[(String, Object)]), deploymentId: String), instanceId: String), operation: String) =>
-          println(executeNodeOperation(client, deploymentId, None, Some(instanceId), getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+          println(executeNodeOperation(client, deploymentId, None, Some(instanceId), getStringOption(options, interfaceOpt), operation, getMapOption(options, inputOpt), getFlagOption(options, transientOpt)))
         case ((((((`executeRelationshipCmd`, options: Seq[(String, Object)]), deploymentId: String), source: String), target: String), relationshipType: String), operation: String) =>
-          println(executeRelationshipOperation(client, deploymentId, Some(source), None, Some(target), None, relationshipType, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+          println(executeRelationshipOperation(client, deploymentId, Some(source), None, Some(target), None, relationshipType, getStringOption(options, interfaceOpt), operation, getMapOption(options, inputOpt), getFlagOption(options, transientOpt)))
         case ((((((`executeRelationshipInstanceCmd`, options: Seq[(String, Object)]), deploymentId: String), source: String), target: String), relationshipType: String), operation: String) =>
-          println(executeRelationshipOperation(client, deploymentId, None, Some(source), None, Some(target), relationshipType, getInterfaceOption(options), operation, getInputOption(options), getTransientOption(options)))
+          println(executeRelationshipOperation(client, deploymentId, None, Some(source), None, Some(target), relationshipType, getStringOption(options, interfaceOpt), operation, getMapOption(options, inputOpt), getFlagOption(options, transientOpt)))
         case (`installCmd`, deploymentId: String) =>
           println(launchInstallWorkflow(client, deploymentId))
           println(s"Execute 'agents log $deploymentId' to tail the log of deployment agent")

@@ -6,7 +6,7 @@ template_author: MKV
 
 imports:
   - apache-load-balancer:*
-  - aws-provider-types:*
+  - toscaruntime-aws-provider-types:*
 
 topology_template:
 

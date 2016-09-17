@@ -20,7 +20,7 @@ class CsarsSpec extends AbstractSpec {
     scenario("Install / list / delete csar") {
 
       Given("I download the normative type from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip", tempPath)
 
       When("I install tosca normative types to the repository with 'csars install /path/to/normative-types'")
       val compilationResult = installCsar(tempPath.resolve("tosca-normative-types-master"))
@@ -47,7 +47,7 @@ class CsarsSpec extends AbstractSpec {
     scenario("Install csars with dependencies") {
 
       Given("I download alien base types from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/alien4cloud/alien4cloud-extended-types/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/alien4cloud-extended-types/archive/master.zip", tempPath)
 
       When("I install alien base types to the repository with 'csars install /path/to/alien-base-types'")
       val errorResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types"))
@@ -56,7 +56,7 @@ class CsarsSpec extends AbstractSpec {
       assertCompilationErrorsDetected(errorResult)
 
       When("I download the normative type from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/alien4cloud/tosca-normative-types/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip", tempPath)
 
       And("I install tosca normative types to the repository with 'csars install /path/to/normative-types'")
       installCsar(tempPath.resolve("tosca-normative-types-master"))

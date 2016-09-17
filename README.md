@@ -85,8 +85,8 @@ Getting Started
   ```bash
   # Let's say you are at pathToProjects
   # get some Alien samples
-  git clone https://github.com/alien4cloud/alien4cloud-extended-types.git
-  git clone https://github.com/alien4cloud/samples.git
+  git clone https://github.com/vuminhkh/alien4cloud-extended-types.git
+  git clone https://github.com/vuminhkh/samples.git
   # get toscaruntime sources as it contains some samples for testing
   git clone https://github.com/vuminhkh/tosca-runtime.git
   # launch tosca runtime
@@ -161,7 +161,7 @@ The common workflow to use Tosca Runtime to develop recipe is:
   ```
 
 * Create the tosca runtime specific topology to map all abstract native nodes to tosca runtime native nodes.
-As an example, you can see the [abstract topology](https://github.com/alien4cloud/samples/blob/master/topology-load-balancer-tomcat/topology-load-balancer-tomcat.yaml) use abstract `tosca.nodes.Compute`.
+As an example, you can see the [abstract topology](https://github.com/vuminhkh/samples/blob/master/topology-load-balancer-tomcat/topology-load-balancer-tomcat.yaml) use abstract `tosca.nodes.Compute`.
 The [specific topology](https://github.com/vuminhkh/tosca-runtime/blob/master/test/src/it/resources/csars/docker/standalone/apache-lb/template.yaml) use concrete type `com.toscaruntime.docker.nodes.Container`.
 The specific topology import the abstract topology and override nodes and inputs with the same names, you can add more nodes in the specific topology.
   

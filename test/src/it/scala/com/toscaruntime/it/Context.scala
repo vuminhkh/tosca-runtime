@@ -32,11 +32,11 @@ object Context {
   private lazy val awsGlobalConfPath = resolveGlobalConfPath("TOSCA_RUNTIME_AWS_CONF_DIR")
 
   def resolveProviderConf(globalConfPath: Path) = {
-    val providerConfFile = globalConfPath.resolve("provider").resolve("provider.conf")
+    val providerConfFile = globalConfPath.resolve("provider").resolve("default").resolve("provider.conf")
     if (!Files.isRegularFile(providerConfFile)) {
       throw new AssertionError(providerConfFile + " is not a file or do not exist, openstack tests need tenant information")
     }
-    providerConfFile.getParent
+    providerConfFile.getParent.getParent
   }
 
   private lazy val openstackConfigPath = resolveProviderConf(openstackGlobalConfPath)

@@ -1,13 +1,24 @@
 package com.toscaruntime.sdk;
 
-import com.toscaruntime.deployment.*;
+import com.toscaruntime.artifact.Executor;
+import com.toscaruntime.constant.CompilerConstant;
+import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.deployment.NodeTaskDTO;
+import com.toscaruntime.deployment.RelationshipTaskDTO;
+import com.toscaruntime.deployment.RunningExecutionDTO;
+import com.toscaruntime.deployment.TaskDTO;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.execution.RunningExecutionNotFound;
 import com.toscaruntime.exception.deployment.workflow.InvalidInstancesCountException;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowArgumentException;
 import com.toscaruntime.exception.deployment.workflow.NodeNotFoundException;
-import com.toscaruntime.sdk.model.*;
+import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
+import com.toscaruntime.sdk.model.DeploymentConfig;
+import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
+import com.toscaruntime.sdk.model.DeploymentNode;
+import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
+import com.toscaruntime.sdk.model.OperationInputDefinition;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.workflow.DefaultListener;
 import com.toscaruntime.sdk.workflow.WorkflowEngine;
@@ -22,7 +33,13 @@ import tosca.nodes.Compute;
 import tosca.nodes.Root;
 
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -44,22 +61,22 @@ public abstract class Deployment {
     /**
      * id to node instance : A node instance is a physical component of the topology at runtime.
      */
-    protected Map<String, tosca.nodes.Root> nodeInstances = new LinkedHashMap<>();
+    private Map<String, tosca.nodes.Root> nodeInstances = new LinkedHashMap<>();
 
     /**
      * A relationship instance is a link between 2 physical components of the topology
      */
-    protected Set<tosca.relationships.Root> relationshipInstances = new HashSet<>();
+    private Set<tosca.relationships.Root> relationshipInstances = new HashSet<>();
 
     /**
      * A node is an abstract layer over an instance, think of it as a java class and node instance as an instantiation of the java class.
      */
-    protected Map<String, DeploymentNode> nodes = new HashMap<>();
+    private Map<String, DeploymentNode> nodes = new HashMap<>();
 
     /**
      * Same concept as a node but for a relationship
      */
-    protected Set<DeploymentRelationshipNode> relationshipNodes = new HashSet<>();
+    private Set<DeploymentRelationshipNode> relationshipNodes = new HashSet<>();
 
     /**
      * The workflow engine to orchestrate the deployment
@@ -69,17 +86,17 @@ public abstract class Deployment {
     /**
      * Utility class to help to perform modification on the deployment
      */
-    private DeploymentImpacter deploymentImpacter = new DeploymentImpacter();
+    private DeploymentImpacter deploymentImpacter;
 
     /**
      * Utility class to help to initialize nodes and instances of the deployment
      */
-    private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
+    private DeploymentInitializer deploymentInitializer;
 
     /**
      * Hold reference to the provider that was used to initialize the deployment, it's used later to modify the deployment if needed.
      */
-    private ProviderHook providerHook;
+    private List<ProviderHook> providerHooks;
 
     /**
      * Deployment persister save deployment's state to database
@@ -90,6 +107,16 @@ public abstract class Deployment {
      * Hold current running workflow execution
      */
     private AtomicReference<WorkflowExecution> runningWorkflowExecution = new AtomicReference<>();
+
+    /**
+     * Register an artifact executor for this deployment
+     *
+     * @param artifactType the type of artifact that will be managed by the executor
+     * @param executor     the executor
+     */
+    public void registerArtifactExecutor(String artifactType, Class<? extends Executor> executor) {
+        this.config.getArtifactExecutorRegistry().put(artifactType, executor);
+    }
 
     private void setRunningExecution(WorkflowExecution workflowExecution) {
         if (!workflowExecution.isTransient()) {
@@ -127,40 +154,42 @@ public abstract class Deployment {
     /**
      * This method is called to initialize the deployment's config. No instances are created yet until install workflow is launched.
      *
-     * @param deploymentName     name of the deployment
-     * @param recipePath         the path to the recipe which contains the deployment's binary and artifacts
-     * @param inputs             the inputs for the deployment
-     * @param providerProperties properties of provider
-     * @param bootstrapContext   context of the bootstrapped daemon (id of openstack network, docker network etc ...)
-     * @param providerHook       hook in order to let provider to inject specific logic to the deployment
-     * @param bootstrap          is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
+     * @param deploymentName   name of the deployment
+     * @param recipePath       the path to the recipe which contains the deployment's binary and artifacts
+     * @param inputs           the inputs for the deployment
+     * @param typeRegistry     type registry contains all tosca types in the deployment
+     * @param bootstrapContext context of the bootstrapped daemon (id of openstack network, docker network etc ...)
+     * @param providers        native types providers
+     * @param plugins          plugins to modify the deployment
+     * @param bootstrap        is in bootstrap mode. In bootstrap mode, the provider may perform operations differently.
      */
     public void initializeConfig(String deploymentName,
                                  Path recipePath,
                                  Map<String, Object> inputs,
-                                 Map<String, String> providerProperties,
+                                 TypeRegistry typeRegistry,
                                  Map<String, Object> bootstrapContext,
-                                 ProviderHook providerHook,
-                                 List<PluginHook> pluginHooks,
+                                 List<Provider> providers,
+                                 List<Plugin> plugins,
                                  DeploymentPersister deploymentPersister,
                                  boolean bootstrap) {
         this.config = new DeploymentConfig();
         this.config.setDeploymentName(deploymentName);
-        this.config.setRecipePath(recipePath);
         this.config.setBootstrap(bootstrap);
-        this.config.setBootstrapContext(bootstrapContext);
-        this.config.setArtifactsPath(recipePath.resolve("src").resolve("main").resolve("resources"));
-        this.config.setProviderProperties(providerProperties);
-        this.config.setPluginHooks(pluginHooks);
+        this.config.setArtifactsPath(recipePath.resolve(CompilerConstant.ASSEMBLY_RECIPE_FOLDER).resolve(CompilerConstant.ARCHIVE_FOLDER));
+        this.config.setPluginHooks(plugins.stream().flatMap(plugin -> plugin.getPluginHooks().stream()).collect(Collectors.toList()));
+        this.config.getInputs().putAll(inputs);
+
         this.deploymentPersister = deploymentPersister;
-        this.providerHook = providerHook;
-        this.workflowEngine.setProviderHook(providerHook);
+        this.deploymentInitializer = new DeploymentInitializer(typeRegistry);
+        this.deploymentImpacter = new DeploymentImpacter(deploymentInitializer);
+        this.providerHooks = providers.stream().flatMap(provider -> provider.getProviderHooks().stream()).collect(Collectors.toList());
+        this.workflowEngine.setProviderHooks(providerHooks);
         this.workflowEngine.setDeploymentPersister(deploymentPersister);
         postInitializeConfig();
-        this.config.getInputs().putAll(inputs);
         addNodes();
         addRelationships();
-        this.providerHook.postConstruct(this, providerProperties, bootstrapContext);
+        providers.forEach(provider -> provider.getProviderHooks().forEach(providerHook -> providerHook.postConstruct(this, provider.getProviderProperties(), bootstrapContext)));
+        plugins.forEach(plugin -> plugin.getPluginHooks().forEach(pluginHook -> pluginHook.postConstruct(this, plugin.getPluginProperties(), bootstrapContext)));
         if (deploymentPersister.hasExistingData()) {
             nodes.values().forEach(DeploymentNode::initialLoad);
             createInstances();
@@ -240,7 +269,7 @@ public abstract class Deployment {
      * @param capabilitiesProperties capabilities properties of the node
      */
     protected void addNode(String nodeName,
-                           Class<? extends Root> type,
+                           String type,
                            String parentName,
                            String hostName,
                            Map<String, Object> properties,
@@ -263,7 +292,7 @@ public abstract class Deployment {
     protected void addRelationship(String sourceName,
                                    String targetName,
                                    Map<String, Object> properties,
-                                   Class<? extends tosca.relationships.Root> relationshipType) {
+                                   String relationshipType) {
         this.relationshipNodes.add(this.deploymentInitializer.createRelationship(sourceName, targetName, properties, relationshipType));
     }
 
@@ -431,7 +460,7 @@ public abstract class Deployment {
                     Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
                             Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
                     ));
-                    concernedRelationshipInstances.stream().forEach(instance -> {
+                    concernedRelationshipInstances.forEach(instance -> {
                                 Map<String, OperationInputDefinition> operationInputs = new HashMap<>(currentOperationInputs.get(instance));
                                 operationInputs.putAll(convertedInputs);
                                 instance.getOperationInputs().put(javaMethodName, operationInputs);
@@ -445,7 +474,7 @@ public abstract class Deployment {
             @Override
             protected void doRun() {
                 if (currentOperationInputs != null) {
-                    concernedRelationshipInstances.stream().forEach(relationshipInstance -> relationshipInstance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(relationshipInstance)));
+                    concernedRelationshipInstances.forEach(relationshipInstance -> relationshipInstance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(relationshipInstance)));
                 }
                 setNullRunningExecution(workflowExecution);
             }
@@ -488,7 +517,7 @@ public abstract class Deployment {
                     Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
                             Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
                     ));
-                    concernedInstances.stream().forEach(instance -> {
+                    concernedInstances.forEach(instance -> {
                                 Map<String, OperationInputDefinition> operationInputs = new HashMap<>(currentOperationInputs.get(instance.getId()));
                                 operationInputs.putAll(convertedInputs);
                                 instance.getOperationInputs().put(javaMethodName, operationInputs);
@@ -502,7 +531,7 @@ public abstract class Deployment {
             @Override
             protected void doRun() {
                 if (currentOperationInputs != null) {
-                    concernedInstances.stream().forEach(instance -> instance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(instance.getId())));
+                    concernedInstances.forEach(instance -> instance.getOperationInputs().put(javaMethodName, currentOperationInputs.get(instance.getId())));
                 }
                 setNullRunningExecution(workflowExecution);
             }
@@ -536,13 +565,13 @@ public abstract class Deployment {
         relationshipInstances.addAll(relationshipNodes.stream().flatMap(relationship -> {
             Set<Root> sources = nodes.get(relationship.getSourceNodeId()).getInstances();
             Set<Root> targets = nodes.get(relationship.getTargetNodeId()).getInstances();
-            return deploymentInitializer.generateRelationshipsInstances(sources, targets, relationship, this).stream();
+            return deploymentInitializer.generateRelationshipsInstances(sources, targets, relationship).stream();
         }).collect(Collectors.toSet()));
         // Add relationship instance to its corresponding node
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
             relationshipNode.getRelationshipInstances().addAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
         }
-        providerHook.postConstructInstances(nodeInstances, relationshipInstances);
+        this.providerHooks.forEach(providerHook -> providerHook.postConstructInstances(nodeInstances, relationshipInstances));
     }
 
     /**
@@ -641,8 +670,8 @@ public abstract class Deployment {
     private void deleteInstances() {
         nodeInstances.clear();
         relationshipInstances.clear();
-        nodes.values().stream().forEach(node -> node.getInstances().clear());
-        relationshipNodes.stream().forEach(relationship -> relationship.getRelationshipInstances().clear());
+        nodes.values().forEach(node -> node.getInstances().clear());
+        relationshipNodes.forEach(relationship -> relationship.getRelationshipInstances().clear());
     }
 
     private void persistDeletedInstances(Map<String, Root> deletedNodeInstances, Set<tosca.relationships.Root> deletedRelationshipInstances) {
@@ -689,7 +718,7 @@ public abstract class Deployment {
      * @return workflow execution
      */
     public WorkflowExecution teardown() {
-        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHook.isNativeType(entry.getValue().getClass())).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHooks.stream().anyMatch(providerHook -> providerHook.isNativeType(entry.getValue().getClass()))).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Set<tosca.relationships.Root> nativeRelationshipInstances = relationshipInstances.stream().filter(relationship -> nativeNodeInstances.containsKey(relationship.getSource().getId()) && nativeNodeInstances.containsKey(relationship.getTarget().getId())).collect(Collectors.toSet());
         return createUninstallWorkflow(nativeNodeInstances, nativeRelationshipInstances);
     }
@@ -770,8 +799,8 @@ public abstract class Deployment {
         return relationshipNodes;
     }
 
-    public ProviderHook getProviderHook() {
-        return providerHook;
+    public List<ProviderHook> getProviderHooks() {
+        return this.providerHooks;
     }
 
     public Map<String, Root> getNodeInstances() {

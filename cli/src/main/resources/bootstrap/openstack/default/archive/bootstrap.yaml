@@ -6,7 +6,7 @@ template_author: MKV
 
 imports:
   - toscaruntime-bootstrap-type:*
-  - openstack-provider-types:*
+  - toscaruntime-openstack-provider-types:*
 
 topology_template:
   description: Wordpress deployment template for openstack

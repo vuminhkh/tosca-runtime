@@ -1,0 +1,97 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+template_name: toscaruntime-common-provider-types
+template_version: ${version}
+template_author: mkv
+
+imports:
+  - tosca-normative-types:*
+
+data_types:
+
+  com.toscaruntime.common.datatypes.PluginConfiguration:
+    properties:
+      target:
+        type: string
+        required: false
+      configuration:
+        type: map
+        entry_schema:
+          type: tosca.datatypes.Root
+        required: false
+
+  com.toscaruntime.common.datatypes.ProviderFailSafeConfiguration:
+    properties:
+      operation_retry:
+        type: integer
+        description: the number of times tosca runtime will retry to instantiate resources on provider if failures happens
+        constraints:
+          - greater_or_equal: 1
+      wait_between_operation_retry:
+        type: scalar-unit.time
+        description: wait time in seconds between retry when provider failures happen
+        constraints:
+          - greater_or_equal: 1 s
+
+node_types:
+
+  com.toscaruntime.common.nodes.Compute:
+    abstract: true
+    derived_from: tosca.nodes.Compute
+    properties:
+      provider_fail_safe:
+        type: com.toscaruntime.common.datatypes.ProviderFailSafeConfiguration
+        default:
+          operation_retry: 720
+          wait_between_operation_retry: 10 s
+      plugins:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false
+
+  com.toscaruntime.common.nodes.DockerContainer:
+    abstract: true
+    derived_from: com.toscaruntime.common.nodes.Compute
+
+  com.toscaruntime.common.nodes.LinuxCompute:
+    abstract: true
+    derived_from: com.toscaruntime.common.nodes.Compute
+
+  com.toscaruntime.common.nodes.WindowsCompute:
+    abstract: true
+    derived_from: com.toscaruntime.common.nodes.Compute
+
+  com.toscaruntime.common.nodes.Network:
+    abstract: true
+    derived_from: tosca.nodes.Network
+    properties:
+      provider_fail_safe:
+        type: com.toscaruntime.common.datatypes.ProviderFailSafeConfiguration
+        default:
+          operation_retry: 720
+          wait_between_operation_retry: 10 s
+      plugins:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false
+
+  com.toscaruntime.common.nodes.BlockStorage:
+    abstract: true
+    derived_from: tosca.nodes.BlockStorage
+    properties:
+      provider_fail_safe:
+        type: com.toscaruntime.common.datatypes.ProviderFailSafeConfiguration
+        default:
+          operation_retry: 720
+          wait_between_operation_retry: 10 s
+      plugins:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false
+      providers:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false

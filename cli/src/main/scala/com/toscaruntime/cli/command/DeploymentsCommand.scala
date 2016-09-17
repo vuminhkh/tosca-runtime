@@ -2,7 +2,9 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.{Files, Path, Paths}
 
+import com.toscaruntime.cli.Args._
 import com.toscaruntime.cli.parser.Parsers
+import com.toscaruntime.cli.util.PluginUtil._
 import com.toscaruntime.cli.util.{CompilationUtil, TabulatorUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
@@ -42,7 +44,7 @@ object DeploymentsCommand extends LazyLogging {
 
   private lazy val inputsPathOptParser = token(inputPathOpt) ~ (token("=") ~> token(Parsers.filePathParser))
 
-  private lazy val createCmdOptParser = Space ~> (csarPathOptParser | inputsPathOptParser | Args.providerOptParser | Args.targetOptParser | (token(bootstrapOpt) ~ (token("=") ~> token(Bool)))) *
+  private lazy val createCmdOptParser = Space ~> (csarPathOptParser | inputsPathOptParser | (token(bootstrapOpt) ~ (token("=") ~> token(Bool)))) *
 
   private lazy val createCmdParser = token(createCmd) ~ createCmdOptParser ~ (Space ~> token(StringBasic)) ~ ((Space ~> token(Parsers.filePathParser)) ?)
 
@@ -73,8 +75,7 @@ object DeploymentsCommand extends LazyLogging {
        |  CREATE_OPTIONS:
        |    ${csarOpt + "=<csar name>:<version>"}%-28s use an installed topology to create the deployment, if this option is set <topology path> argument is not necessary
        |    ${inputPathOpt + "=<input path>"}%-28s input for the deployment
-       |    ${Args.providerOpt + "=<provider name>"}%-28s the deployment's provider, default to ${ProviderConstant.DOCKER}
-       |    ${Args.targetOpt + "=<target>"}%-28s the provider's configuration, default to ${ProviderConstant.DEFAULT_TARGET}
+       |    ${Args.targetOpt + "=<provider>:<target>"}%-28s the provider's configuration, default to ${ProviderConstant.DEFAULT_TARGET}, can be repeated multiple times for hybrid deployment
        |    ${bootstrapOpt + "=<true|false>"}%-28s enable bootstrap mode, in this mode the agent will use public ip to connect to created compute
        |
        |  $deleteCmd%-30s Delete the deployment
@@ -84,9 +85,9 @@ object DeploymentsCommand extends LazyLogging {
     """.stripMargin
   )
 
-  private def getTopologyPath(topologyPathArg: Option[String], createArgs: Map[String, Any], repository: Path): Option[Path] = {
-    if (topologyPathArg.isDefined) {
-      val topologyPath = Paths.get(topologyPathArg.get)
+  private def getTopologyPath(topologyPathArg: Option[String], createArgs: Seq[(String, Any)], repository: Path): Option[Path] = {
+    topologyPathArg.map { topologyPathText =>
+      val topologyPath = Paths.get(topologyPathText)
       if (!Files.exists(topologyPath)) {
         println(s"Topology file ${topologyPath.toString} do not exist")
         return None
@@ -94,12 +95,9 @@ object DeploymentsCommand extends LazyLogging {
         return Some(topologyPath)
       }
     }
-    if (createArgs.contains(csarOpt)) {
-      return createArgs.get(csarOpt).flatMap {
-        case (csarName: String, csarVersion: String) => Compiler.getCsarToscaRecipePath(csarName, csarVersion, repository)
-      }
+    getTupleOption(createArgs, csarOpt).flatMap {
+      case (csarName: String, csarVersion: String) => Compiler.getCsarToscaRecipePath(csarName, csarVersion, repository)
     }
-    None
   }
 
   /**
@@ -111,6 +109,8 @@ object DeploymentsCommand extends LazyLogging {
     * @param deploymentWorkDir path to the output
     * @param deploymentId      id of the deployment image
     * @param client            toscaruntime client
+    * @param providerBaseConf  the base dir for provider's configuration
+    * @param pluginBaseConf    the base dir for plugin's configuration
     * @param bootstrapMode     enable bootstrap mode
     * @return true upon success false otherwise
     */
@@ -120,7 +120,8 @@ object DeploymentsCommand extends LazyLogging {
                             deploymentWorkDir: Path,
                             deploymentId: String,
                             client: ToscaRuntimeClient,
-                            providerConf: Path,
+                            providerBaseConf: Path,
+                            pluginBaseConf: Path,
                             bootstrapMode: Option[Boolean]): Boolean = {
     if (Files.exists(deploymentWorkDir)) {
       FileUtil.delete(deploymentWorkDir)
@@ -128,7 +129,22 @@ object DeploymentsCommand extends LazyLogging {
     Files.createDirectories(deploymentWorkDir)
     val compilationResult = Compiler.assembly(topologyPath, deploymentWorkDir, repository, inputsPath)
     if (compilationResult.isSuccessful) {
-      client.createDeploymentImage(deploymentId, deploymentWorkDir, providerConf, bootstrapMode).awaitImageId()
+      val providerConfigPaths = compilationResult.providers.map(providerBaseConf.resolve)
+      val pluginConfigPaths = compilationResult.plugins.map(pluginBaseConf.resolve)
+
+      val missingProviderConfigs = providerConfigPaths.filter(!isProviderConfigValid(_))
+      missingProviderConfigs.foreach(providerConfigPath => println(s"Missing provider configuration at $providerConfigPath"))
+
+      val missingPluginConfigs = pluginConfigPaths.filter(!isPluginConfigValid(_))
+      missingPluginConfigs.foreach(pluginConfigPath => println(s"Missing plugin configuration at $pluginConfigPath"))
+
+      if (missingProviderConfigs.isEmpty && missingPluginConfigs.isEmpty) {
+        // No provider's configuration missing
+        client.createDeploymentImage(deploymentId, deploymentWorkDir, providerConfigPaths, pluginConfigPaths, bootstrapMode).awaitImageId()
+        return true
+      } else {
+        return false
+      }
     } else {
       CompilationUtil.showErrors(compilationResult)
       return false
@@ -161,7 +177,6 @@ object DeploymentsCommand extends LazyLogging {
   }
 
   lazy val instance = Command(commandName, deploymentActionsHelp)(_ => deploymentsCmdParser) { (state, args) =>
-
     val client = state.attributes.get(Attributes.clientAttribute).get
     val basedir = state.attributes.get(Attributes.basedirAttribute).get
     var fail = false
@@ -179,8 +194,7 @@ object DeploymentsCommand extends LazyLogging {
         case (((`createCmd`, createOpts: Seq[(String, Any)]), deploymentId: String), topologyPathArg: Option[String]) =>
           val repository = basedir.resolve("repository")
           val workDir = basedir.resolve("work")
-          val createArgs = createOpts.toMap
-          val topologyPathOpt = getTopologyPath(topologyPathArg, createArgs, repository)
+          val topologyPathOpt = getTopologyPath(topologyPathArg, createOpts, repository)
           if (topologyPathOpt.isEmpty) {
             println(s"Topology not found")
             fail = true
@@ -188,29 +202,24 @@ object DeploymentsCommand extends LazyLogging {
             val topologyPath = topologyPathOpt.get
             val deploymentWorkDir = workDir.resolve(deploymentId)
             PathUtil.openAsDirectory(topologyPath, realTopologyPath => {
-              val inputsPath = createArgs.get(inputPathOpt).map(inputPath => Paths.get(inputPath.asInstanceOf[String]))
-              val providerName = createArgs.getOrElse(Args.providerOpt, ProviderConstant.DOCKER).asInstanceOf[String]
-              val providerTarget = createArgs.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET).asInstanceOf[String]
+              val inputsPath = getStringOption(createOpts, inputPathOpt).map(Paths.get(_))
               val basedir = state.attributes.get(Attributes.basedirAttribute).get
-              val bootstrapMode = createArgs.get(bootstrapOpt).asInstanceOf[Option[Boolean]]
-              val providerConf = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(providerTarget)
-              if (Files.exists(providerConf)) {
-                println(s"Creating deployment image [$deploymentId], it might take some minutes ...")
-                fail = !createDeploymentImage(
-                  realTopologyPath,
-                  inputsPath,
-                  repository,
-                  deploymentWorkDir,
-                  deploymentId,
-                  client,
-                  providerConf,
-                  bootstrapMode
-                )
-                if (!fail) println(s"Deployment image [$deploymentId] has been created, 'agents create $deploymentId' to start an agent to deploy it")
-              } else {
-                println(s"No configuration found for [$providerName], target [$providerTarget] at [$providerConf]")
-                fail = true
-              }
+              val bootstrapMode = getBooleanOption(createOpts, bootstrapOpt)
+              val providerConfBase = basedir.resolve("conf").resolve("providers")
+              val pluginConfBase = basedir.resolve("conf").resolve("plugins")
+              println(s"Creating deployment image [$deploymentId], it might take some minutes ...")
+              fail = !createDeploymentImage(
+                realTopologyPath,
+                inputsPath,
+                repository,
+                deploymentWorkDir,
+                deploymentId,
+                client,
+                providerConfBase,
+                pluginConfBase,
+                bootstrapMode
+              )
+              if (!fail) println(s"Deployment image [$deploymentId] has been created, 'agents create $deploymentId' to start an agent to deploy it")
             })
           }
         case "cleanDangling" =>

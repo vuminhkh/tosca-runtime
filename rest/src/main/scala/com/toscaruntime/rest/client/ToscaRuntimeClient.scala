@@ -227,16 +227,16 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     }
   }
 
-  def createDeploymentImage(deploymentId: String, recipePath: Path, providerConfigPath: Path, bootstrap: Option[Boolean]) = {
+  def createDeploymentImage(deploymentId: String, recipePath: Path, providerConfigPaths: List[Path], pluginConfigPaths: List[Path], bootstrap: Option[Boolean]) = {
     // TODO asynchronous
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
     // By default if the proxy url is empty then we are not in a bootstrap context, then it means we are bootstrapping
-    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, providerConfigPaths, pluginConfigPaths, bootstrapContext)
   }
 
-  def createBootstrapImage(provider: String, recipePath: Path, providerConfigPath: Path, target: String) = {
+  def createBootstrapImage(provider: String, recipePath: Path, providerConfigPath: List[Path], pluginConfigPath: List[Path], target: String) = {
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, providerConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, providerConfigPath, pluginConfigPath, bootstrapContext)
   }
 
   def listDeploymentImages() = {

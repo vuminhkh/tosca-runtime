@@ -2,13 +2,15 @@ package com.toscaruntime.compiler
 
 import java.nio.file.{Path, Paths, StandardCopyOption}
 
+import _root_.tosca.nodes.Root
 import _root_.tosca.relationships.{AttachTo, HostedOn}
+import com.toscaruntime.common.nodes.Compute
 import com.toscaruntime.compiler.runtime.Artifact
 import com.toscaruntime.compiler.tosca._
 import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.exception.compilation.{InvalidTopologyException, NotSupportedGenerationException}
-import com.toscaruntime.util.{ClassLoaderUtil, FileUtil, PathUtil}
+import com.toscaruntime.util._
 import com.typesafe.scalalogging.LazyLogging
 
 /**
@@ -27,7 +29,7 @@ object CodeGenerator extends LazyLogging {
   def parseMethod(interfaceName: String, operationName: String, operation: Operation, csarPath: List[Csar]) = {
     val artifact = operation.implementation.map { impl =>
       // Semantic analyzer must have validated the artifact type exists
-      val artifactType = impl.typeName.getOrElse(TypeLoader.loadArtifactByFileExtension(FileUtil.getFileExtension(impl.ref.get.value), csarPath).get.name)
+      val artifactType = impl.typeName.getOrElse(TypeLoader.loadArtifactTypeByFileExtension(FileUtil.getFileExtension(impl.ref.get.value), csarPath).get.name)
       Artifact(impl.ref.get.value, artifactType.value)
     }
     runtime.Method(interfaceName, operationName, getInputs(operation), artifact)
@@ -68,6 +70,7 @@ object CodeGenerator extends LazyLogging {
   def generateNodeType(nodeType: NodeType, outputDir: Path, csarName: String, csarPath: List[Csar]) = {
     if (ClassLoaderUtil.isTypeDefined(nodeType.name.value)) {
       logger.debug(s"Ignoring node type ${nodeType.name.value} as it's part of SDK")
+      None
     } else {
       logger.debug(s"Generating node type class ${nodeType.name.value}")
       val parsedType = parseRuntimeType(nodeType, csarPath)
@@ -75,12 +78,14 @@ object CodeGenerator extends LazyLogging {
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, nodeType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.debug(s"Generated node type class ${nodeType.name.value} to $generatedPath")
+      Some(generatedPath)
     }
   }
 
   def generateRelationshipType(relationshipType: RelationshipType, outputDir: Path, csarName: String, csarPath: List[Csar]) = {
     if (ClassLoaderUtil.isTypeDefined(relationshipType.name.value)) {
       logger.debug(s"Ignoring relationship type ${relationshipType.name.value} as it's part of SDK")
+      None
     } else {
       logger.debug(s"Generating relationship type class ${relationshipType.name.value}")
       val parsedType = parseRuntimeType(relationshipType, csarPath)
@@ -88,26 +93,28 @@ object CodeGenerator extends LazyLogging {
       val outputFile = CompilerUtil.getGeneratedClassRelativePath(outputDir, relationshipType.name.value)
       val generatedPath = FileUtil.writeTextFile(generatedText, outputFile)
       logger.debug(s"Generated relationship type class ${relationshipType.name.value} to $generatedPath")
+      Some(generatedPath)
     }
   }
 
   def generateTypesForDefinition(definition: Definition, outputDir: Path, csarName: String, csarPath: List[Csar]) = {
-    definition.nodeTypes.foreach {
-      _.values.foreach {
+    val generatedNodeTypes = definition.nodeTypes.map {
+      _.values.flatMap {
         generateNodeType(_, outputDir, csarName, csarPath)
-      }
-    }
-    definition.relationshipTypes.foreach {
-      _.values.foreach {
+      }.toList
+    }.getOrElse(List.empty)
+    val generatedRelationshipTypes = definition.relationshipTypes.map {
+      _.values.flatMap {
         generateRelationshipType(_, outputDir, csarName, csarPath)
-      }
-    }
+      }.toList
+    }.getOrElse(List.empty)
+    generatedNodeTypes ++ generatedRelationshipTypes
   }
 
   def generateTypesForCsar(csar: Csar, outputDir: Path, csarName: String, csarPath: List[Csar]) = {
-    csar.definitions.foreach {
+    csar.definitions.flatMap {
       case (path, definition) => generateTypesForDefinition(definition, outputDir, csarName, csarPath)
-    }
+    }.toList
   }
 
   def parseProperties(properties: Option[Map[ParsedValue[String], EvaluableFieldValue]], propertiesDefinitions: Option[Map[ParsedValue[String], FieldValue]]) = {
@@ -207,13 +214,25 @@ object CodeGenerator extends LazyLogging {
     }
   }
 
-  def generate(csar: Csar, csarPath: List[Csar], originalArchivePath: Path, outputPath: Path) = {
+  private def getJarLocation[T](clazz: Class[T]) = {
+    Paths.get(clazz.getProtectionDomain.getCodeSource.getLocation.toURI.getPath)
+  }
+
+  private lazy val nativeCodePath = List(
+    getJarLocation(classOf[Root]),
+    getJarLocation(classOf[PropertyUtil]),
+    getJarLocation(classOf[Compute])
+  )
+
+  def generate(csar: Csar, csarPath: List[Csar], csarBinaryPath: List[Path], originalArchivePath: Path, outputPath: Path) = {
     PathUtil.openAsDirectory(outputPath, recipeOutputPath => {
       val compilationPath = csarPath :+ csar
       // Copy original archive to the compiled output
       FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
       // Generate Java classes for types
-      generateTypesForCsar(csar, recipeOutputPath.resolve(CompilerConstant.TYPES_FOLDER), csar.csarName, csarPath)
+      val generatedClasses = generateTypesForCsar(csar, recipeOutputPath.resolve(CompilerConstant.SOURCE_FOLDER), csar.csarName, csarPath)
+      // Compile generated Java sources and put classes in target folder
+      if (generatedClasses.nonEmpty) JavaCompiler.compileJava(recipeOutputPath.resolve(CompilerConstant.SOURCE_FOLDER), nativeCodePath ++ csarBinaryPath, recipeOutputPath.resolve(CompilerConstant.TARGET_FOLDER))
       val definitionsWithTopology = csar.definitions.filter(_._2.topologyTemplate.isDefined)
       if (definitionsWithTopology.size > 1) {
         throw new NotSupportedGenerationException("More than one topology is found in the CSAR at " + definitionsWithTopology.keys + ", this is currently not supported")
@@ -221,7 +240,9 @@ object CodeGenerator extends LazyLogging {
         val deployment = parseTopology(definitionsWithTopology.values.head.topologyTemplate.get, csar.csarName, compilationPath, recipeOutputPath)
         val generatedTopologyText = html.GeneratedTopology.render(deployment).body
         // Generate Deployment for the topology
-        FileUtil.writeTextFile(generatedTopologyText, recipeOutputPath.resolve(CompilerConstant.DEPLOYMENT_FILE))
+        val topologySource = recipeOutputPath.resolve(CompilerConstant.SOURCE_FOLDER).resolve(CompilerConstant.DEPLOYMENT_FILE)
+        FileUtil.writeTextFile(generatedTopologyText, topologySource)
+        JavaCompiler.compileJava(topologySource, nativeCodePath ++ csarBinaryPath, recipeOutputPath.resolve(CompilerConstant.TARGET_FOLDER))
       }
     }, createIfNotExist = true)
   }

@@ -6,7 +6,7 @@ template_author: MKV
 
 imports:
   - apache-load-balancer:*
-  - mock-provider-types:*
+  - toscaruntime-mock-provider-types:*
 
 topology_template:
 

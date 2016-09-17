@@ -1,17 +1,16 @@
 package com.toscaruntime.sdk;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-
 import com.toscaruntime.exception.deployment.creation.InvalidDeploymentStateException;
 import com.toscaruntime.sdk.model.DeploymentAddInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentDeleteInstancesModification;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.util.DeploymentUtil;
-
 import tosca.nodes.Root;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Perform impact on the deployment (add / delete nodes)
@@ -20,7 +19,11 @@ import tosca.nodes.Root;
  */
 public class DeploymentImpacter {
 
-    private DeploymentInitializer deploymentInitializer = new DeploymentInitializer();
+    private DeploymentInitializer deploymentInitializer;
+
+    public DeploymentImpacter(DeploymentInitializer deploymentInitializer) {
+        this.deploymentInitializer = deploymentInitializer;
+    }
 
     private Root getDeletedInstance(Set<Root> instances, String name, int index) {
         for (Root instance : instances) {
@@ -100,7 +103,7 @@ public class DeploymentImpacter {
             Set<tosca.relationships.Root> newRelationshipInstances = deploymentInitializer.generateRelationshipsInstances(
                     DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getSourceNodeId()),
                     DeploymentUtil.getNodeInstancesByNodeName(allImpactedInstancesByAddition, relationshipNode.getTargetNodeId()),
-                    relationshipNode, deployment);
+                    relationshipNode);
             // Sometime a relationship has already existed in the deployment, in this case must not add it to the scaling operation
             newRelationshipInstances.removeAll(deployment.getRelationshipInstances());
             deploymentModification.getRelationshipInstancesToAdd().addAll(newRelationshipInstances);
@@ -123,7 +126,7 @@ public class DeploymentImpacter {
                 deploymentModification.merge(modification);
             }
         }
-        deployment.getProviderHook().postConstructInstances(deploymentModification.getInstancesToAdd(), deploymentModification.getRelationshipInstancesToAdd());
+        deployment.getProviderHooks().forEach(providerHook -> providerHook.postConstructInstances(deploymentModification.getInstancesToAdd(), deploymentModification.getRelationshipInstancesToAdd()));
         return deploymentModification;
     }
 

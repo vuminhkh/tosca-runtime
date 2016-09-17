@@ -26,6 +26,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       deploymentId.getOrElse(name),
       Context.client,
       Context.getProviderConfig(provider),
+      pluginsPath,
       Some(config == standalone)
     )
   }

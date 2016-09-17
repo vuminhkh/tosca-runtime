@@ -1,7 +1,7 @@
 package com.toscaruntime.cli.command
 
 import java.nio.file.Files
-
+import com.toscaruntime.cli.util.PluginUtil._
 import com.toscaruntime.cli.util.{AgentUtil, CompilationUtil}
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.compiler.Compiler
@@ -44,7 +44,7 @@ object BootStrapCommand extends LazyLogging {
     val target = argsMap.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET)
     val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
     val bootstrapInputPath = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("inputs.yaml")
-    val providerConfigurationPath = basedir.resolve("conf").resolve("providers").resolve(providerName).resolve(target)
+    val providerConfigPath = basedir.resolve("conf").resolve("providers").resolve(providerName)
 
     val deploymentWorkDir = workDir.resolve("bootstrap_" + providerName + "_" + target)
     if (Files.exists(deploymentWorkDir)) {
@@ -60,8 +60,8 @@ object BootStrapCommand extends LazyLogging {
       if (!Files.exists(bootstrapTopology)) {
         println(s"Invalid provider [$providerName] or target [$target], no topology found at [$bootstrapTopology]")
         fail = true
-      } else if (!Files.exists(providerConfigurationPath)) {
-        println(s"Provider configuration is missing for [$providerName] or target [$target]")
+      } else if (!isProviderConfigValid(providerConfigPath)) {
+        println(s"Provider configuration is missing for [$providerName], please check [$providerConfigPath]")
         fail = true
       } else {
         val inputsPath = if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None
@@ -70,7 +70,10 @@ object BootStrapCommand extends LazyLogging {
           val image = client.createBootstrapImage(
             providerName,
             deploymentWorkDir,
-            providerConfigurationPath, target).awaitImageId()
+            List(providerConfigPath),
+            List.empty,
+            target
+          ).awaitImageId()
           println(s"Packaged bootstrap configuration as docker image [$image]")
           val containerId = client.createBootstrapAgent(providerName, target).getId
           val logCallback = client.tailContainerLog(containerId, System.out)

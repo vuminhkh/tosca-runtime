@@ -10,62 +10,62 @@
 
 @instantiateNode(node: Node) = {
 @if(node.properties.nonEmpty) {
-  @base.html.generateProperties(node.javaIdentifier, node.properties)
+    @base.html.generateProperties(node.javaIdentifier, node.properties)
 }
 @if(node.capabilityProperties.nonEmpty) {
-  @Html("java.util.Map<String, java.util.Map<String, Object>> capabilities_properties_" + node.javaIdentifier + " = new java.util.HashMap<>();")
-  @{
-    node.capabilityProperties.map {
-      case (capabilityName, capabilityProperties) => generateCapabilityProperties(node.javaIdentifier, capabilityName, capabilityProperties)
+    @Html("java.util.Map<String, java.util.Map<String, Object>> capabilities_properties_" + node.javaIdentifier + " = new java.util.HashMap<>();")
+    @{
+        node.capabilityProperties.map {
+            case (capabilityName, capabilityProperties) => generateCapabilityProperties(node.javaIdentifier, capabilityName, capabilityProperties)
+        }
     }
-  }
 }
 
-@Html("addNode(\"" + node.name + "\", " +
-        node.typeName + ".class, " +
+@Html("addNode(\"" + node.name + "\", \"" +
+        node.typeName + "\", " +
         (if(node.parent.isDefined) "\"" + node.parent.get.name + "\"" else "null") + ", " +
         (if(node.host.isDefined) "\"" + node.host.get.name + "\"" else "null") + ", " +
         (if(node.properties.nonEmpty) "properties_" + node.javaIdentifier else "new java.util.HashMap<>()") + ", " +
         (if(node.capabilityProperties.nonEmpty) "capabilities_properties_" + node.javaIdentifier else "new java.util.HashMap<>()") + ");"
 )
-  @node.children.map { child =>
-    @instantiateNode(child)
-  }
+    @node.children.map { child =>
+        @instantiateNode(child)
+    }
 }
 
 public class Deployment extends com.toscaruntime.sdk.Deployment@Html("{")
 
 public void addNodes@Html("() {")
-  @deployment.roots.map { node =>
-  @instantiateNode(node)
+    @deployment.roots.map { node =>
+    @instantiateNode(node)
 }
-  @Html("}")
+    @Html("}")
 
 public void postInitializeConfig@Html("() {")
-  @Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + CompilerUtil.normalizeCSARName(deployment.topologyCsarName) + "\"));")
+    @Html("this.config.setTopologyResourcePath(this.config.getArtifactsPath().resolve(\"" + CompilerUtil.normalizeCSARName(deployment.topologyCsarName) + "\"));")
 @deployment.defaultInputs.map { defaultInput =>
-  @Html("this.config.getInputs().put(\"" + defaultInput._1 + "\", " + base.html.evaluateValue(defaultInput._2) + ");")
+    @Html("this.config.getInputs().put(\"" + defaultInput._1 + "\", " + base.html.evaluateValue(defaultInput._2) + ");")
 }
 @Html("}")
 
-  public void addRelationships@Html("() {")
+    public void addRelationships@Html("() {")
 @deployment.relationships.map { relationship =>
-  @base.html.generateProperties("rel_" + relationship.source.javaIdentifier + "_" + relationship.target.javaIdentifier, relationship.properties)
-  @Html("addRelationship(")"@relationship.source.name", "@relationship.target.name", properties_rel_@{
-  relationship.source.javaIdentifier
+    @base.html.generateProperties("rel_" + relationship.source.javaIdentifier + "_" + relationship.target.javaIdentifier, relationship.properties)
+    @Html("addRelationship(")"@relationship.source.name", "@relationship.target.name", properties_rel_@{
+    relationship.source.javaIdentifier
 }_@{
-  relationship.target.javaIdentifier
-}, @Html(relationship.typeName + ".class);")
+    relationship.target.javaIdentifier
+}, "@relationship.typeName");
 }
 @Html("}")
 
 @if(deployment.outputs.nonEmpty) {
-  @Html("public java.util.Map<String, Object> getOutputs() {")
-  @Html("java.util.Map<String, Object> outputs = new java.util.HashMap<>();")
-  @deployment.outputs.map { output =>
-    @Html("outputs.put(\"" + output._1 + "\", " + base.html.evaluateValue(output._2) + ");")
-  }
-  return outputs;
-  @Html("}")
+    @Html("public java.util.Map<String, Object> getOutputs() {")
+    @Html("java.util.Map<String, Object> outputs = new java.util.HashMap<>();")
+    @deployment.outputs.map { output =>
+        @Html("outputs.put(\"" + output._1 + "\", " + base.html.evaluateValue(output._2) + ");")
+    }
+    return outputs;
+    @Html("}")
 }
 @Html("}")

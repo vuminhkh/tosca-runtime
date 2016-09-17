@@ -6,7 +6,7 @@ template_author: MKV
 
 imports:
   - Nodecellar:*
-  - docker-provider-types:*
+  - toscaruntime-docker-provider-types:*
 
 topology_template:
 

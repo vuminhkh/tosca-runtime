@@ -3,6 +3,7 @@ package com.toscaruntime.compiler
 import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.compiler.tosca.CompilationResult
+import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfter, MustMatchers, WordSpec}
@@ -42,6 +43,14 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
     compilationResult
   }
 
+  def installProvider(providerName: String) = {
+    val commonProviderPath = csarsPath.resolve("toscaruntime-common-provider-types").resolve("${version}").resolve("src").resolve("main").resolve("resources")
+    if (!Files.isDirectory(commonProviderPath)) {
+      FileUtil.copy(Paths.get("providers").resolve("common").resolve("src").resolve("main").resolve("resources"), commonProviderPath)
+    }
+    FileUtil.copy(Paths.get("providers").resolve(providerName), csarsPath.resolve("toscaruntime-" + providerName + "-provider-types").resolve("${version}"))
+  }
+
   def assemblyDockerTopologyAndAssertCompilationResult(dockerTopology: String) = {
     assemblyTopologyAndAssertCompilationResult(dockerTopology, "com.toscaruntime.docker.nodes.Container")
   }
@@ -55,7 +64,7 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
     val topologyCompilationResult = Compiler.assembly(topologyPath, generatedAssemblyPath, csarsPath, if (Files.exists(inputsPath)) Some(inputsPath) else None)
     showCompilationErrors(topologyCompilationResult)
     topologyCompilationResult.isSuccessful must be(true)
-    val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve("recipe").resolve("deployment").resolve("Deployment.java"))
+    val deploymentGenerated = FileUtil.readTextFile(generatedAssemblyPath.resolve(CompilerConstant.ASSEMBLY_RECIPE_FOLDER).resolve(CompilerConstant.SOURCE_FOLDER).resolve(CompilerConstant.DEPLOYMENT_FILE))
     deploymentGenerated must include(expectedContain)
     generatedAssemblyPath
   }

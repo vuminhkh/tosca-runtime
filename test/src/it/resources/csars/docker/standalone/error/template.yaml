@@ -5,7 +5,7 @@ template_version: 1.0.0-SNAPSHOT
 template_author: MKV
 
 imports:
-  - docker-provider-types:*
+  - toscaruntime-docker-provider-types:*
   - test-type:*
 
 topology_template:

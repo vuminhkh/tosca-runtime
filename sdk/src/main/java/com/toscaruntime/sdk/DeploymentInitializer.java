@@ -19,8 +19,14 @@ import java.util.Set;
  */
 public class DeploymentInitializer {
 
+    private TypeRegistry typeRegistry;
+
+    public DeploymentInitializer(TypeRegistry instanceFactory) {
+        this.typeRegistry = instanceFactory;
+    }
+
     public DeploymentNode createNode(String nodeName,
-                                     Class<? extends Root> type,
+                                     String type,
                                      String parentName,
                                      String hostName,
                                      Deployment deployment,
@@ -28,7 +34,7 @@ public class DeploymentInitializer {
                                      Map<String, Map<String, Object>> capabilitiesProperties) {
         DeploymentNode deploymentNode = new DeploymentNode();
         deploymentNode.setId(nodeName);
-        deploymentNode.setType(type);
+        deploymentNode.setType(typeRegistry.findInstanceType(type));
         deploymentNode.setHost(hostName);
         deploymentNode.setDeployment(deployment);
         deploymentNode.setParent(parentName);
@@ -84,19 +90,18 @@ public class DeploymentInitializer {
     public DeploymentRelationshipNode createRelationship(String sourceName,
                                                          String targetName,
                                                          Map<String, Object> properties,
-                                                         Class<? extends tosca.relationships.Root> relationshipType) {
+                                                         String relationshipType) {
         DeploymentRelationshipNode relationshipNode = new DeploymentRelationshipNode();
         relationshipNode.setProperties(properties);
         relationshipNode.setSourceNodeId(sourceName);
         relationshipNode.setTargetNodeId(targetName);
-        relationshipNode.setRelationshipType(relationshipType);
+        relationshipNode.setRelationshipType(typeRegistry.findRelationshipInstanceType(relationshipType));
         return relationshipNode;
     }
 
     public Set<tosca.relationships.Root> generateRelationshipsInstances(Set<Root> sourceInstances,
                                                                         Set<Root> targetInstances,
-                                                                        DeploymentRelationshipNode relationshipNode,
-                                                                        Deployment deployment) {
+                                                                        DeploymentRelationshipNode relationshipNode) {
         Set<tosca.relationships.Root> newRelationshipInstances = new HashSet<>();
         for (tosca.nodes.Root sourceInstance : sourceInstances) {
             for (tosca.nodes.Root targetInstance : targetInstances) {

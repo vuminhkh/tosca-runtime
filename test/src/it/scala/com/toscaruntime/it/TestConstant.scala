@@ -14,6 +14,8 @@ object TestConstant {
 
   val repositoryPath = testDataPath.resolve("repository")
 
+  val pluginsPath = testDataPath.resolve("plugins")
+
   val tempPath = testDataPath.resolve("temp")
 
   val inputsPath = ClassLoaderUtil.getPathForResource("inputs")

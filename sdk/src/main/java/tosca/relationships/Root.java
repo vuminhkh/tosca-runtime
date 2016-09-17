@@ -39,7 +39,7 @@ public abstract class Root extends AbstractRuntimeType {
         return node;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath) {
+    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
         Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
         Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
         inputs.put("TARGET_NODE", getTarget().getName());
@@ -61,18 +61,18 @@ public abstract class Root extends AbstractRuntimeType {
             case "add_target":
             case "target_changed":
             case "remove_target":
-                return executeSourceOperation(operationArtifactPath, inputs);
+                return executeSourceOperation(operationName, operationArtifactPath, artifactType, inputs);
             case "pre_configure_target":
             case "post_configure_target":
             case "add_source":
             case "source_changed":
             case "remove_source":
-                return executeTargetOperation(operationArtifactPath, inputs);
+                return executeTargetOperation(operationName, operationArtifactPath, artifactType, inputs);
             default:
                 if (operationName.endsWith("_source")) {
-                    return executeSourceOperation(operationArtifactPath, inputs);
+                    return executeSourceOperation(operationName, operationArtifactPath, artifactType, inputs);
                 } else if (operationName.endsWith("_target")) {
-                    return executeTargetOperation(operationArtifactPath, inputs);
+                    return executeTargetOperation(operationName, operationArtifactPath, artifactType, inputs);
                 } else {
                     // This is unexpected as this kind of error should be detected in compilation phase
                     throw new UnexpectedException("Operation does not specify to be executed on source or target node (must be suffixed by _source or _target)");
@@ -80,7 +80,7 @@ public abstract class Root extends AbstractRuntimeType {
         }
     }
 
-    protected Map<String, String> executeSourceOperation(String operationArtifactPath, Map<String, Object> inputs) {
+    protected Map<String, String> executeSourceOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
         Compute sourceHost = source.getComputableHost();
         if (sourceHost == null) {
             // This is unexpected as this kind of error should be detected in compilation phase
@@ -88,10 +88,10 @@ public abstract class Root extends AbstractRuntimeType {
         }
         Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
         operationDeploymentArtifacts.putAll(source.getDeploymentArtifacts());
-        return sourceHost.execute(source.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
+        return sourceHost.execute(source.getId(), operationName, operationArtifactPath, artifactType, inputs, operationDeploymentArtifacts);
     }
 
-    protected Map<String, String> executeTargetOperation(String operationArtifactPath, Map<String, Object> inputs) {
+    protected Map<String, String> executeTargetOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
         Compute targetHost = target.getComputableHost();
         if (targetHost == null) {
             // This is unexpected as this kind of error should be detected in compilation phase
@@ -99,7 +99,7 @@ public abstract class Root extends AbstractRuntimeType {
         }
         Map<String, String> operationDeploymentArtifacts = new HashMap<>(getDeploymentArtifacts());
         operationDeploymentArtifacts.putAll(target.getDeploymentArtifacts());
-        return targetHost.execute(target.getId(), operationArtifactPath, inputs, operationDeploymentArtifacts);
+        return targetHost.execute(target.getId(), operationName, operationArtifactPath, artifactType, inputs, operationDeploymentArtifacts);
     }
 
     public Object evaluateFunction(String functionName, String... paths) {

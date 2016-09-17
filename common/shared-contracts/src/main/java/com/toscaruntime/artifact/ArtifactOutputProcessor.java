@@ -14,9 +14,9 @@ public abstract class ArtifactOutputProcessor {
 
     private String environmentVariablesToken;
 
-    protected AtomicReference<Integer> statusCode = new AtomicReference<>();
+    private AtomicReference<Integer> statusCode = new AtomicReference<>();
 
-    protected Map<String, String> capturedEnvVars = new HashMap<>();
+    private Map<String, String> capturedEnvVars = new HashMap<>();
 
     public ArtifactOutputProcessor(String statusCodeToken, String environmentVariablesToken) {
         this.statusCodeToken = statusCodeToken;

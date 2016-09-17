@@ -115,9 +115,8 @@ public class DockerUtil {
         } else {
             String osName = System.getProperty("os.name");
             if (osName.startsWith("Windows") || osName.startsWith("Mac")) {
-                String url = DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS;
                 String certPath = Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString();
-                return new DockerDaemonConfig(url, certPath);
+                return new DockerDaemonConfig(DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS, certPath);
             } else {
                 return new DockerDaemonConfig(getDefaultDockerUrlForLinux(), null);
             }
