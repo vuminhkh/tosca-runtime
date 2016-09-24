@@ -5,6 +5,16 @@ import tosca.nodes.Root;
 public interface PluginHook extends Hook {
 
     /**
+     * Called before executing initial load
+     */
+    void preInitialLoad(Root node);
+
+    /**
+     * Called after executing inital load
+     */
+    void postInitialLoad(Root node);
+
+    /**
      * Called before executing node operation
      *
      * @param node          the node

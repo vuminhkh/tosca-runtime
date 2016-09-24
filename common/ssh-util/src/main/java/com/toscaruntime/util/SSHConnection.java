@@ -80,7 +80,7 @@ public class SSHConnection implements Connection {
     }
 
     private void establishConnection() {
-        FailSafeUtil.doActionWithRetryNoCheckedException(this::doEstablishConnection, "Establish connection to [" + ip + "]", this.connectRetry, this.waitBetweenConnectRetry, TimeUnit.SECONDS);
+        FailSafeUtil.doActionWithRetryNoCheckedException(this::doEstablishConnection, "Establish connection to [" + ip + "]", this.connectRetry, this.waitBetweenConnectRetry, TimeUnit.SECONDS, ArtifactConnectException.class);
     }
 
     private void doEstablishConnection() {

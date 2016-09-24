@@ -75,46 +75,58 @@ public class ConsulPluginHook implements PluginHook {
         }
     }
 
+    private void registerToConsul(Root node) throws Exception {
+        // After starting a compute we perform registration on consul
+        String ip = node.getAttributeAsString("ip_address");
+        // TODO for the moment automatically check port 22 every 5 seconds, this should be configurable
+        Registration.RegCheck regCheck = Registration.RegCheck.tcp(HostAndPort.fromParts(ip, 22).toString(), 5);
+        String serviceId = this.deployment.getConfig().getDeploymentName() + "." + node.getId();
+        String serviceName = this.deployment.getConfig().getDeploymentName() + "." + node.getName();
+        Registration registration = ImmutableRegistration.builder().check(regCheck)
+                .id(serviceId)
+                .name(serviceName)
+                .address(ip).build();
+        Consul consul = getConsulInstance();
+        consul.agentClient().register(registration);
+        ServiceHealthCache serviceHealthCache;
+        synchronized (healthCacheMap) {
+            serviceHealthCache = healthCacheMap.get(serviceName);
+            if (serviceHealthCache == null) {
+                serviceHealthCache = ServiceHealthCache.newCache(consul.healthClient(), serviceName);
+            }
+            ConsulCache.Listener<ServiceHealthKey, ServiceHealth> listener = newValues -> {
+                Optional<ServiceHealth> optionalComputeHealth = newValues.values().stream().filter(serviceHealth -> serviceHealth.getService().getId().equals(serviceId)).findFirst();
+                if (optionalComputeHealth.isPresent()) {
+                    ServiceHealth computeHealth = optionalComputeHealth.get();
+                    List<HealthCheck> failedHealthChecks = computeHealth.getChecks().stream().filter(check -> !check.getStatus().equals("passing")).collect(Collectors.toList());
+                    failedHealthChecks.forEach(failedHealthCheck -> log.info("Compute {} is {}, failed health check with output {} and note {}", node.getId(), failedHealthCheck.getStatus(), failedHealthCheck.getOutput(), failedHealthCheck.getNotes()));
+                    node.setState(failedHealthChecks.isEmpty() ? InstanceState.STARTED : InstanceState.ERROR);
+                }
+            };
+            serviceHealthCache.addListener(listener);
+            healthCacheListenersByIdMap.put(serviceId, listener);
+            if (!healthCacheMap.containsKey(serviceName)) {
+                healthCacheMap.put(serviceName, serviceHealthCache);
+                serviceHealthCache.start();
+            }
+        }
+        node.setAttribute("service_id", serviceId);
+        node.setAttribute("service_name", serviceName);
+    }
+
     @Override
     public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Exception {
         if (node instanceof Compute && "start".equals(operationName) && NODE_STANDARD_INTERFACE.equals(interfaceName)) {
-            // After starting a compute we perform registration on consul
-            String ip = node.getAttributeAsString("ip_address");
-            // TODO for the moment automatically check port 22 every 5 seconds, this should be configurable
-            Registration.RegCheck regCheck = Registration.RegCheck.tcp(HostAndPort.fromParts(ip, 22).toString(), 5);
-            String serviceId = this.deployment.getConfig().getDeploymentName() + "." + node.getId();
-            String serviceName = this.deployment.getConfig().getDeploymentName() + "." + node.getName();
-            Registration registration = ImmutableRegistration.builder().check(regCheck)
-                    .id(serviceId)
-                    .name(serviceName)
-                    .address(ip).build();
-            Consul consul = getConsulInstance();
-            consul.agentClient().register(registration);
-            ServiceHealthCache serviceHealthCache;
-            synchronized (healthCacheMap) {
-                serviceHealthCache = healthCacheMap.get(serviceName);
-                if (serviceHealthCache == null) {
-                    serviceHealthCache = ServiceHealthCache.newCache(consul.healthClient(), serviceName);
-                }
-                ConsulCache.Listener<ServiceHealthKey, ServiceHealth> listener = newValues -> {
-                    Optional<ServiceHealth> optionalComputeHealth = newValues.values().stream().filter(serviceHealth -> serviceHealth.getService().getId().equals(serviceId)).findFirst();
-                    if (optionalComputeHealth.isPresent()) {
-                        ServiceHealth computeHealth = optionalComputeHealth.get();
-                        List<HealthCheck> failedHealthChecks = computeHealth.getChecks().stream().filter(check -> !check.getStatus().equals("passing")).collect(Collectors.toList());
-                        failedHealthChecks.forEach(failedHealthCheck -> log.info("Compute {} is {}, failed health check with output {} and note {}", node.getId(), failedHealthCheck.getStatus(), failedHealthCheck.getOutput(), failedHealthCheck.getNotes()));
-                        node.setState(failedHealthChecks.isEmpty() ? InstanceState.STARTED : InstanceState.ERROR);
-                    }
-                };
-                serviceHealthCache.addListener(listener);
-                healthCacheListenersByIdMap.put(serviceId, listener);
-                if (!healthCacheMap.containsKey(serviceName)) {
-                    healthCacheMap.put(serviceName, serviceHealthCache);
-                    serviceHealthCache.start();
-                }
-            }
-            node.setAttribute("service_id", serviceId);
-            node.setAttribute("service_name", serviceName);
+            registerToConsul(node);
         }
+    }
+
+    @Override
+    public void preInitialLoad(Root node) {
+    }
+
+    @Override
+    public void postInitialLoad(Root node) {
     }
 
     @Override

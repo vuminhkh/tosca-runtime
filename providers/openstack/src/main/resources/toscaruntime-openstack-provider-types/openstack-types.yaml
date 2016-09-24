@@ -42,7 +42,7 @@ node_types:
         required: false
 
   com.toscaruntime.openstack.nodes.Network:
-    derived_from: tosca.nodes.Network
+    derived_from: com.toscaruntime.common.nodes.Network
     properties:
       dns_name_servers:
         type: list
@@ -51,10 +51,10 @@ node_types:
         required: false
 
   com.toscaruntime.openstack.nodes.ExternalNetwork:
-    derived_from: tosca.nodes.Network
+    derived_from: com.toscaruntime.common.nodes.Network
 
   com.toscaruntime.openstack.nodes.Volume:
-    derived_from: tosca.nodes.BlockStorage
+    derived_from: com.toscaruntime.common.nodes.BlockStorage
     properties:
       availability_zone:
         type: string

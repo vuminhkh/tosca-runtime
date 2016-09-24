@@ -32,9 +32,7 @@ public class AWSProviderHook extends AbstractProviderHook {
         computes.forEach(compute -> {
             AWSProviderConnection connection = connectionRegistry.getConnection(getNodeTarget(compute.getProperties()));
             compute.setAssociateElasticIP(!publicNetworks.isEmpty());
-            compute.setElasticIPAddressApi(connection.getElasticIPAddressApi());
-            compute.setInstanceApi(connection.getInstanceApi());
-            compute.setTagApi(connection.getTagApi());
+            compute.setConnection(connection);
         });
     }
 }

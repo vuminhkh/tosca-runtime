@@ -189,7 +189,7 @@ class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
     executeInstallWorkflow(generateDeploymentIdForBootstrap(provider, target)).flatMap { response =>
       logger.info(s"Install workflow launched for bootstrap $response")
       waitForBootstrapToFinish(provider, target).flatMap { bootstrapInfo =>
-        val proxyUrl = bootstrapInfo.outputs.get("public_proxy_url").get + "/context"
+        val proxyUrl = bootstrapInfo.outputs("public_proxy_url") + "/context"
         saveBootstrapContext(proxyUrl, JSONMapStringAnyFormat.convertMapToJsValue(bootstrapInfo.outputs), bootstrapInfo)
       }
     }

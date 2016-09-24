@@ -3,7 +3,7 @@ package com.toscaruntime.common.nodes;
 import com.toscaruntime.util.PropertyUtil;
 import com.toscaruntime.util.ToscaUtil;
 
-public class Network extends tosca.nodes.Network {
+public abstract class Network extends tosca.nodes.Network {
 
     protected int getOperationRetry() {
         return Integer.parseInt(PropertyUtil.getMandatoryPropertyAsString(getProperties(), "provider_fail_safe.operation_retry"));

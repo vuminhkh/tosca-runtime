@@ -7,6 +7,7 @@ template_author: MKV
 imports:
   - apache-load-balancer:*
   - toscaruntime-openstack-provider-types:*
+  - toscaruntime-script-plugin-types:*
 
 topology_template:
 
@@ -41,9 +42,7 @@ topology_template:
       properties:
         image: { get_input: image }
         flavor: { get_input: flavor }
-        login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
         security_group_names: { get_input: security_group_names }
         user_data: |
           #!/bin/sh
@@ -65,9 +64,7 @@ topology_template:
       properties:
         image: { get_input: image }
         flavor: { get_input: flavor }
-        login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_path: { get_input: key_path }
         security_group_names: { get_input: security_group_names }
         user_data: |
           #!/bin/sh

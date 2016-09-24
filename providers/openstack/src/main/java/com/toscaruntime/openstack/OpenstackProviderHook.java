@@ -9,7 +9,6 @@ import com.toscaruntime.sdk.AbstractProviderHook;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.util.PropertyUtil;
-import org.apache.commons.lang.StringUtils;
 import tosca.nodes.Root;
 
 import java.util.Map;
@@ -39,15 +38,7 @@ public class OpenstackProviderHook extends AbstractProviderHook {
             externalNetwork.setNetworkApi(connection.getNetworkApi());
         }
         for (Compute compute : computes) {
-            OpenstackProviderConnection connection = connectionRegistry.getConnection(getNodeTarget(compute.getProperties()));
-            compute.setServerApi(connection.getServerApi());
-            compute.setNetworkId(connection.getNetworkId());
-            compute.setNetworkName(connection.getNetworkName());
-            compute.setFloatingIPApi(connection.getFloatingIPApi());
-            compute.setVolumeAttachmentApi(connection.getVolumeAttachmentApi());
-            if (StringUtils.isNotBlank(connection.getExternalNetworkId())) {
-                compute.setExternalNetworkId(connection.getExternalNetworkId());
-            }
+            compute.setConnection(connectionRegistry.getConnection(getNodeTarget(compute.getProperties())));
             Set<ExternalNetwork> connectedExternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, ExternalNetwork.class);
             Set<Network> connectedInternalNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, compute.getId(), tosca.relationships.Network.class, Network.class);
             compute.setNetworks(connectedInternalNetworks);
@@ -57,15 +48,12 @@ public class OpenstackProviderHook extends AbstractProviderHook {
         }
         for (Network network : networks) {
             OpenstackProviderConnection connection = connectionRegistry.getConnection(getNodeTarget(network.getProperties()));
-            network.setNetworkApi(connection.getNetworkApi());
-            network.setSubnetApi(connection.getSubnetApi());
+            network.setConnection(connection);
             network.setExternalNetworks(externalNetworks);
-            network.setExternalNetworkId(connection.getExternalNetworkId());
-            network.setRouterApi(connection.getRouterApi());
         }
         for (Volume volume : volumes) {
             OpenstackProviderConnection connection = connectionRegistry.getConnection(getNodeTarget(volume.getProperties()));
-            volume.setVolumeApi(connection.getVolumeApi());
+            volume.setConnection(connection);
         }
     }
 }

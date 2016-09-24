@@ -13,6 +13,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import scala.util.Try
 
 /**
   * Deploy generated code
@@ -58,7 +59,7 @@ object Deployer extends LazyLogging {
     if (Files.isDirectory(libFolder)) {
       classPath ++= ScalaFileUtil.listFiles(libFolder).map(jar => jar.toUri.toURL)
     }
-    val classLoader = URLClassLoader.newInstance(classPath.toArray, parentClassLoader)
+    val classLoader = new PluginClassLoader(classPath.toArray, parentClassLoader)
     logger.info(s"Load library [$lib] with classpath [${classLoader.getURLs.mkString(",")}]")
     val classes = names.map(name => (name, classLoader.loadClass(name))).toMap[String, Class[_]]
     (classes, classLoader)
@@ -91,7 +92,7 @@ object Deployer extends LazyLogging {
     val loadedDeployment = loadLibrary(deploymentAssemblyFolder.resolve(CompilerConstant.ASSEMBLY_RECIPE_FOLDER), contextClassloader)
     val deployment = loadedDeployment._2.loadClass("Deployment").newInstance().asInstanceOf[Deployment]
 
-    val allProvidersPaths = ScalaFileUtil.list(deploymentAssemblyFolder.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER))
+    val allProvidersPaths = Try(ScalaFileUtil.list(deploymentAssemblyFolder.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER))).getOrElse(List.empty)
     if (allProvidersPaths.isEmpty) {
       throw new ProviderHookNotFoundException("No provider is found on the classpath to initialize the deployment")
     }
@@ -109,7 +110,7 @@ object Deployer extends LazyLogging {
       }
     }.toList
 
-    val allPluginsPaths = ScalaFileUtil.list(deploymentAssemblyFolder.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER))
+    val allPluginsPaths = Try(ScalaFileUtil.list(deploymentAssemblyFolder.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER))).getOrElse(List.empty)
     val allLoadedPlugins = allPluginsPaths.map { plugin =>
       (plugin.getFileName.toString, loadLibrary(plugin, contextClassloader))
     }.toMap

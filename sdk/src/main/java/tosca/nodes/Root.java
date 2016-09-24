@@ -79,6 +79,9 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void initialLoad() {
+        for (PluginHook pluginHook : config.getPluginHooks()) {
+            pluginHook.preInitialLoad(this);
+        }
         Map<String, String> rawAttributes = config.getDeploymentPersister().syncGetAttributes(getId());
         for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
             try {
@@ -96,6 +99,9 @@ public abstract class Root extends AbstractRuntimeType {
             }
         }
         this.state = config.getDeploymentPersister().syncGetInstanceState(getId());
+        for (PluginHook pluginHook : config.getPluginHooks()) {
+            pluginHook.postInitialLoad(this);
+        }
     }
 
     @Override

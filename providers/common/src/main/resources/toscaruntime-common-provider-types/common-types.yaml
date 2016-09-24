@@ -48,6 +48,11 @@ node_types:
         entry_schema:
           type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
+      providers:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false
 
   com.toscaruntime.common.nodes.DockerContainer:
     abstract: true
@@ -71,6 +76,11 @@ node_types:
           operation_retry: 720
           wait_between_operation_retry: 10 s
       plugins:
+        type: map
+        entry_schema:
+          type: com.toscaruntime.common.datatypes.PluginConfiguration
+        required: false
+      providers:
         type: map
         entry_schema:
           type: com.toscaruntime.common.datatypes.PluginConfiguration

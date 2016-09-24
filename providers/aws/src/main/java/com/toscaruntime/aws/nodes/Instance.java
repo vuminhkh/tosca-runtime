@@ -3,6 +3,7 @@ package com.toscaruntime.aws.nodes;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.toscaruntime.aws.AWSProviderConnection;
 import com.toscaruntime.common.nodes.LinuxCompute;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.util.FailSafeUtil;
@@ -13,9 +14,6 @@ import org.jclouds.ec2.domain.ElasticIPAddress;
 import org.jclouds.ec2.domain.InstanceState;
 import org.jclouds.ec2.domain.Reservation;
 import org.jclouds.ec2.domain.RunningInstance;
-import org.jclouds.ec2.features.ElasticIPAddressVPCApi;
-import org.jclouds.ec2.features.InstanceApi;
-import org.jclouds.ec2.features.TagApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,26 +25,14 @@ public class Instance extends LinuxCompute {
 
     private static final Logger log = LoggerFactory.getLogger(Instance.class);
 
-    private InstanceApi instanceApi;
-
-    private ElasticIPAddressVPCApi elasticIPAddressApi;
-
-    private TagApi tagApi;
-
     private RunningInstance instance;
 
     private boolean associateElasticIP;
 
-    public void setInstanceApi(InstanceApi instanceApi) {
-        this.instanceApi = instanceApi;
-    }
+    private AWSProviderConnection connection;
 
-    public void setElasticIPAddressApi(ElasticIPAddressVPCApi elasticIPAddressApi) {
-        this.elasticIPAddressApi = elasticIPAddressApi;
-    }
-
-    public void setTagApi(TagApi tagApi) {
-        this.tagApi = tagApi;
+    public void setConnection(AWSProviderConnection connection) {
+        this.connection = connection;
     }
 
     public void setAssociateElasticIP(boolean associateElasticIP) {
@@ -56,7 +42,10 @@ public class Instance extends LinuxCompute {
     @Override
     public void initialLoad() {
         super.initialLoad();
-        this.instance = this.instanceApi.describeInstancesInRegion(null, getAttributeAsString("provider_resource_id")).iterator().next().iterator().next();
+        String serverId = getAttributeAsString("provider_resource_id");
+        if (StringUtils.isNotBlank(serverId)) {
+            this.instance = connection.getInstanceApi().describeInstancesInRegion(null, serverId).iterator().next().iterator().next();
+        }
     }
 
     @Override
@@ -81,10 +70,10 @@ public class Instance extends LinuxCompute {
         int retryNumber = getOperationRetry();
         long coolDownPeriod = getWaitBetweenOperationRetry();
         FailSafeUtil.doActionWithRetryNoCheckedException(
-                () -> instance = instanceApi.runInstancesInRegion(null, availabilityZone, imageId, 1, 1, runInstancesOptions).iterator().next(), "Create compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
+                () -> instance = connection.getInstanceApi().runInstancesInRegion(null, availabilityZone, imageId, 1, 1, runInstancesOptions).iterator().next(), "Create compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
         );
         FailSafeUtil.doActionWithRetryNoCheckedException(
-                () -> tagApi.applyToResources(ImmutableMap.of("Name", config.getDeploymentName() + "_" + getId()), ImmutableSet.of(instance.getId())), "Create name tag for compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
+                () -> connection.getTagApi().applyToResources(ImmutableMap.of("Name", config.getDeploymentName() + "_" + getId()), ImmutableSet.of(instance.getId())), "Create name tag for compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
         );
     }
 
@@ -100,7 +89,7 @@ public class Instance extends LinuxCompute {
             boolean isUp = InstanceState.RUNNING.equals(instance.getInstanceState());
             if (!isUp) {
                 log.info("Compute [{}] : Waiting for server [{}] to be up, current state [{}]", getId(), instance.getId(), instance.getInstanceState());
-                instance = instanceApi.describeInstancesInRegion(null, instance.getId()).iterator().next().iterator().next();
+                instance = connection.getInstanceApi().describeInstancesInRegion(null, instance.getId()).iterator().next().iterator().next();
                 return false;
             } else {
                 return true;
@@ -110,11 +99,11 @@ public class Instance extends LinuxCompute {
         if (associateElasticIP) {
             String configuredElasticIP = getPropertyAsString("elastic_ip_allocation_id");
             if (StringUtils.isBlank(configuredElasticIP)) {
-                ElasticIPAddress elasticIPAddress = elasticIPAddressApi.allocateAddressInRegion(null);
+                ElasticIPAddress elasticIPAddress = connection.getElasticIPAddressApi().allocateAddressInRegion(null);
                 configuredElasticIP = elasticIPAddress.getPublicIp();
                 setAttribute("elastic_ip_allocation_id", elasticIPAddress.getAllocationId());
             }
-            elasticIPAddressApi.associateAddressInRegion(null, configuredElasticIP, this.instance.getId());
+            connection.getElasticIPAddressApi().associateAddressInRegion(null, configuredElasticIP, this.instance.getId());
             setAttribute("public_ip_address", configuredElasticIP);
         } else {
             setAttribute("public_ip_address", instance.getIpAddress());
@@ -134,12 +123,12 @@ public class Instance extends LinuxCompute {
         // Stop the compute
         int retryNumber = getOperationRetry();
         long coolDownPeriod = getWaitBetweenOperationRetry();
-        this.instanceApi.stopInstancesInRegion(null, false, this.instance.getId());
+        connection.getInstanceApi().stopInstancesInRegion(null, false, this.instance.getId());
         SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
             boolean isShutOff = InstanceState.STOPPED.equals(instance.getInstanceState());
             if (!isShutOff) {
                 log.info("Compute [{}]: Waiting for server [{}] to be shutdown, current state [{}]", getId(), instance.getId(), instance.getInstanceState());
-                instance = instanceApi.describeInstancesInRegion(null, instance.getId()).iterator().next().iterator().next();
+                instance = connection.getInstanceApi().describeInstancesInRegion(null, instance.getId()).iterator().next().iterator().next();
                 return false;
             } else {
                 return true;
@@ -160,14 +149,14 @@ public class Instance extends LinuxCompute {
         String elasticIPAllocationId = getAttributeAsString("elastic_ip_allocation_id");
         if (StringUtils.isNotBlank(elasticIPAllocationId)) {
             try {
-                elasticIPAddressApi.releaseAddressInRegion(null, elasticIPAllocationId);
+                connection.getElasticIPAddressApi().releaseAddressInRegion(null, elasticIPAllocationId);
             } catch (Exception e) {
                 log.error("Could not release elastic ip with allocation id " + elasticIPAllocationId, e);
             }
         }
-        this.instanceApi.terminateInstancesInRegion(null, this.instance.getId());
+        connection.getInstanceApi().terminateInstancesInRegion(null, this.instance.getId());
         SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
-            Set<? extends Reservation<? extends RunningInstance>> allReservations = instanceApi.describeInstancesInRegion(null, instance.getId());
+            Set<? extends Reservation<? extends RunningInstance>> allReservations = connection.getInstanceApi().describeInstancesInRegion(null, instance.getId());
             boolean isDeleted;
             if (allReservations.isEmpty()) {
                 isDeleted = true;

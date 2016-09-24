@@ -16,11 +16,11 @@ public class DeletableVolume extends Volume {
         if (volume == null) {
             log.warn("Volume [{}] : Volume has not been created yet", getId());
         }
-        volumeApi.delete(volume.getId());
+        connection.getVolumeApi().delete(volume.getId());
         String idToDelete = volume.getId();
         String nameToDelete = volume.getName();
         SynchronizationUtil.waitUntilPredicateIsSatisfied(() -> {
-            volume = volumeApi.get(idToDelete);
+            volume = connection.getVolumeApi().get(idToDelete);
             boolean isDeleted = volume == null;
             if (!isDeleted) {
                 log.info("Volume [{}] : Waiting for volume [{}] to be deleted, current state [{}]", getId(), idToDelete, volume.getStatus());

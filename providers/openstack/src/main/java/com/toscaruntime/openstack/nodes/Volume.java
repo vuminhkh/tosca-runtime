@@ -3,11 +3,11 @@ package com.toscaruntime.openstack.nodes;
 import com.toscaruntime.common.nodes.BlockStorage;
 import com.toscaruntime.exception.deployment.execution.ProviderResourceAllocationException;
 import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
+import com.toscaruntime.openstack.OpenstackProviderConnection;
 import com.toscaruntime.tosca.ToscaSize;
 import com.toscaruntime.util.FailSafeUtil;
 import com.toscaruntime.util.SynchronizationUtil;
 import org.apache.commons.lang.StringUtils;
-import org.jclouds.openstack.cinder.v1.features.VolumeApi;
 import org.jclouds.openstack.cinder.v1.options.CreateVolumeOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +20,7 @@ public class Volume extends BlockStorage {
 
     private static final Logger log = LoggerFactory.getLogger(Volume.class);
 
-    protected VolumeApi volumeApi;
+    protected OpenstackProviderConnection connection;
 
     protected org.jclouds.openstack.cinder.v1.domain.Volume volume;
 
@@ -29,7 +29,7 @@ public class Volume extends BlockStorage {
         super.initialLoad();
         String volumeId = getAttributeAsString("provider_resource_id");
         if (StringUtils.isNotBlank(volumeId)) {
-            volume = volumeApi.get(volumeId);
+            volume = connection.getVolumeApi().get(volumeId);
         }
     }
 
@@ -64,7 +64,7 @@ public class Volume extends BlockStorage {
             log.info("Volume [{}] : Create new volume with size [{}] GIB", getId(), sizeInGIB);
             try {
                 FailSafeUtil.doActionWithRetry(
-                        () -> volume = volumeApi.create(sizeInGIB, options),
+                        () -> volume = connection.getVolumeApi().create(sizeInGIB, options),
                         "Create volume",
                         getOperationRetry(),
                         getWaitBetweenOperationRetry(),
@@ -76,7 +76,7 @@ public class Volume extends BlockStorage {
             }
         } else {
             log.info("Volume [{}] : Reusing existing volume [{}]", volumeId);
-            volume = volumeApi.get(volumeId);
+            volume = connection.getVolumeApi().get(volumeId);
             if (volume == null) {
                 throw new ProviderResourcesNotFoundException("Volume [" + getId() + "] : Volume with id [" + volumeId + "] cannot be found");
             }
@@ -93,7 +93,7 @@ public class Volume extends BlockStorage {
             boolean isAvailable = status.equals(volume.getStatus());
             if (!isAvailable) {
                 log.info("Volume [{}] : Volume [{}] waiting to become [{}], current state [{}]", getId(), volume.getId(), status, volume.getStatus());
-                volume = volumeApi.get(volume.getId());
+                volume = connection.getVolumeApi().get(volume.getId());
                 return false;
             } else {
                 return true;
@@ -104,8 +104,8 @@ public class Volume extends BlockStorage {
         }
     }
 
-    public void setVolumeApi(VolumeApi volumeApi) {
-        this.volumeApi = volumeApi;
+    public void setConnection(OpenstackProviderConnection connection) {
+        this.connection = connection;
     }
 
     public org.jclouds.openstack.cinder.v1.domain.Volume getVolume() {

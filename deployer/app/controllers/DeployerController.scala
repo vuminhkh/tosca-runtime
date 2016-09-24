@@ -60,7 +60,7 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
 
   private def loadProvider(providerPath: Path) = ProviderConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget(_, "provider.conf")))
 
-  private def loadPlugin(providerPath: Path) = PluginConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget(_, "plugin.conf")))
+  private def loadPlugin(pluginPath: Path) = PluginConfiguration(pluginPath.getFileName.toString, ScalaFileUtil.listDirectories(pluginPath).map(loadTarget(_, "plugin.conf")))
 
   lazy val providerConfigurations = {
     ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.providers.dir"))).map(loadProvider)
