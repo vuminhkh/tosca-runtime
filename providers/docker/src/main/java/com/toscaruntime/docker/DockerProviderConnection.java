@@ -18,17 +18,32 @@ public class DockerProviderConnection {
 
     private DockerClient dockerClient;
 
+    /**
+     * The docker daemon IP where the daemon is hosted
+     */
     private String dockerDaemonIP;
 
+    /**
+     * In a swarm bootstrap context, this holds the mapping from private IP to public IP of all swarm nodes
+     */
     private Map<String, String> swarmNodesIPsMappings;
 
+    /**
+     * This is the bootstrap context network. Container must be connected by default to this network so they can see each other.
+     */
     private String dockerNetworkId;
 
     private String dockerNetworkName;
 
+    private String dockerURL;
+
+    private String dockerCertPath;
+
     public DockerProviderConnection(Map<String, Object> pluginProperties, Map<String, Object> bootstrapContext) {
         Map<String, String> flattenProperties = PropertyUtil.flatten(pluginProperties);
         dockerClient = DockerUtil.buildDockerClient(flattenProperties);
+        dockerURL = DockerUtil.getDockerUrl(flattenProperties);
+        dockerCertPath = DockerUtil.getDockerCertPath(flattenProperties);
         try {
             dockerDaemonIP = DockerUtil.getDockerDaemonIP(flattenProperties);
         } catch (UnknownHostException e) {
@@ -68,5 +83,13 @@ public class DockerProviderConnection {
 
     public String getDockerNetworkName() {
         return dockerNetworkName;
+    }
+
+    public String getDockerURL() {
+        return dockerURL;
+    }
+
+    public String getDockerCertPath() {
+        return dockerCertPath;
     }
 }

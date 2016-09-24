@@ -1,18 +1,16 @@
 package com.toscaruntime.docker.nodes;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.InternetProtocol;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.toscaruntime.deployment.DeploymentPersister;
+import com.toscaruntime.docker.DockerProviderConnection;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.sdk.model.DeploymentConfig;
 import com.toscaruntime.util.ClassLoaderUtil;
 import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
 import org.junit.Assert;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
@@ -46,7 +44,9 @@ public class ContainerTest {
         container.setName("testContainerName");
         container.setConfig(deploymentConfig);
         DockerDaemonConfig config = DockerUtil.getDefaultDockerDaemonConfig();
-        container.setDockerClient(DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath()));
+        DockerProviderConnection connection = Mockito.mock(DockerProviderConnection.class);
+        Mockito.when(connection.getDockerClient()).thenReturn(DockerUtil.buildDockerClient(config.getUrl(), config.getCertPath()));
+        container.setConnection(connection);
         Map<String, Object> properties = ImmutableMap.<String, Object>builder()
                 .put("image_id", imageId)
                 .put("tag", "latest")

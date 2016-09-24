@@ -80,10 +80,10 @@ public class Instance extends LinuxCompute {
         }
         int retryNumber = getOperationRetry();
         long coolDownPeriod = getWaitBetweenOperationRetry();
-        FailSafeUtil.doActionWithRetry(
+        FailSafeUtil.doActionWithRetryNoCheckedException(
                 () -> instance = instanceApi.runInstancesInRegion(null, availabilityZone, imageId, 1, 1, runInstancesOptions).iterator().next(), "Create compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
         );
-        FailSafeUtil.doActionWithRetry(
+        FailSafeUtil.doActionWithRetryNoCheckedException(
                 () -> tagApi.applyToResources(ImmutableMap.of("Name", config.getDeploymentName() + "_" + getId()), ImmutableSet.of(instance.getId())), "Create name tag for compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS
         );
     }

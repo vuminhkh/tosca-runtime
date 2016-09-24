@@ -51,6 +51,10 @@ public class SSHConnection implements Connection {
 
     private String pemContent;
 
+    private int connectRetry;
+
+    private long waitBetweenConnectRetry;
+
     @Override
     public void initialize(Map<String, Object> properties) {
         this.user = PropertyUtil.getMandatoryPropertyAsString(properties, "user");
@@ -61,10 +65,25 @@ public class SSHConnection implements Connection {
         if (StringUtils.isBlank(this.pemContent) && StringUtils.isBlank(this.pemPath)) {
             throw new BadExecutorConfigurationException("Executor is not configured properly, one of pem_path or pem_content is expected");
         }
+        this.connectRetry = getConnectRetry(properties);
+        this.waitBetweenConnectRetry = getWaitBetweenConnectRetry(properties);
         establishConnection();
     }
 
+    private static int getConnectRetry(Map<String, Object> properties) {
+        return Integer.parseInt(PropertyUtil.getPropertyAsString(properties, "configuration.connect_retry", "720"));
+    }
+
+    private static long getWaitBetweenConnectRetry(Map<String, Object> properties) {
+        String waitBetweenConnectRetry = PropertyUtil.getPropertyAsString(properties, "configuration.wait_between_connect_retry", "5 s");
+        return ToscaUtil.convertToSeconds(waitBetweenConnectRetry);
+    }
+
     private void establishConnection() {
+        FailSafeUtil.doActionWithRetryNoCheckedException(this::doEstablishConnection, "Establish connection to [" + ip + "]", this.connectRetry, this.waitBetweenConnectRetry, TimeUnit.SECONDS);
+    }
+
+    private void doEstablishConnection() {
         // Trust every host
         try {
             sshClient = new SSHClient();

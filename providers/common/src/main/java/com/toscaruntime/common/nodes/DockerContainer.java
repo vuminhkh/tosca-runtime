@@ -1,6 +1,6 @@
 package com.toscaruntime.common.nodes;
 
-public abstract class DockerContainer<T> extends Compute {
+public abstract class DockerContainer extends Compute {
 
     /**
      * Get the container id on which the micro manager can communicate
@@ -10,9 +10,17 @@ public abstract class DockerContainer<T> extends Compute {
     public abstract String getContainerId();
 
     /**
-     * Get the docker client that can be used to communicate with the container
+     * Get the docker url that can be used to communicate with the container
      *
-     * @return the docker client
+     * @return the docker url
      */
-    public abstract T getDockerClient();
+    public abstract String getDockerURL();
+
+
+    /**
+     * Get the docker certificate path that can be used to communicate with the container
+     *
+     * @return the docker certificate path
+     */
+    public abstract String getDockerCertificatePath();
 }

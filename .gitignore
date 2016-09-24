@@ -37,7 +37,14 @@ cli/src/main/resources/bootstrap/openstack/default/archive/toscaruntime.pem
 cli/src/main/resources/bootstrap/openstack/swarm/archive/toscaruntime.pem
 
 cli/src/main/resources/conf/providers/openstack/default/provider.conf
-cli/src/main/resources/conf/providers/openstack/swarm/provider.conf
+cli/src/main/resources/conf/providers/aws/default/provider.conf
 
 deployer/test/resources/testWorkspace/data
 *.pem
+/cli/src/main/resources/conf/plugins/script/default/plugin.conf
+common/ssh-util/src/test/
+compiler/src/test/resources/csars/test-cap/
+deployer/logs/
+deployer/test/resources/
+project/project/
+proxy/logs/

@@ -178,6 +178,7 @@ public abstract class Deployment {
         this.config.setArtifactsPath(recipePath.resolve(CompilerConstant.ASSEMBLY_RECIPE_FOLDER).resolve(CompilerConstant.ARCHIVE_FOLDER));
         this.config.setPluginHooks(plugins.stream().flatMap(plugin -> plugin.getPluginHooks().stream()).collect(Collectors.toList()));
         this.config.getInputs().putAll(inputs);
+        this.config.setDeploymentPersister(deploymentPersister);
 
         this.deploymentPersister = deploymentPersister;
         this.deploymentInitializer = new DeploymentInitializer(typeRegistry);

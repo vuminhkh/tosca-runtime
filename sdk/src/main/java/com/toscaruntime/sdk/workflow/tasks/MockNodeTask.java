@@ -20,6 +20,11 @@ public class MockNodeTask extends AbstractNodeTask {
     }
 
     @Override
+    protected void doRun() throws Throwable {
+        // Mock task does not run
+    }
+
+    @Override
     protected void doRunNodeOperation() throws Throwable {
         // Mock task does not run
     }

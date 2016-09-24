@@ -9,7 +9,13 @@ import com.google.common.collect.Maps;
 import com.toscaruntime.exception.client.BadClientConfigurationException;
 import org.apache.commons.lang.StringUtils;
 
-import java.net.*;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.Map;
@@ -139,6 +145,14 @@ public class DockerUtil {
             providerProperties.put(DOCKER_CERT_PATH_KEY, certPath);
         }
         return buildDockerClient(providerProperties);
+    }
+
+    public static String getDockerUrl(Map<String, String> properties) {
+        return properties.get(DOCKER_URL_KEY);
+    }
+
+    public static String getDockerCertPath(Map<String, String> properties) {
+        return properties.get(DOCKER_CERT_PATH_KEY);
     }
 
     public static void showLog(DockerClient dockerClient, String containerId, boolean follow, int numberOfLines, LogContainerResultCallback logCallback) {

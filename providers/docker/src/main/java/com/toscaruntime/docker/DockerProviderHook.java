@@ -30,12 +30,8 @@ public class DockerProviderHook extends AbstractProviderHook {
                 DockerProviderConnection connection = connectionRegistry.getConnection(target);
                 Set<Network> connectedNetworks = DeploymentUtil.getTargetInstancesOfRelationship(relationshipInstances, container.getId(), tosca.relationships.Network.class, Network.class);
                 Set<Volume> attachedVolumes = DeploymentUtil.getSourceInstancesOfRelationship(relationshipInstances, container.getId(), tosca.relationships.AttachTo.class, Volume.class);
-                container.setDockerClient(connection.getDockerClient());
-                container.setBootstrapNetworkId(connection.getDockerNetworkId());
-                container.setBootstrapNetworkName(connection.getDockerNetworkName());
+                container.setConnection(connection);
                 container.setNetworks(connectedNetworks);
-                container.setDockerDaemonIP(connection.getDockerDaemonIP());
-                container.setSwarmNodesIPsMappings(connection.getSwarmNodesIPsMappings());
                 container.setVolumes(attachedVolumes);
                 attachedVolumes.forEach(volume -> volume.setContainer(container));
             }

@@ -12,8 +12,8 @@ import com.toscaruntime.rest.model._
 import com.toscaruntime.runtime.{Deployer, PluginConfiguration, ProviderConfiguration, TargetConfiguration}
 import com.toscaruntime.sdk.Deployment
 import com.toscaruntime.util.{JavaScalaConversionUtil, ScalaFileUtil}
-import com.typesafe.config.ConfigFactory
 import com.typesafe.config.impl.ConfigImpl
+import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import dao.DeploymentDAO
 import models.ExecutionEntity
 import org.joda.time.DateTime
@@ -27,7 +27,7 @@ import scala.language.postfixOps
 
 class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Controller with Logging {
 
-  lazy val recipePath = Paths.get(play.Play.application().configuration().getString("com.toscaruntime.deployment.recipeDir"))
+  lazy val deploymentRecipePath = Paths.get(play.Play.application().configuration().getString("com.toscaruntime.deployment.dir"))
 
   lazy val deploymentInputsPath = {
     val inputPath = Paths.get(play.Play.application().configuration().getString("com.toscaruntime.deployment.inputFile"))
@@ -47,28 +47,34 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
 
   lazy val bootstrap = deploymentConfiguration.getBoolean(DeployerConstant.BOOTSTRAP_KEY)
 
-  private def loadTarget(targetPath: Path) = {
-    val providerConfig = ConfigFactory.parseFile(targetPath.toFile).resolveWith(play.Play.application().configuration().underlying()).resolveWith(ConfigImpl.systemPropertiesAsConfig())
+
+  private def loadTarget(targetPath: Path, targetFileName: String) = {
+    val providerConfig = ConfigFactory.parseFile(targetPath.resolve(targetFileName).toFile)
+      .resolveWith(
+        play.Play.application().configuration().underlying()
+          .withFallback(ConfigFactory.empty().withValue("com.toscaruntime.target.dir", ConfigValueFactory.fromAnyRef(targetPath.toString)))
+          .withFallback(ConfigImpl.systemPropertiesAsConfig())
+      )
     TargetConfiguration(targetPath.getFileName.toString, providerConfig.root().unwrapped())
   }
 
-  private def loadProvider(providerPath: Path) = ProviderConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget))
+  private def loadProvider(providerPath: Path) = ProviderConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget(_, "provider.conf")))
 
-  private def loadPlugin(providerPath: Path) = PluginConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget))
+  private def loadPlugin(providerPath: Path) = PluginConfiguration(providerPath.getFileName.toString, ScalaFileUtil.listDirectories(providerPath).map(loadTarget(_, "plugin.conf")))
 
   lazy val providerConfigurations = {
-    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.provider.confDir"))).map(loadProvider)
+    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.providers.dir"))).map(loadProvider)
   }
 
   lazy val pluginConfigurations = {
-    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.plugin.confDir"))).map(loadPlugin)
+    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.plugins.dir"))).map(loadPlugin)
   }
 
   lazy val deployment: Deployment = {
     if (!deploymentDAO.isSchemaCreated) {
       deploymentDAO.createSchema()
     }
-    Deployer.createDeployment(deploymentName, recipePath, deploymentInputsPath, providerConfigurations, pluginConfigurations, bootstrapContextPath, bootstrap, play.Play.application().classloader(), deploymentDAO)
+    Deployer.createDeployment(deploymentName, deploymentRecipePath, deploymentInputsPath, providerConfigurations, pluginConfigurations, bootstrapContextPath, bootstrap, play.Play.application().classloader(), deploymentDAO)
   }
 
   private def createExecution(workflowExecutionRequest: WorkflowExecutionRequest) = {
@@ -232,7 +238,7 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
     }.toList
     val executions = deploymentDAO.listExecutions().flatMap { executions =>
       Future.sequence(executions.map {
-        case execution: ExecutionEntity =>
+        execution: ExecutionEntity =>
           deploymentDAO.getExecutionInputs(execution.id).map { inputs =>
             ExecutionDTO(execution.id, execution.workflowId, new DateTime(execution.startTime.getTime), execution.endTime.map(endTime => new DateTime(endTime.getTime)), execution.error, execution.status, inputs)
           }

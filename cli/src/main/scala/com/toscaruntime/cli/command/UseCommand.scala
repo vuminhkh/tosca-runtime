@@ -96,7 +96,7 @@ object UseCommand {
     if (StringUtils.isNotBlank(cert)) {
       config +=
         s"""
-           |${DockerUtil.DOCKER_CERT_PATH_KEY}=$${com.toscaruntime.provider.dir}"/cert"""".stripMargin
+           |${DockerUtil.DOCKER_CERT_PATH_KEY}=$${com.toscaruntime.target.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
 
@@ -126,7 +126,7 @@ object UseCommand {
     if (Files.exists(dockerConfigFilePath)) {
       println(s"Found existing configuration at [$dockerConfigPath]")
       val providerConfig = ConfigFactory.parseFile(dockerConfigFilePath.toFile).resolveWith(
-        ConfigFactory.empty().withValue("com.toscaruntime.provider.dir", ConfigValueFactory.fromAnyRef(dockerConfigPath.toString))
+        ConfigFactory.empty().withValue("com.toscaruntime.target.dir", ConfigValueFactory.fromAnyRef(dockerConfigPath.toString))
       )
       val config = providerConfig.entrySet().asScala.map { entry =>
         (entry.getKey, entry.getValue.unwrapped().asInstanceOf[String])

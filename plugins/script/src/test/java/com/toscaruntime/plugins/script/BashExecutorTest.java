@@ -37,7 +37,8 @@ public class BashExecutorTest {
             dockerClient.startContainerCmd(container.getId()).exec();
             DockerConnection dockerConnection = new DockerConnection();
             dockerConnection.initialize(ImmutableMap.<String, Object>builder()
-                    .put("docker_client", dockerClient)
+                    .put("docker_url", defaultConfig.getUrl())
+                    .put("cert_path", defaultConfig.getCertPath())
                     .put("container_id", container.getId()).build());
             BashExecutor bashExecutor = new BashExecutor();
             bashExecutor.initialize(dockerConnection, ImmutableMap.<String, Object>builder()
@@ -45,7 +46,6 @@ public class BashExecutorTest {
                     .put(Executor.RECIPE_LOCATION_KEY, "/tmp/recipe")
                     .build()
             );
-            bashExecutor.refreshRecipe();
             bashExecutor.executeArtifact("testNode", "testOperation", "good-script.sh", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Good variable").build(), Collections.emptyMap());
             try {
                 bashExecutor.executeArtifact("testNode", "testOperation", "bad-script.sh", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Bad variable").build(), Collections.emptyMap());
@@ -90,7 +90,6 @@ public class BashExecutorTest {
                     .put(Executor.RECIPE_LOCATION_KEY, "/tmp/recipe")
                     .build()
             );
-            bashExecutor.refreshRecipe();
             bashExecutor.executeArtifact("testNode", "testOperation", "good-script.sh", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Good variable").build(), Collections.emptyMap());
             try {
                 bashExecutor.executeArtifact("testNode", "testOperation", "bad-script.sh", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Bad variable").build(), Collections.emptyMap());

@@ -31,7 +31,8 @@ public class DockerConnectionTest {
             dockerClient.startContainerCmd(container.getId()).exec();
             DockerConnection dockerConnection = new DockerConnection();
             dockerConnection.initialize(ImmutableMap.<String, Object>builder()
-                    .put("docker_client", dockerClient)
+                    .put("docker_url", defaultConfig.getUrl())
+                    .put("cert_path", defaultConfig.getCertPath())
                     .put("container_id", container.getId()).build());
             Assert.assertEquals(0, (int) dockerConnection.executeScript(new String(IOUtils.toByteArray(this.getClass().getClassLoader()
                     .getResourceAsStream("scripts/good-script.sh")), StandardCharsets.UTF_8), ImmutableMap.<String, String>builder().put("MY_VARIABLE", "Good variable").build(), new SimpleOutputHandler()));

@@ -108,6 +108,7 @@ public class DeploymentInitializer {
                 if (!shouldFilterRelationship(sourceInstance, targetInstance, relationshipNode.getRelationshipType())) {
                     try {
                         tosca.relationships.Root relationshipInstance = relationshipNode.getRelationshipType().newInstance();
+                        relationshipInstance.setConfig(sourceInstance.getConfig());
                         relationshipInstance.setSource(sourceInstance);
                         relationshipInstance.setTarget(targetInstance);
                         relationshipInstance.setNode(relationshipNode);

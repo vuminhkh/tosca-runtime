@@ -37,15 +37,15 @@ public class OpenstackProviderConnection {
 
     private RouterApi routerApi;
 
+    private VolumeApi volumeApi;
+
+    private VolumeAttachmentApi volumeAttachmentApi;
+
     private String networkId;
 
     private String networkName;
 
     private String externalNetworkId;
-
-    private VolumeApi volumeApi;
-
-    private VolumeAttachmentApi volumeAttachmentApi;
 
     public OpenstackProviderConnection(Map<String, Object> providerProperties, Map<String, Object> bootstrapContext) {
         Iterable<Module> modules = ImmutableSet.<Module>of(new SLF4JLoggingModule());

@@ -95,8 +95,8 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
   /**
     * Create a deployment agent's docker image with custom setup
     *
-    * @param deploymentId       the name of the deployment
-    * @param recipePath         the path of the recipe
+    * @param deploymentId        the name of the deployment
+    * @param recipePath          the path of the recipe
     * @param providerConfigPaths the path for the configuration of the provider
     * @return id of the created docker image
     */
@@ -110,11 +110,15 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
       .withValue(DeployerConstant.BOOTSTRAP_KEY, ConfigValueFactory.fromAnyRef(bootstrap))
     FileUtil.writeTextFile(deploymentConfig.root().render(), tempDockerImageBuildDir.resolve("deployment").resolve("deployment.conf"))
     // Copy provider configs
-    providerConfigPaths.foreach(FileUtil.copy(_, tempDockerImageBuildDir.resolve("providers")))
+    val copiedProviderConfigPaths = tempDockerImageBuildDir.resolve("providers")
+    Files.createDirectories(copiedProviderConfigPaths)
+    providerConfigPaths.foreach(providerConfigPath => FileUtil.copy(providerConfigPath, copiedProviderConfigPaths.resolve(providerConfigPath.getFileName)))
     // Change auto generated conf to regular conf
-    ScalaFileUtil.listRecursive(tempDockerImageBuildDir.resolve("providers"), file => Files.isRegularFile(file) && file.getFileName.toString == "auto_generated_provider.conf").foreach(path => Files.move(path, path.resolveSibling("provider.conf")))
+    ScalaFileUtil.listRecursive(copiedProviderConfigPaths, file => Files.isRegularFile(file) && file.getFileName.toString == "auto_generated_provider.conf").foreach(path => Files.move(path, path.resolveSibling("provider.conf")))
     // Copy plugin configs
-    pluginConfigPaths.foreach(FileUtil.copy(_, tempDockerImageBuildDir.resolve("plugins")))
+    val copiedPluginConfigPaths = tempDockerImageBuildDir.resolve("plugins")
+    Files.createDirectories(copiedPluginConfigPaths)
+    pluginConfigPaths.foreach(pluginConfigPath => FileUtil.copy(pluginConfigPath, copiedPluginConfigPaths.resolve(pluginConfigPath.getFileName)))
     if (bootstrapContext.nonEmpty) {
       yaml.dump(JavaScalaConversionUtil.toJavaMap(bootstrapContext), new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
     }

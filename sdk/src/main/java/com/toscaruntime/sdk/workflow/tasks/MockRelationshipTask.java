@@ -30,6 +30,11 @@ public class MockRelationshipTask extends AbstractRelationshipTask {
     }
 
     @Override
+    protected void doRun() throws Throwable {
+        // Mock task does not run
+    }
+
+    @Override
     public String getInterfaceName() {
         return interfaceName;
     }

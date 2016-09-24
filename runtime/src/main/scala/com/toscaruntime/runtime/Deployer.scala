@@ -1,6 +1,6 @@
 package com.toscaruntime.runtime
 
-import java.net.URLClassLoader
+import java.net.{URL, URLClassLoader}
 import java.nio.file._
 import java.util
 
@@ -9,13 +9,15 @@ import com.toscaruntime.deployment.DeploymentPersister
 import com.toscaruntime.exception.deployment.creation.ProviderHookNotFoundException
 import com.toscaruntime.sdk._
 import com.toscaruntime.util.{JavaScalaConversionUtil, ScalaFileUtil}
+import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 /**
   * Deploy generated code
   */
-object Deployer {
+object Deployer extends LazyLogging {
 
   /**
     * Deploy the given recipe from the given recipe folder and the given input file and given provider configuration file
@@ -47,12 +49,17 @@ object Deployer {
 
   private def loadLibrary(lib: Path, parentClassLoader: ClassLoader) = {
     val names = ScalaFileUtil.listJavaClassNames(lib.resolve(CompilerConstant.SOURCE_FOLDER))
-    val classLoader = URLClassLoader.newInstance(
-      Array(
-        lib.resolve(CompilerConstant.TARGET_FOLDER).toUri.toURL,
-        lib.resolve(CompilerConstant.LIB_FOLDER).toUri.toURL
-      ), parentClassLoader
-    )
+    val classPath = ListBuffer[URL]()
+    val classesFolder = lib.resolve(CompilerConstant.TARGET_FOLDER)
+    if (Files.isDirectory(classesFolder)) {
+      classPath += classesFolder.toUri.toURL
+    }
+    val libFolder = lib.resolve(CompilerConstant.LIB_FOLDER)
+    if (Files.isDirectory(libFolder)) {
+      classPath ++= ScalaFileUtil.listFiles(libFolder).map(jar => jar.toUri.toURL)
+    }
+    val classLoader = URLClassLoader.newInstance(classPath.toArray, parentClassLoader)
+    logger.info(s"Load library [$lib] with classpath [${classLoader.getURLs.mkString(",")}]")
     val classes = names.map(name => (name, classLoader.loadClass(name))).toMap[String, Class[_]]
     (classes, classLoader)
   }
@@ -108,7 +115,7 @@ object Deployer {
     }.toMap
     val allPlugins = allLoadedPlugins.map { case (pluginName, loadedPlugin) =>
       val pluginHookClasses = DeployerUtil.findImplementations(loadedPlugin._1.values, classOf[PluginHook])
-      val allPluginTargetConfigurations = providerConfigurations.find(_.name == pluginName).map(_.targets.map(target => (target.name, target.configuration)).toMap).map(_.asJava).getOrElse(new util.HashMap[String, util.Map[String, AnyRef]]())
+      val allPluginTargetConfigurations = pluginConfigurations.find(_.name == pluginName).map(_.targets.map(target => (target.name, target.configuration)).toMap).map(_.asJava).getOrElse(new util.HashMap[String, util.Map[String, AnyRef]]())
       new Plugin(allPluginTargetConfigurations, pluginHookClasses.map(_.newInstance().asInstanceOf[PluginHook]).toList.asJava)
     }.toList
 

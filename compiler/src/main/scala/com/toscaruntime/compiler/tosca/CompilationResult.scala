@@ -17,15 +17,15 @@ case class CompilationResult(
   }
 
   def providers = {
-    dependencies
-      .filter(dependencyEntry => CompilerUtil.isProviderTypes(dependencyEntry._1))
-      .values.map(csar => CompilerUtil.pluginNameFromCsarName(csar.csarName)).toList
+    dependencies.values
+      .filter(csar => CompilerUtil.isProviderTypes(csar.csarName))
+      .map(csar => CompilerUtil.pluginNameFromCsarName(csar.csarName)).toList
   }
 
   def plugins = {
-    dependencies
-      .filter(dependencyEntry => CompilerUtil.isPluginTypes(dependencyEntry._1))
-      .values.map(csar => CompilerUtil.pluginNameFromCsarName(csar.csarName)).toList
+    dependencies.values
+      .filter(csar => CompilerUtil.isPluginTypes(csar.csarName))
+      .map(csar => CompilerUtil.pluginNameFromCsarName(csar.csarName)).toList
   }
 }
 

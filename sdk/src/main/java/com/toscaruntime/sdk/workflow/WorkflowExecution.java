@@ -16,7 +16,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tosca.relationships.Root;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -98,7 +105,7 @@ public class WorkflowExecution {
                 return !taskDTOs.get(new TaskDTO(genericTask.getTaskId())).equals(ExecutionConstant.SUCCESS);
             }
         }).collect(Collectors.toSet());
-        allToBeRun.stream().forEach(toBeRun -> {
+        allToBeRun.forEach(toBeRun -> {
             // Filter out tasks that has already finished from the dependencies
             Set<AbstractTask> toBeRunDependencies = toBeRun.getDependsOnTasks().stream().filter(allToBeRun::contains).collect(Collectors.toSet());
             toBeRun.setDependsOnTasks(toBeRunDependencies);
@@ -267,7 +274,7 @@ public class WorkflowExecution {
     public void addTasks(List<AbstractTask> tasks) {
         tasksLeft.addAll(tasks);
         totalTasks.addAll(tasks);
-        tasks.stream().forEach(task -> task.setWorkflowExecution(this));
+        tasks.forEach(task -> task.setWorkflowExecution(this));
     }
 
     public Set<AbstractTask> getTasksLeft() {
@@ -295,7 +302,7 @@ public class WorkflowExecution {
                     }
                 }
             } else {
-                tasksCanBeRun.stream().forEach(task -> {
+                tasksCanBeRun.forEach(task -> {
                     if (!isTransient()) {
                         if (task instanceof AbstractNodeTask) {
                             AbstractNodeTask nodeTask = (AbstractNodeTask) task;

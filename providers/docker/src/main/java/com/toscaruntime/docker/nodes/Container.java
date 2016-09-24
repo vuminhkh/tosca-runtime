@@ -1,6 +1,5 @@
 package com.toscaruntime.docker.nodes;
 
-import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.StartContainerCmd;
@@ -12,6 +11,7 @@ import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.toscaruntime.common.nodes.DockerContainer;
+import com.toscaruntime.docker.DockerProviderConnection;
 import com.toscaruntime.exception.deployment.execution.InvalidOperationExecutionException;
 import com.toscaruntime.exception.deployment.execution.ProviderResourcesNotFoundException;
 import com.toscaruntime.util.DockerUtil;
@@ -26,22 +26,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("unchecked")
-public class Container extends DockerContainer<DockerClient> {
+public class Container extends DockerContainer {
 
     private static final Logger log = LoggerFactory.getLogger(Container.class);
-
-    private DockerClient dockerClient;
 
     private String containerId;
 
     private String ipAddress;
-
-    /**
-     * This is the bootstrap context network. Container must be connected by default to this network so they can see each other.
-     */
-    private String bootstrapNetworkId;
-
-    private String bootstrapNetworkName;
 
     /**
      * Those are networks explicitly defined by user in the recipe
@@ -54,14 +45,9 @@ public class Container extends DockerContainer<DockerClient> {
     private Set<Volume> volumes;
 
     /**
-     * The docker daemon IP where the daemon is hosted
+     * All information / API to talk to the provider can be found in this object
      */
-    private String dockerDaemonIP;
-
-    /**
-     * In a swarm bootstrap context, this holds the mapping from private IP to public IP of all swarm nodes
-     */
-    private Map<String, String> swarmNodesIPsMappings;
+    private DockerProviderConnection connection;
 
     @Override
     public void initialLoad() {
@@ -119,12 +105,12 @@ public class Container extends DockerContainer<DockerClient> {
         String tag = getPropertyAsString("tag", "latest");
         log.info("Container [" + getId() + "] : Pulling image " + imageId);
         try {
-            dockerClient.pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitCompletion();
+            connection.getDockerClient().pullImageCmd(imageId).withTag(tag).exec(new PullImageResultCallback()).awaitCompletion();
         } catch (InterruptedException e) {
             throw new InvalidOperationExecutionException("Pull interrupted", e);
         }
         log.info("Container [" + getId() + "] : Pulled image " + imageId);
-        CreateContainerCmd createContainerCmd = dockerClient.createContainerCmd(imageId + ":" + tag)
+        CreateContainerCmd createContainerCmd = connection.getDockerClient().createContainerCmd(imageId + ":" + tag)
                 .withStdinOpen(Boolean.parseBoolean(getPropertyAsString("interactive", "true")))
                 .withName(DockerUtil.normalizeResourceName(config.getDeploymentName() + "_" + getId()))
                 .withExposedPorts(exposedPorts.toArray(new ExposedPort[exposedPorts.size()]))
@@ -147,28 +133,28 @@ public class Container extends DockerContainer<DockerClient> {
             throw new ProviderResourcesNotFoundException("Container [" + getId() + "] : Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Starting container with id " + containerId);
-        StartContainerCmd startContainerCmd = dockerClient.startContainerCmd(containerId);
+        StartContainerCmd startContainerCmd = connection.getDockerClient().startContainerCmd(containerId);
         startContainerCmd.exec();
-        if (StringUtils.isNotBlank(bootstrapNetworkId)) {
-            log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, bootstrapNetworkId);
-            dockerClient.connectToNetworkCmd().withContainerId(containerId).withNetworkId(bootstrapNetworkId).exec();
-            log.info("Container [" + getId() + "] : Connected container {} to network {}", containerId, bootstrapNetworkId);
+        if (StringUtils.isNotBlank(connection.getDockerNetworkId())) {
+            log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, connection.getDockerNetworkId());
+            connection.getDockerClient().connectToNetworkCmd().withContainerId(containerId).withNetworkId(connection.getDockerNetworkId()).exec();
+            log.info("Container [" + getId() + "] : Connected container {} to network {}", containerId, connection.getDockerNetworkId());
         }
         if (networks != null && !networks.isEmpty()) {
             for (Network network : networks) {
                 log.info("Container [" + getId() + "] : Connecting container {} to network {}", containerId, network.getId());
-                dockerClient.connectToNetworkCmd().withContainerId(containerId).withNetworkId(network.getNetworkId()).exec();
+                connection.getDockerClient().connectToNetworkCmd().withContainerId(containerId).withNetworkId(network.getNetworkId()).exec();
                 log.info("Container [" + getId() + "] : Connected container {} to network {}", containerId, network.getId());
             }
         }
-        InspectContainerResponse response = dockerClient.inspectContainerCmd(containerId).exec();
+        InspectContainerResponse response = connection.getDockerClient().inspectContainerCmd(containerId).exec();
         if (response.getNetworkSettings().getNetworks() == null || response.getNetworkSettings().getNetworks().isEmpty()) {
             // Old version of docker will provide this
             ipAddress = response.getNetworkSettings().getIpAddress();
         } else {
             // Newer version with network API
-            if (StringUtils.isNotBlank(bootstrapNetworkName) && response.getNetworkSettings().getNetworks().containsKey(bootstrapNetworkName)) {
-                ipAddress = response.getNetworkSettings().getNetworks().get(bootstrapNetworkName).getIpAddress();
+            if (StringUtils.isNotBlank(connection.getDockerNetworkName()) && response.getNetworkSettings().getNetworks().containsKey(connection.getDockerNetworkName())) {
+                ipAddress = response.getNetworkSettings().getNetworks().get(connection.getDockerNetworkName()).getIpAddress();
             } else if (response.getNetworkSettings().getNetworks().containsKey("bridge")) {
                 ipAddress = response.getNetworkSettings().getNetworks().get("bridge").getIpAddress();
             } else {
@@ -182,16 +168,16 @@ public class Container extends DockerContainer<DockerClient> {
         setAttribute("ip_addresses", ipAddresses);
         setAttribute("ip_address", ipAddress);
         String publicIPAddress = null;
-        if (swarmNodesIPsMappings != null && !swarmNodesIPsMappings.isEmpty() && response.getNode() != null) {
+        if (connection.getSwarmNodesIPsMappings() != null && !connection.getSwarmNodesIPsMappings().isEmpty() && response.getNode() != null) {
             String dockerHostIP = response.getNode().getIp();
             setAttribute("docker_host_ip_address", dockerHostIP);
-            publicIPAddress = swarmNodesIPsMappings.get(dockerHostIP);
+            publicIPAddress = connection.getSwarmNodesIPsMappings().get(dockerHostIP);
             setAttribute("docker_host_public_ip_address", publicIPAddress);
         }
         if (StringUtils.isBlank(publicIPAddress)) {
-            publicIPAddress = dockerDaemonIP;
+            publicIPAddress = connection.getDockerDaemonIP();
         }
-        setAttribute("docker_daemon_ip_address", dockerDaemonIP);
+        setAttribute("docker_daemon_ip_address", connection.getDockerDaemonIP());
         setAttribute("public_ip_address", publicIPAddress);
         setAttribute("provider_resource_id", containerId);
         setAttribute("provider_resource_name", response.getName());
@@ -205,7 +191,7 @@ public class Container extends DockerContainer<DockerClient> {
             throw new ProviderResourcesNotFoundException("Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Stopping container with id " + containerId);
-        dockerClient.stopContainerCmd(containerId).exec();
+        connection.getDockerClient().stopContainerCmd(containerId).exec();
         log.info("Container [" + getId() + "] : Stopped container with id " + containerId + " and ip address " + ipAddress);
         removeAttribute("ip_addresses");
         removeAttribute("ip_address");
@@ -220,25 +206,23 @@ public class Container extends DockerContainer<DockerClient> {
             throw new ProviderResourcesNotFoundException("Container has not been created yet");
         }
         log.info("Container [" + getId() + "] : Deleting container with id " + containerId);
-        dockerClient.removeContainerCmd(containerId).exec();
+        connection.getDockerClient().removeContainerCmd(containerId).exec();
         log.info("Container [" + getId() + "] : Deleted container with id " + containerId);
         containerId = null;
     }
 
-    public void setDockerClient(DockerClient dockerClient) {
-        this.dockerClient = dockerClient;
+    public void setConnection(DockerProviderConnection connection) {
+        this.connection = connection;
     }
 
-    public DockerClient getDockerClient() {
-        return dockerClient;
+    @Override
+    public String getDockerURL() {
+        return connection.getDockerURL();
     }
 
-    public void setBootstrapNetworkId(String bootstrapNetworkId) {
-        this.bootstrapNetworkId = bootstrapNetworkId;
-    }
-
-    public void setBootstrapNetworkName(String bootstrapNetworkName) {
-        this.bootstrapNetworkName = bootstrapNetworkName;
+    @Override
+    public String getDockerCertificatePath() {
+        return connection.getDockerCertPath();
     }
 
     public String getContainerId() {
@@ -247,14 +231,6 @@ public class Container extends DockerContainer<DockerClient> {
 
     public void setNetworks(Set<Network> networks) {
         this.networks = networks;
-    }
-
-    public void setDockerDaemonIP(String dockerDaemonIP) {
-        this.dockerDaemonIP = dockerDaemonIP;
-    }
-
-    public void setSwarmNodesIPsMappings(Map<String, String> swarmNodesIPsMappings) {
-        this.swarmNodesIPsMappings = swarmNodesIPsMappings;
     }
 
     public void setVolumes(Set<Volume> volumes) {

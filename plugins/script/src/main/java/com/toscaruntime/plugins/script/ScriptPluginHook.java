@@ -1,6 +1,6 @@
 package com.toscaruntime.plugins.script;
 
-import com.github.dockerjava.api.DockerClient;
+import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.artifact.ExecutorConfiguration;
 import com.toscaruntime.common.nodes.DockerContainer;
 import com.toscaruntime.common.nodes.LinuxCompute;
@@ -53,6 +53,7 @@ public class ScriptPluginHook implements PluginHook {
                 executorProperties.put("ip", linuxCompute.getIpAddress());
                 executorProperties.put("port", PropertyUtil.getMandatoryPropertyAsString(nodeProperties, "ssh_port"));
                 executorProperties.put("user", PropertyUtil.getMandatoryPropertyAsString(nodeProperties, "login"));
+                executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
                 String pemPath = PropertyUtil.getPropertyAsString(nodeProperties, "key_path");
                 String pemContent = PropertyUtil.getPropertyAsString(nodeProperties, "key_content");
                 if (StringUtils.isNotBlank(pemContent)) {
@@ -64,9 +65,11 @@ public class ScriptPluginHook implements PluginHook {
                 // A Linux VM needs SSH connection to execute bash script
                 ((LinuxCompute) node).registerExecutor(new ExecutorConfiguration(BashExecutor.class, SSHConnection.class, executorProperties));
             } else if (node instanceof DockerContainer) {
-                DockerContainer<DockerClient> dockerContainer = (DockerContainer<DockerClient>) node;
-                executorProperties.put("docker_client", dockerContainer.getDockerClient());
+                DockerContainer dockerContainer = (DockerContainer) node;
+                executorProperties.put("docker_url", dockerContainer.getDockerURL());
+                executorProperties.put("cert_path", dockerContainer.getDockerCertificatePath());
                 executorProperties.put("container_id", dockerContainer.getContainerId());
+                executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
                 // A docker container needs a Docker connection
                 ((DockerContainer) node).registerExecutor(new ExecutorConfiguration(BashExecutor.class, DockerConnection.class, executorProperties));
             }

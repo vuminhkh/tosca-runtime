@@ -151,7 +151,7 @@ public class Compute extends LinuxCompute {
                 createServerOptions.getNetworks(),
                 createServerOptions.getSecurityGroupNames(),
                 userData);
-        FailSafeUtil.doActionWithRetry(() -> {
+        FailSafeUtil.doActionWithRetryNoCheckedException(() -> {
             ServerCreated serverCreated = this.serverApi.create(config.getDeploymentName().replaceAll("[^\\p{L}\\p{Nd}]+", "") + "_" + this.getId(), getMandatoryPropertyAsString("image"), getMandatoryPropertyAsString("flavor"), createServerOptions);
             this.server = serverApi.get(serverCreated.getId());
         }, "Create compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS);
@@ -159,7 +159,7 @@ public class Compute extends LinuxCompute {
     }
 
     private FloatingIP attachFloatingIP(String externalNetworkId, int retryNumber, long coolDownPeriod) {
-        FloatingIP floatingIP = FailSafeUtil.doActionWithRetry(() -> this.floatingIPApi.allocateFromPool(externalNetworkId),
+        FloatingIP floatingIP = FailSafeUtil.doActionWithRetryNoCheckedException(() -> this.floatingIPApi.allocateFromPool(externalNetworkId),
                 "Allocation floating ip to compute " + getId(), retryNumber, coolDownPeriod, TimeUnit.SECONDS);
         this.floatingIPApi.addToServer(floatingIP.getIp(), this.server.getId());
         setAttribute("public_ip_address", floatingIP.getIp());

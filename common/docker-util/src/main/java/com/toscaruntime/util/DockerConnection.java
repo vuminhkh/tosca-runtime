@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -98,7 +99,7 @@ public class DockerConnection implements Connection {
             commandWriter.write(scriptContent);
             outputHandler.handleStdErr(dockerStreamDecoder.getStdErrStream());
             outputHandler.handleStdOut(dockerStreamDecoder.getStdOutStream());
-            String execId = asyncRunCommand("/bin/sh", new ByteArrayInputStream(rawWriter.toString().getBytes(StandardCharsets.UTF_8)), dockerStreamDecoder);
+            String execId = asyncRunCommand(BashArtifactExecutorUtil.readInterpreterCommand(new StringReader(scriptContent)), new ByteArrayInputStream(rawWriter.toString().getBytes(StandardCharsets.UTF_8)), dockerStreamDecoder);
             dockerStreamDecoder.awaitCompletion();
             return dockerClient.inspectExecCmd(execId).exec().getExitCode();
         } catch (InterruptedException e) {
@@ -111,7 +112,7 @@ public class DockerConnection implements Connection {
 
     @Override
     public void initialize(Map<String, Object> properties) {
-        this.dockerClient = (DockerClient) properties.get("docker_client");
+        this.dockerClient = DockerUtil.buildDockerClient(PropertyUtil.getMandatoryPropertyAsString(properties, "docker_url"), PropertyUtil.getPropertyAsString(properties, "cert_path"));
         this.containerId = PropertyUtil.getMandatoryPropertyAsString(properties, "container_id");
     }
 

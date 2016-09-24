@@ -1,0 +1,8 @@
+ssh_port: "22"
+login: "ubuntu"
+key_content: "Fill with yours"
+connect_retry: "720"
+wait_between_connect_retry: "5 s"
+artifact_execution_retry: "1"
+wait_between_artifact_execution_retry: "10 s"
+wait_before_artifact_execution: "10 s"

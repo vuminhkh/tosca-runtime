@@ -1,13 +1,12 @@
 package com.toscaruntime.sdk.workflow.tasks;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-
+import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.toscaruntime.sdk.workflow.WorkflowExecution;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public abstract class AbstractTask implements Runnable {
 
@@ -22,7 +21,7 @@ public abstract class AbstractTask implements Runnable {
     private void notifyTaskCompletion() {
         try {
             workflowExecution.getLock().lock();
-            dependedByTasks.stream().forEach(dependedByInstance -> dependedByInstance.onDependencyCompletion(this));
+            dependedByTasks.forEach(dependedByInstance -> dependedByInstance.onDependencyCompletion(this));
             // The dependency is notified about the completion of the task before the workflow execution
             // This way the workflow execution can validate that there is no cyclic dependencies
             workflowExecution.onTaskCompletion(this);
@@ -61,6 +60,7 @@ public abstract class AbstractTask implements Runnable {
             doRun();
             notifyTaskCompletion();
         } catch (Throwable e) {
+            log.error("Task " + toString() + " encountered error", e);
             notifyTaskError(e);
         }
     }

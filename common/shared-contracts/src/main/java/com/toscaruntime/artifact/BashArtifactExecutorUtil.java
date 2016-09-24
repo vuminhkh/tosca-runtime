@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -59,7 +60,11 @@ public class BashArtifactExecutorUtil {
     }
 
     public static String readSheBang(Path script) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(Files.newInputStream(script), "UTF-8"))) {
+        return readSheBang(new InputStreamReader(Files.newInputStream(script), "UTF-8"));
+    }
+
+    public static String readSheBang(Reader script) throws IOException {
+        try (BufferedReader reader = new BufferedReader(script)) {
             String line = reader.readLine();
             while (line != null) {
                 line = line.trim();
@@ -76,5 +81,10 @@ public class BashArtifactExecutorUtil {
             // Not found return a default value
             return "#!/bin/sh";
         }
+    }
+
+    public static String readInterpreterCommand(Reader script) throws IOException {
+        String shebang = readSheBang(script);
+        return shebang.substring(2);
     }
 }
