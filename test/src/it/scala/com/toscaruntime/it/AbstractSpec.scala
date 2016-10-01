@@ -4,7 +4,7 @@ import java.nio.file.Files
 
 import com.toscaruntime.cli.command.UseCommand
 import com.toscaruntime.it.TestConstant._
-import com.toscaruntime.it.steps.{AgentsSteps, DeploymentsSteps}
+import com.toscaruntime.it.steps.{AgentsSteps, CsarsSteps, DeploymentsSteps}
 import com.toscaruntime.util.FileUtil
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfter, FeatureSpec, GivenWhenThen}
@@ -38,7 +38,11 @@ class AbstractSpec extends FeatureSpec with GivenWhenThen with LazyLogging with 
       Files.createDirectories(tempPath)
       Files.createDirectories(assemblyPath)
       logger.info(s"Cleaned test data ${testDataPath.toAbsolutePath}")
-      UseCommand.switchConfiguration(Context.dockerConfig.getUrl, Context.dockerConfig.getCertPath, testDataPath)
+      FileUtil.copy(prepareTestDataPath, testDataPath)
+      CsarsSteps.downloadZipFileAndExtract("https://github.com/vuminhkh/alien4cloud-extended-types/archive/master.zip", tempPath)
+      CsarsSteps.assertNoCompilationErrorsDetected(CsarsSteps.installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types")))
+      CsarsSteps.assertNoCompilationErrorsDetected(CsarsSteps.installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types")))
+      UseCommand.switchConfiguration(Context.dockerConfig.getUrl, Context.dockerConfig.getCertPath, testConfigPath)
     } catch {
       case e: Throwable => logger.warn(s"Could not properly clean test data at ${testDataPath.toAbsolutePath}", e)
     }

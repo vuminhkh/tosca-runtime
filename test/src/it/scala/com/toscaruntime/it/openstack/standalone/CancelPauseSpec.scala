@@ -25,7 +25,6 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
   feature("Cancel execution with force") {
     scenario("Deploy a freezing application then cancel its deployment process") {
       Given("I download and install all necessary types for this test")
-      installNormativeTypesAndProviders()
       assertNoCompilationErrorsDetected(installCsar(customTestComponentsPath.resolve("sleepError")))
 
       And("A deployment image has been created for sleep scenario")
@@ -51,7 +50,6 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
   feature("Cancel execution on error") {
     scenario("Deploy an application which fail, then cancel its deployment process") {
       Given("I download and install all necessary types for this test")
-      installNormativeTypesAndProviders()
       assertNoCompilationErrorsDetected(installCsar(customTestComponentsPath.resolve("sleepError")))
 
       And("A deployment image has been created for sleep scenario")
@@ -74,7 +72,6 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
   feature("Pause execution with force") {
     scenario("Deploy a freezing application then interrupt its deployment process and update the recipe so it does not freeze anymore") {
       Given("I download and install all necessary types for this test")
-      installNormativeTypesAndProviders()
       assertNoCompilationErrorsDetected(installCsar(customTestComponentsPath.resolve("sleepError")))
 
       And("A deployment image has been created for sleep scenario")

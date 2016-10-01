@@ -10,8 +10,9 @@ import com.orbitz.consul.model.agent.Registration;
 import com.orbitz.consul.model.health.HealthCheck;
 import com.orbitz.consul.model.health.ServiceHealth;
 import com.toscaruntime.consul.util.ConsulURLUtil;
+import com.toscaruntime.exception.client.ServerFailureException;
+import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.PluginHook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tosca.constants.InstanceState;
@@ -27,7 +28,7 @@ import java.util.stream.Collectors;
 
 import static com.toscaruntime.constant.ToscaInterfaceConstant.NODE_STANDARD_INTERFACE;
 
-public class ConsulPluginHook implements PluginHook {
+public class ConsulPluginHook extends AbstractPluginHook {
 
     private static final Logger log = LoggerFactory.getLogger(ConsulPluginHook.class);
 
@@ -75,7 +76,7 @@ public class ConsulPluginHook implements PluginHook {
         }
     }
 
-    private void registerToConsul(Root node) throws Exception {
+    private void registerToConsul(Root node) {
         // After starting a compute we perform registration on consul
         String ip = node.getAttributeAsString("ip_address");
         // TODO for the moment automatically check port 22 every 5 seconds, this should be configurable
@@ -107,7 +108,11 @@ public class ConsulPluginHook implements PluginHook {
             healthCacheListenersByIdMap.put(serviceId, listener);
             if (!healthCacheMap.containsKey(serviceName)) {
                 healthCacheMap.put(serviceName, serviceHealthCache);
-                serviceHealthCache.start();
+                try {
+                    serviceHealthCache.start();
+                } catch (Exception e) {
+                    throw new ServerFailureException("Unabled to start consul service health cache");
+                }
             }
         }
         node.setAttribute("service_id", serviceId);
@@ -115,25 +120,9 @@ public class ConsulPluginHook implements PluginHook {
     }
 
     @Override
-    public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Exception {
+    public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) {
         if (node instanceof Compute && "start".equals(operationName) && NODE_STANDARD_INTERFACE.equals(interfaceName)) {
             registerToConsul(node);
         }
-    }
-
-    @Override
-    public void preInitialLoad(Root node) {
-    }
-
-    @Override
-    public void postInitialLoad(Root node) {
-    }
-
-    @Override
-    public void preExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) {
-    }
-
-    @Override
-    public void postExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) {
     }
 }

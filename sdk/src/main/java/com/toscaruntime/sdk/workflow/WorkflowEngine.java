@@ -4,6 +4,7 @@ import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.exception.deployment.workflow.InvalidWorkflowException;
 import com.toscaruntime.sdk.ProviderHook;
 import com.toscaruntime.sdk.ProviderWorkflowProcessingResult;
+import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import com.toscaruntime.sdk.workflow.tasks.AbstractTask;
 import com.toscaruntime.sdk.workflow.tasks.InstallLifeCycleTasks;
@@ -204,7 +205,7 @@ public class WorkflowEngine {
         });
 
         // Let the provider process the workflow, for example the provider will handle the workflow of every native IAAS resources and relationships
-        List<ProviderWorkflowProcessingResult> providerWorkflowResults = providerHooks.stream().map(providerHook -> providerHook.postConstructInstallWorkflow(nodeInstances, relationshipInstances, allNodesTasks, allRelationshipsTasks, workflowExecution)).collect(Collectors.toList());
+        List<ProviderWorkflowProcessingResult> providerWorkflowResults = providerHooks.stream().map(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.postConstructInstallWorkflow(nodeInstances, relationshipInstances, allNodesTasks, allRelationshipsTasks, workflowExecution))).collect(Collectors.toList());
         Map<String, Root> processedNodesByProvider = providerWorkflowResults.stream().flatMap(providerWorkflowProcessingResult -> providerWorkflowProcessingResult.getNodeInstances().entrySet().stream()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Set<tosca.relationships.Root> processedRelationshipsByProvider = providerWorkflowResults.stream().flatMap(providerWorkflowProcessingResult -> providerWorkflowProcessingResult.getRelationshipInstances().stream()).collect(Collectors.toSet());        // Only process life cycles of nodes that were not processed by the provider
         allNodesTasks.entrySet().stream()
@@ -336,7 +337,7 @@ public class WorkflowEngine {
                 workflowExecution.addTasks(targetInstallLifeCycleTasks.getTasks());
             }
         });
-        List<ProviderWorkflowProcessingResult> providerWorkflowResults = providerHooks.stream().map(providerHook -> providerHook.postConstructUninstallWorkflow(nodeInstances, relationshipInstances, allNodesTasks, allRelationshipsTasks, workflowExecution)).collect(Collectors.toList());
+        List<ProviderWorkflowProcessingResult> providerWorkflowResults = providerHooks.stream().map(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.postConstructUninstallWorkflow(nodeInstances, relationshipInstances, allNodesTasks, allRelationshipsTasks, workflowExecution))).collect(Collectors.toList());
         Map<String, Root> processedNodesByProvider = providerWorkflowResults.stream().flatMap(providerWorkflowProcessingResult -> providerWorkflowProcessingResult.getNodeInstances().entrySet().stream()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Set<tosca.relationships.Root> processedRelationshipsByProvider = providerWorkflowResults.stream().flatMap(providerWorkflowProcessingResult -> providerWorkflowProcessingResult.getRelationshipInstances().stream()).collect(Collectors.toSet());
         // Only process life cycles of nodes that were not processed by the provider

@@ -67,12 +67,21 @@ lazy val common = project.in(file("common"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, compilationUtil, sharedContracts, restModel).enablePlugins(UniversalPlugin)
+  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, compilationUtil, sharedContracts, restModel, testCommon).enablePlugins(UniversalPlugin)
 
 lazy val sharedContracts = project.in(file("common/shared-contracts"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-shared-contracts",
+    libraryDependencies ++= commonDependencies
+  ).enablePlugins(UniversalPlugin)
+
+lazy val testCommon = project.in(file("common/test"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "toscaruntime-test-common",
+    libraryDependencies += "com.typesafe" % "config" % "1.3.0",
+    libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
     libraryDependencies ++= commonDependencies
   ).enablePlugins(UniversalPlugin)
 
@@ -272,7 +281,7 @@ lazy val openstack = project.in(file("providers/openstack"))
     libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1",
     libraryDependencies ++= testDependencies,
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", testCommon % "test").enablePlugins(JavaAppPackaging)
 
 lazy val aws = project.in(file("providers/aws"))
   .settings(providerSettings: _*)
@@ -286,7 +295,7 @@ lazy val aws = project.in(file("providers/aws"))
     libraryDependencies += "org.apache.jclouds.provider" % "aws-s3" % "1.9.3-SNAPSHOT",
     libraryDependencies ++= testDependencies,
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", testCommon % "test").enablePlugins(JavaAppPackaging)
 
 lazy val plugins = project.in(file("plugins")).settings(commonSettings: _*)
   .settings(
@@ -440,15 +449,9 @@ lazy val itTest = project.in(file("test"))
     name := "toscaruntime-it-test",
     libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.5" % "it,test",
     copyProviders := {
-      val dockerProviderTarget = target.value / "prepare-test" / "docker-provider-types" / version.value
-      dockerProviderTarget.mkdirs()
-      val openstackProviderTarget = target.value / "prepare-test" / "openstack-provider-types" / version.value
-      openstackProviderTarget.mkdirs()
-      val awsProviderTarget = target.value / "prepare-test" / "aws-provider-types" / version.value
-      awsProviderTarget.mkdirs()
-      IO.copyDirectory((stage in docker).value, dockerProviderTarget)
-      IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
-      IO.copyDirectory((stage in aws).value, awsProviderTarget)
+      val testRepository = target.value / "prepare-test"
+      testRepository.mkdirs()
+      IO.copyDirectory((stage in cli).value, target.value / "prepare-test")
     },
     stage <<= (stage in Universal) dependsOn copyProviders
   ).dependsOn(cli).enablePlugins(UniversalPlugin)

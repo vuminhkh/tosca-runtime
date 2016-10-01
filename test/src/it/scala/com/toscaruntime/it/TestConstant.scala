@@ -14,8 +14,6 @@ object TestConstant {
 
   val repositoryPath = testDataPath.resolve("repository")
 
-  val pluginsPath = testDataPath.resolve("plugins")
-
   val tempPath = testDataPath.resolve("temp")
 
   val inputsPath = ClassLoaderUtil.getPathForResource("inputs")
@@ -23,6 +21,14 @@ object TestConstant {
   val csarsPath = ClassLoaderUtil.getPathForResource("csars")
 
   val assemblyPath = testDataPath.resolve("assembly")
+
+  val bootstrapPath = testDataPath.resolve("bootstrap")
+
+  val testConfigPath = Paths.get("test-config")
+
+  val testProvidersConfigPath = testConfigPath.resolve("conf").resolve("providers")
+
+  val testPluginsConfigPath = testConfigPath.resolve("conf").resolve("plugins")
 
   val dockerProvider = "docker"
 
@@ -33,4 +39,8 @@ object TestConstant {
   val standalone = "standalone"
 
   val bootstrap = "bootstrap"
+
+  val defaultTarget = "default"
+
+  val swarmTarget = "swarm"
 }

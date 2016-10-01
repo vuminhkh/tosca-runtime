@@ -24,10 +24,8 @@ topology_template:
       type: string
     key_pair_name:
       type: string
-    login:
-      type: string
-    key_path:
-      type: string
+    plugin_configs:
+      type: com.toscaruntime.common.datatypes.PluginConfiguration
     security_group_names:
       type: list
       entry_schema:
@@ -44,6 +42,7 @@ topology_template:
         flavor: { get_input: flavor }
         key_pair_name: { get_input: key_pair_name }
         security_group_names: { get_input: security_group_names }
+        plugins: { get_input: plugin_configs }
         user_data: |
           #!/bin/sh
           sudo cp /etc/hosts /tmp/hosts
@@ -66,6 +65,7 @@ topology_template:
         flavor: { get_input: flavor }
         key_pair_name: { get_input: key_pair_name }
         security_group_names: { get_input: security_group_names }
+        plugins: { get_input: plugin_configs }
         user_data: |
           #!/bin/sh
           sudo cp /etc/hosts /tmp/hosts

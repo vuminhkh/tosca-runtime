@@ -1,8 +1,6 @@
 package com.toscaruntime.it
 
-import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.AgentsSteps._
-import com.toscaruntime.it.steps.CsarsSteps._
 import com.toscaruntime.it.steps.DeploymentsSteps._
 import org.scalatest.MustMatchers
 
@@ -13,11 +11,6 @@ class AgentsSpec extends AbstractSpec with MustMatchers {
   feature("Create/ List / Delete agent and view agent information") {
 
     scenario("Test with simple deployment") {
-
-      Given("I download and install all necessary types for a simple single compute deployment")
-      downloadZipFileAndExtract("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip", tempPath)
-      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("tosca-normative-types-master")))
-      installProvider(dockerProvider)
 
       And("I create deployment image for the docker single compute topology")
       createDeploymentImage("single-compute") must be(true)

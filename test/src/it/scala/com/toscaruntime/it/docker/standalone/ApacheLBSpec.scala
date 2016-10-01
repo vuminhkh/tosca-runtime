@@ -18,8 +18,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
   feature("Deployment of a load balanced web app") {
     scenario("Standard deployment") {
       Given("I download and install all necessary csars for apache load balancer web app deployment")
-      installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache-load-balancer")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("tomcat-war")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("topology-load-balancer-tomcat")))
@@ -109,7 +108,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to Fastconnect !"))
 
       When("I update the deployed war file")
-      executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Map("WAR_URL" -> "https://github.com/vuminkh/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war"))
+      executeNodeOperation("apache-lb", Some("War"), "update_war_file", None, Some("custom"), Map("WAR_URL" -> "https://github.com/vuminhkh/alien4cloud-provider-int-test/raw/develop/src/test/resources/data/helloWorld.war"))
 
       And("A request on the application's url should return a response 200 OK with the updated content")
       checkURL(url, 200, Set.empty, 5 minutes, Some("Welcome to testDeployArtifactOverriddenTest !"))

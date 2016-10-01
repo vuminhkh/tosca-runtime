@@ -70,21 +70,4 @@ object CsarsSteps extends MustMatchers with LazyLogging {
   def deleteCsar(csarName: String, csarVersion: String) = {
     CsarsCommand.deleteCsar(repositoryPath, csarName, csarVersion)
   }
-
-  def installProvider(provider: String) = {
-    val providerPackagePath = prepareTestDataPath.resolve(s"$provider-provider-types")
-    Files.exists(providerPackagePath) must be(true)
-    IO.copyDirectory(prepareTestDataPath.resolve(s"$provider-provider-types").toFile, repositoryPath.resolve(s"$provider-provider-types").toFile)
-  }
-
-  def installNormativeTypesAndProviders() = {
-    downloadZipFileAndExtract("https://github.com/vuminkh/tosca-normative-types/archive/master.zip", tempPath)
-    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("tosca-normative-types-master")))
-    downloadZipFileAndExtract("https://github.com/vuminkh/alien4cloud-extended-types/archive/master.zip", tempPath)
-    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types")))
-    assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types")))
-    installProvider(dockerProvider)
-    installProvider(openstackProvider)
-    installProvider(awsProvider)
-  }
 }

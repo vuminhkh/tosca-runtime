@@ -18,8 +18,7 @@ class ApacheLBSpec extends AbstractSpec with MustMatchers {
   feature("Deployment of a load balanced web app") {
     scenario("Standard deployment") {
       Given("I download and install all necessary csars for apache load balancer web app deployment")
-      installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache-load-balancer")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("tomcat-war")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("topology-load-balancer-tomcat")))

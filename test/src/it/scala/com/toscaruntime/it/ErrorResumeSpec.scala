@@ -20,7 +20,6 @@ class ErrorResumeSpec extends AbstractSpec with MustMatchers {
 
     scenario("Error resume handling") {
       Given("I download and install all necessary types for this test")
-      installNormativeTypesAndProviders()
       assertNoCompilationErrorsDetected(installCsar(customTestComponentsPath.resolve("sleepError")))
 
       And("A deployment image has been created for the error docker topology with bad input")

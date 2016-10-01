@@ -124,4 +124,28 @@ public class DeploymentUtil {
     public static Set<tosca.nodes.Root> getTargetInstancesOfRelationship(Set<Root> relationshipInstances, String sourceId) {
         return relationshipInstances.stream().filter(relationship -> relationship.getSource().getId().equals(sourceId)).map(Root::getTarget).collect(Collectors.toSet());
     }
+
+    public static void runWithClassLoader(ClassLoader classLoader, Runnable runnable) {
+        ClassLoader current = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            runnable.run();
+        } finally {
+            Thread.currentThread().setContextClassLoader(current);
+        }
+    }
+
+    public interface Callable<T> {
+        T call();
+    }
+
+    public static <T> T runWithClassLoader(ClassLoader classLoader, Callable<T> runnable) {
+        ClassLoader current = Thread.currentThread().getContextClassLoader();
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            return runnable.call();
+        } finally {
+            Thread.currentThread().setContextClassLoader(current);
+        }
+    }
 }

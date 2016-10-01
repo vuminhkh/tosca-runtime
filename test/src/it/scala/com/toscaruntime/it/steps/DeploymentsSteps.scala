@@ -2,7 +2,8 @@ package com.toscaruntime.it.steps
 
 import java.nio.file.Path
 
-import com.toscaruntime.cli.command.DeploymentsCommand
+import com.toscaruntime.cli.command.{BootStrapCommand, DeploymentsCommand}
+import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.it.Context
 import com.toscaruntime.it.TestConstant._
 import com.typesafe.scalalogging.LazyLogging
@@ -16,7 +17,6 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
 
   def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone, input: Option[Path] = None, deploymentId: Option[String] = None) = {
     val topologyPath = getTopologyPath(name, provider, config)
-    Context.postProcessTopology(provider, topologyPath)
     val inputOpt = input.orElse(Context.getInput(provider))
     DeploymentsCommand.createDeploymentImage(
       topologyPath,
@@ -25,10 +25,24 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       assemblyPath,
       deploymentId.getOrElse(name),
       Context.client,
-      Context.getProviderConfig(provider),
-      pluginsPath,
+      testProvidersConfigPath,
+      testPluginsConfigPath,
       Some(config == standalone)
     )
+  }
+
+  def bootstrap(provider: String = openstackProvider, target: String = swarmTarget) = {
+    BootStrapCommand.createBootstrapAgent(provider,
+      target,
+      Context.client,
+      assemblyPath,
+      bootstrapPath.resolve(provider).resolve(target).resolve("archive"),
+      testProvidersConfigPath.resolve(provider),
+      repositoryPath,
+      Context.getInput(provider)
+    )
+    AgentUtil.waitForBootstrapAgent(Context.client, provider, target)
+    AgentUtil.bootstrap(Context.client, provider, target).outputs("public_daemon_url").asInstanceOf[String]
   }
 
   def listDeploymentImages() = {

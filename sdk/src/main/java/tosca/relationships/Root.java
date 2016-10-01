@@ -4,10 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
-import com.toscaruntime.sdk.PluginHook;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.model.OperationInputDefinition;
+import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
@@ -165,16 +165,12 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void executePluginsHooksBeforeOperation(String interfaceName, String operationName) throws Throwable {
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.preExecuteRelationshipOperation(this, interfaceName, operationName);
-        }
+        config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.preExecuteRelationshipOperation(this, interfaceName, operationName)));
     }
 
     @Override
     public void executePluginsHooksAfterOperation(String interfaceName, String operationName) throws Throwable {
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.postExecuteRelationshipOperation(this, interfaceName, operationName);
-        }
+        config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.postExecuteRelationshipOperation(this, interfaceName, operationName)));
     }
 
     @Override

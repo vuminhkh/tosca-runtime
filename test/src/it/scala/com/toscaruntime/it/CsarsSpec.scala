@@ -1,7 +1,5 @@
 package com.toscaruntime.it
 
-import java.nio.file.Paths
-
 import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.CsarsSteps._
 
@@ -19,50 +17,48 @@ class CsarsSpec extends AbstractSpec {
 
     scenario("Install / list / delete csar") {
 
-      Given("I download the normative type from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip", tempPath)
+      Given("I download the sample types from Alien's repository")
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
 
-      When("I install tosca normative types to the repository with 'csars install /path/to/normative-types'")
-      val compilationResult = installCsar(tempPath.resolve("tosca-normative-types-master"))
+      When("I install Java type to the repository with 'csars install /path/to/jdk'")
+      val compilationResult = installCsar(tempPath.resolve("samples-master").resolve("jdk"))
 
       Then("I should not have any compilation errors")
       assertNoCompilationErrorsDetected(compilationResult)
 
-      When("I list available CSARS with 'csars list tosca-normative-types'")
-      val listNormativeCsarResult = listCsarWithName("tosca-normative-types")
+      When("I list available CSARS with 'csars list jdk-type'")
+      val listNormativeCsarResult = listCsarWithName("jdk-type")
 
-      Then("I should have normative types CSAR available in the repository")
-      assertCsarFound(listNormativeCsarResult, "tosca-normative-types", "1.0.0-SNAPSHOT")
+      Then("I should have JDK types CSAR available in the repository")
+      assertCsarFound(listNormativeCsarResult, "jdk-type", "1.0.0-SNAPSHOT")
 
-      When("I delete normative types csar 'csar delete tosca-normative-types:1.0.0-SNAPSHOT'")
-      deleteCsar("tosca-normative-types", "1.0.0-SNAPSHOT")
+      When("I delete JDK types csar 'csar delete jdk-type:1.0.0-SNAPSHOT'")
+      deleteCsar("jdk-type", "1.0.0-SNAPSHOT")
 
-      And("I list available CSARS with 'csars list tosca-normative-types'")
-      val listNormativeCsarWithNoResult = listCsarWithName("tosca-normative-types")
+      And("I list available CSARS with 'csars list jdk-type'")
+      val listNormativeCsarWithNoResult = listCsarWithName("jdk-type")
 
       Then("I should not have normative types CSAR available in the repository")
-      assertCsarNotFound(listNormativeCsarWithNoResult, "tosca-normative-types", "1.0.0-SNAPSHOT")
+      assertCsarNotFound(listNormativeCsarWithNoResult, "jdk-type", "1.0.0-SNAPSHOT")
     }
 
     scenario("Install csars with dependencies") {
 
-      Given("I download alien base types from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/vuminhkh/alien4cloud-extended-types/archive/master.zip", tempPath)
+      Given("I download the sample types from Alien's repository")
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
+      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("tomcat-war")))
 
-      When("I install alien base types to the repository with 'csars install /path/to/alien-base-types'")
-      val errorResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types"))
+      When("I install topology-load-balancer-tomcat to the repository with 'csars install /path/to/topology-load-balancer-tomcat'")
+      val errorResult = installCsar(tempPath.resolve("samples-master").resolve("topology-load-balancer-tomcat"))
 
-      Then("I should have compilation errors as alien base types need normative types")
+      Then("I should have compilation errors as topology-load-balancer-tomcat needs apache-load-balancer")
       assertCompilationErrorsDetected(errorResult)
 
-      When("I download the normative type from Alien's repository")
-      downloadZipFileAndExtract("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip", tempPath)
+      When("I install apache-load-balancer to the repository with 'csars install /path/to/apache-load-balancer'")
+      assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache-load-balancer")))
 
-      And("I install tosca normative types to the repository with 'csars install /path/to/normative-types'")
-      installCsar(tempPath.resolve("tosca-normative-types-master"))
-
-      And("I install alien base types to the repository with 'csars install /path/to/alien-base-types'")
-      val successfulResult = installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types"))
+      And("I install topology-load-balancer-tomcat to the repository with 'csars install /path/to/topology-load-balancer-tomcat'")
+      val successfulResult = installCsar(tempPath.resolve("samples-master").resolve("topology-load-balancer-tomcat"))
 
       Then("I should not have any compilation errors as normative types were installed")
       assertNoCompilationErrorsDetected(successfulResult)

@@ -17,8 +17,7 @@ class AlienSpec extends AbstractSpec with MustMatchers {
   feature("Deployment of Alien web app") {
     scenario("Standard deployment") {
       Given("I download and install all necessary csars for Alien web app deployment")
-      installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("jdk")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("elasticsearch")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("alien")))

@@ -7,12 +7,22 @@ public interface PluginHook extends Hook {
     /**
      * Called before executing initial load
      */
-    void preInitialLoad(Root node);
+    void preNodeInitialLoad(Root node);
 
     /**
      * Called after executing inital load
      */
-    void postInitialLoad(Root node);
+    void postNodeInitialLoad(Root node);
+
+    /**
+     * Called before executing initial load
+     */
+    void preRelationshipInitialLoad(tosca.relationships.Root node);
+
+    /**
+     * Called after executing inital load
+     */
+    void postRelationshipInitialLoad(tosca.relationships.Root node);
 
     /**
      * Called before executing node operation
@@ -21,7 +31,7 @@ public interface PluginHook extends Hook {
      * @param interfaceName interface's name
      * @param operationName operation's name
      */
-    void preExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Throwable;
+    void preExecuteNodeOperation(Root node, String interfaceName, String operationName);
 
     /**
      * Called before executing node operation
@@ -30,7 +40,7 @@ public interface PluginHook extends Hook {
      * @param interfaceName interface's name
      * @param operationName operation's name
      */
-    void postExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Throwable;
+    void postExecuteNodeOperation(Root node, String interfaceName, String operationName);
 
     /**
      * Called before executing relationship operation
@@ -39,7 +49,7 @@ public interface PluginHook extends Hook {
      * @param interfaceName interface's name
      * @param operationName operation's name
      */
-    void preExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) throws Throwable;
+    void preExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName);
 
     /**
      * Called after executing relationship operation
@@ -48,5 +58,5 @@ public interface PluginHook extends Hook {
      * @param interfaceName interface's name
      * @param operationName operation's name
      */
-    void postExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) throws Throwable;
+    void postExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName);
 }

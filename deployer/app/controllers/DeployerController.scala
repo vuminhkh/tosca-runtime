@@ -24,6 +24,7 @@ import play.api.mvc.{Action, BodyParsers, Controller}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.language.postfixOps
+import scala.util.Try
 
 class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Controller with Logging {
 
@@ -63,11 +64,11 @@ class DeployerController @Inject()(deploymentDAO: DeploymentDAO) extends Control
   private def loadPlugin(pluginPath: Path) = PluginConfiguration(pluginPath.getFileName.toString, ScalaFileUtil.listDirectories(pluginPath).map(loadTarget(_, "plugin.conf")))
 
   lazy val providerConfigurations = {
-    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.providers.dir"))).map(loadProvider)
+    Try(ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.providers.dir"))).map(loadProvider)).getOrElse(List.empty)
   }
 
   lazy val pluginConfigurations = {
-    ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.plugins.dir"))).map(loadPlugin)
+    Try(ScalaFileUtil.listDirectories(Paths.get(play.Play.application().configuration().getString("com.toscaruntime.plugins.dir"))).map(loadPlugin)).getOrElse(List.empty)
   }
 
   lazy val deployment: Deployment = {

@@ -17,8 +17,7 @@ class NodeCellarSpec extends AbstractSpec with MustMatchers {
   feature("Deployment of node cellar") {
     scenario("Standard deployment") {
       Given("I download and install all necessary csars for node cellar deployment")
-      installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("nodejs")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("mongo")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("nodecellar")))

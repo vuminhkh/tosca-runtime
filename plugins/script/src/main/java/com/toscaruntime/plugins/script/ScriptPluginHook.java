@@ -6,8 +6,8 @@ import com.toscaruntime.common.nodes.DockerContainer;
 import com.toscaruntime.common.nodes.LinuxCompute;
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.plugins.script.bash.BashExecutor;
+import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.sdk.PluginHook;
 import com.toscaruntime.util.DockerConnection;
 import com.toscaruntime.util.PropertyUtil;
 import com.toscaruntime.util.SSHConnection;
@@ -17,7 +17,7 @@ import tosca.nodes.Root;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ScriptPluginHook implements PluginHook {
+public class ScriptPluginHook extends AbstractPluginHook {
 
     private Map<String, Map<String, Object>> pluginProperties;
 
@@ -28,7 +28,7 @@ public class ScriptPluginHook implements PluginHook {
     }
 
     @Override
-    public void postInitialLoad(Root node) {
+    public void postNodeInitialLoad(Root node) {
         registerExecutor(node);
     }
 
@@ -83,25 +83,9 @@ public class ScriptPluginHook implements PluginHook {
     }
 
     @Override
-    public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Throwable {
+    public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) {
         if (ToscaInterfaceConstant.NODE_STANDARD_INTERFACE.equals(interfaceName) && ToscaInterfaceConstant.START_OPERATION.equals(operationName)) {
             registerExecutor(node);
         }
-    }
-
-    @Override
-    public void preExecuteNodeOperation(Root node, String interfaceName, String operationName) throws Throwable {
-    }
-
-    @Override
-    public void preInitialLoad(Root node) {
-    }
-
-    @Override
-    public void preExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) throws Throwable {
-    }
-
-    @Override
-    public void postExecuteRelationshipOperation(tosca.relationships.Root relationship, String interfaceName, String operationName) throws Throwable {
     }
 }

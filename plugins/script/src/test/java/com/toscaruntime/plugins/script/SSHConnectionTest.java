@@ -45,7 +45,7 @@ public class SSHConnectionTest {
                     .put("user", "root")
                     .put("ip", DockerUtil.getDockerHost(defaultConfig.getUrl()))
                     .put("port", containerDetails.getNetworkSettings().getPorts().getBindings().get(sshPort)[0].getHostPortSpec())
-                    .put("pem_path", ClassLoaderUtil.getPathForResource("insecure_key.pem").toString())
+                    .put("pem_path", ClassLoaderUtil.getPathForResource("insecure_key").toString())
                     .build());
             Assert.assertEquals(0, (int) sshConnection.executeScript(new String(IOUtils.toByteArray(this.getClass().getClassLoader()
                     .getResourceAsStream("scripts/good-script.sh")), StandardCharsets.UTF_8), ImmutableMap.<String, String>builder().put("MY_VARIABLE", "Good variable").build(), new SimpleOutputHandler()));

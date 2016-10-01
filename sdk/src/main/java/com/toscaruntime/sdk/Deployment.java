@@ -189,13 +189,25 @@ public abstract class Deployment {
         postInitializeConfig();
         addNodes();
         addRelationships();
-        providers.forEach(provider -> provider.getProviderHooks().forEach(providerHook -> providerHook.postConstruct(this, provider.getProviderProperties(), bootstrapContext)));
-        plugins.forEach(plugin -> plugin.getPluginHooks().forEach(pluginHook -> pluginHook.postConstruct(this, plugin.getPluginProperties(), bootstrapContext)));
+        providers.forEach(provider -> provider.getProviderHooks().forEach(providerHook -> {
+            DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.postConstruct(this, provider.getProviderProperties(), bootstrapContext));
+        }));
+        plugins.forEach(plugin -> plugin.getPluginHooks().forEach(pluginHook -> {
+            DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.postConstruct(this, plugin.getPluginProperties(), bootstrapContext));
+        }));
         if (deploymentPersister.hasExistingData()) {
             nodes.values().forEach(DeploymentNode::initialLoad);
             createInstances();
-            nodeInstances.values().forEach(Root::initialLoad);
-            relationshipInstances.forEach(tosca.relationships.Root::initialLoad);
+            nodeInstances.values().forEach(nodeInstance -> {
+                config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.preNodeInitialLoad(nodeInstance)));
+                nodeInstance.initialLoad();
+                config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.postNodeInitialLoad(nodeInstance)));
+            });
+            relationshipInstances.forEach(relationshipInstance -> {
+                config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.preRelationshipInitialLoad(relationshipInstance)));
+                relationshipInstance.initialLoad();
+                config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.postRelationshipInitialLoad(relationshipInstance)));
+            });
             RunningExecutionDTO runningExecution = deploymentPersister.syncGetRunningExecution();
             if (runningExecution != null) {
                 Map<NodeTaskDTO, String> nodeTaskDTOs = deploymentPersister.syncGetRunningExecutionNodeTasks();
@@ -572,7 +584,7 @@ public abstract class Deployment {
         for (DeploymentRelationshipNode relationshipNode : relationshipNodes) {
             relationshipNode.getRelationshipInstances().addAll(DeploymentUtil.getRelationshipInstancesByNamesAndType(relationshipInstances, relationshipNode.getSourceNodeId(), relationshipNode.getTargetNodeId(), relationshipNode.getRelationshipType()));
         }
-        this.providerHooks.forEach(providerHook -> providerHook.postConstructInstances(nodeInstances, relationshipInstances));
+        this.providerHooks.forEach(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.postConstructInstances(nodeInstances, relationshipInstances)));
     }
 
     /**
@@ -719,7 +731,7 @@ public abstract class Deployment {
      * @return workflow execution
      */
     public WorkflowExecution teardown() {
-        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHooks.stream().anyMatch(providerHook -> providerHook.isNativeType(entry.getValue().getClass()))).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHooks.stream().anyMatch(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.isNativeType(entry.getValue().getClass())))).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Set<tosca.relationships.Root> nativeRelationshipInstances = relationshipInstances.stream().filter(relationship -> nativeNodeInstances.containsKey(relationship.getSource().getId()) && nativeNodeInstances.containsKey(relationship.getTarget().getId())).collect(Collectors.toSet());
         return createUninstallWorkflow(nativeNodeInstances, nativeRelationshipInstances);
     }

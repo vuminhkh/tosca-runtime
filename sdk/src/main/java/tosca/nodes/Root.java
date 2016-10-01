@@ -3,11 +3,11 @@ package tosca.nodes;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
-import com.toscaruntime.sdk.PluginHook;
 import com.toscaruntime.sdk.model.AbstractRuntimeType;
 import com.toscaruntime.sdk.model.DeploymentNode;
 import com.toscaruntime.sdk.model.DeploymentRelationshipNode;
 import com.toscaruntime.sdk.model.OperationInputDefinition;
+import com.toscaruntime.sdk.util.DeploymentUtil;
 import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
@@ -79,9 +79,6 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void initialLoad() {
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.preInitialLoad(this);
-        }
         Map<String, String> rawAttributes = config.getDeploymentPersister().syncGetAttributes(getId());
         for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
             try {
@@ -99,9 +96,6 @@ public abstract class Root extends AbstractRuntimeType {
             }
         }
         this.state = config.getDeploymentPersister().syncGetInstanceState(getId());
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.postInitialLoad(this);
-        }
     }
 
     @Override
@@ -248,16 +242,12 @@ public abstract class Root extends AbstractRuntimeType {
 
     @Override
     public void executePluginsHooksBeforeOperation(String interfaceName, String operationName) throws Throwable {
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.preExecuteNodeOperation(this, interfaceName, operationName);
-        }
+        config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.preExecuteNodeOperation(this, interfaceName, operationName)));
     }
 
     @Override
     public void executePluginsHooksAfterOperation(String interfaceName, String operationName) throws Throwable {
-        for (PluginHook pluginHook : config.getPluginHooks()) {
-            pluginHook.postExecuteNodeOperation(this, interfaceName, operationName);
-        }
+        config.getPluginHooks().forEach(pluginHook -> DeploymentUtil.runWithClassLoader(pluginHook.getClass().getClassLoader(), () -> pluginHook.postExecuteNodeOperation(this, interfaceName, operationName)));
     }
 
     private String functionToString(String functionName, String... paths) {

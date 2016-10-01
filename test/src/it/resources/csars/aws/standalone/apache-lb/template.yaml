@@ -7,10 +7,13 @@ template_author: MKV
 imports:
   - apache-load-balancer:*
   - toscaruntime-aws-provider-types:*
+  - toscaruntime-script-plugin-types:*
 
 topology_template:
 
   inputs:
+    plugin_configs:
+      type: com.toscaruntime.common.datatypes.PluginConfiguration
     os_arch:
       type: string
       required: false
@@ -22,10 +25,6 @@ topology_template:
     instance_type:
       type: string
     key_name:
-      type: string
-    login:
-      type: string
-    key_path:
       type: string
     security_groups:
       type: list
@@ -39,10 +38,9 @@ topology_template:
       properties:
         image_id: { get_input: image_id }
         instance_type: { get_input: instance_type }
-        login: { get_input: login }
         key_name: { get_input: key_name }
-        key_path: { get_input: key_path }
         security_groups: { get_input: security_groups }
+        plugins: { get_input: plugin_configs }
         user_data: |
           #!/bin/sh
           sudo cp /etc/hosts /tmp/hosts
@@ -62,10 +60,9 @@ topology_template:
       properties:
         image_id: { get_input: image_id }
         instance_type: { get_input: instance_type }
-        login: { get_input: login }
         key_name: { get_input: key_name }
-        key_path: { get_input: key_path }
         security_groups: { get_input: security_groups }
+        plugins: { get_input: plugin_configs }
         user_data: |
           #!/bin/sh
           sudo cp /etc/hosts /tmp/hosts

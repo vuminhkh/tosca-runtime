@@ -17,8 +17,7 @@ class WordpressSpec extends AbstractSpec with MustMatchers {
   feature("Deployment of wordpress") {
     scenario("Standard deployment") {
       Given("I download and install all necessary csars for wordpress deployment")
-      installNormativeTypesAndProviders()
-      downloadZipFileAndExtract("https://github.com/vuminkh/samples/archive/master.zip", tempPath)
+      downloadZipFileAndExtract("https://github.com/vuminhkh/samples/archive/master.zip", tempPath)
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("apache")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("mysql")))
       assertNoCompilationErrorsDetected(installCsar(tempPath.resolve("samples-master").resolve("php")))

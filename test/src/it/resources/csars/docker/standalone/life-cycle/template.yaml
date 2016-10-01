@@ -7,6 +7,7 @@ template_author: MKV
 imports:
   - demo-lifecycle:*
   - toscaruntime-docker-provider-types:*
+  - toscaruntime-script-plugin-types:*
 
 topology_template:
 

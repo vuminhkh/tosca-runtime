@@ -1,7 +1,6 @@
 package com.toscaruntime.aws.nodes;
 
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.util.PropertyUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,29 +10,17 @@ public class AWSTestDeployment extends Deployment {
     @Override
     protected void addNodes() {
         Map<String, Object> propertiesCompute = new HashMap<>();
-        propertiesCompute.put("image_id", "ami-47a23a30");
-        propertiesCompute.put("instance_type", "t2.small");
-        propertiesCompute.put("key_path", System.getenv("AWS_KEY_PATH"));
-        propertiesCompute.put("login", "ubuntu");
-        propertiesCompute.put("key_name", System.getenv("AWS_KEY_NAME"));
-        propertiesCompute.put("security_groups", PropertyUtil.toList("[\"openbar\"]"));
-        propertiesCompute.put("recipe_location", "/tmp/recipe");
-        Map<String, String> failSafeConfig = new HashMap<>();
-        failSafeConfig.put("connect_retry", "20");
-        failSafeConfig.put("wait_between_connect_retry", "5 s");
-        failSafeConfig.put("artifact_execution_retry", "1");
-        failSafeConfig.put("wait_between_artifact_execution_retry", "10 s");
-        failSafeConfig.put("wait_before_artifact_execution", "5 s");
-        failSafeConfig.put("wait_before_connection", "5 s");
+        propertiesCompute.put("image_id", evaluateFunction("get_input", "image_id"));
+        propertiesCompute.put("instance_type", evaluateFunction("get_input", "instance_type"));
+        propertiesCompute.put("key_name", evaluateFunction("get_input", "key_name"));
+        propertiesCompute.put("security_groups", evaluateFunction("get_input", "security_groups"));
         Map<String, String> awsFailSafeConfig = new HashMap<>();
         awsFailSafeConfig.put("operation_retry", "5");
         awsFailSafeConfig.put("wait_between_operation_retry", "5 s");
-        propertiesCompute.put("aws_fail_safe", awsFailSafeConfig);
-        propertiesCompute.put("compute_fail_safe", failSafeConfig);
+        propertiesCompute.put("provider_fail_safe", awsFailSafeConfig);
         addNode("Compute", Instance.class.getName(), null, null, propertiesCompute, new HashMap<>());
 
         Map<String, Object> propertiesExternalNetwork = new HashMap<>();
-        propertiesExternalNetwork.put("network_name", "public");
         addNode("ExternalNetwork", PublicNetwork.class.getName(), null, null, propertiesExternalNetwork, new HashMap<>());
     }
 
@@ -41,7 +28,6 @@ public class AWSTestDeployment extends Deployment {
     protected void postInitializeConfig() {
         this.config.setTopologyResourcePath(this.config.getArtifactsPath());
     }
-
 
     @Override
     public void addRelationships() {
