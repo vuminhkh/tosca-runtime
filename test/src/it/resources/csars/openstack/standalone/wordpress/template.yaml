@@ -23,8 +23,6 @@ topology_template:
       type: com.toscaruntime.common.datatypes.PluginConfiguration
     key_pair_name:
       type: string
-    key_path:
-      type: string
     security_group_names:
       type: list
       entry_schema:
