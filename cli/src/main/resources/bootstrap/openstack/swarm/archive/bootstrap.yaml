@@ -7,19 +7,18 @@ template_author: MKV
 imports:
   - toscaruntime-bootstrap-type:*
   - toscaruntime-openstack-provider-types:*
+  - toscaruntime-script-plugin-types:*
 
 topology_template:
   description: Wordpress deployment template for openstack
   inputs:
+    plugin_configs:
+      type: com.toscaruntime.common.datatypes.PluginConfiguration
     image:
       type: string
     flavor:
       type: string
     key_pair_name:
-      type: string
-    login:
-      type: string
-    key_content:
       type: string
     security_group_names:
       type: list
@@ -91,11 +90,10 @@ topology_template:
       properties:
         image: { get_input: image }
         flavor: { get_input: flavor }
-        login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_content: { get_input: key_content }
         security_group_names: { get_input: security_group_names }
         user_data: { get_input: cloud_init }
+        plugins: { get_input: plugin_configs }
       requirements:
         - network: privateNetwork
         - network: publicNetwork
@@ -135,11 +133,10 @@ topology_template:
       properties:
         image: { get_input: image }
         flavor: { get_input: flavor }
-        login: { get_input: login }
         key_pair_name: { get_input: key_pair_name }
-        key_content: { get_input: key_content }
         security_group_names: { get_input: security_group_names }
         user_data: { get_input: cloud_init }
+        plugins: { get_input: plugin_configs }
       requirements:
         - network: privateNetwork
         - network: publicNetwork

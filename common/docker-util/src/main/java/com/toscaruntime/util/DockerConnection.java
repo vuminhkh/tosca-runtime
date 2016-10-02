@@ -7,8 +7,8 @@ import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.OutputHandler;
 import com.toscaruntime.artifact.SimpleOutputHandler;
+import com.toscaruntime.exception.InterruptedByUserException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +51,7 @@ public class DockerConnection implements Connection {
                 dockerStreamDecoder.awaitCompletion();
             } catch (InterruptedException e) {
                 log.info("Command [{}] exec has been interrupted", command);
-                throw new ArtifactInterruptedException("Command [" + command + "] exec has been interrupted", e);
+                throw new InterruptedByUserException("Command [" + command + "] exec has been interrupted", e);
             } catch (Exception e) {
                 throw new ArtifactExecutionException("Command [" + command + "] exec encountered error", e);
             }
@@ -104,7 +104,7 @@ public class DockerConnection implements Connection {
             return dockerClient.inspectExecCmd(execId).exec().getExitCode();
         } catch (InterruptedException e) {
             log.info("Script execution has been interrupted", e);
-            throw new ArtifactInterruptedException("Script execution has been interrupted", e);
+            throw new InterruptedByUserException("Script execution has been interrupted", e);
         } catch (Exception e) {
             throw new ArtifactExecutionException("Script execution exec encountered error", e);
         }

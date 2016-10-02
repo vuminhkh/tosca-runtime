@@ -2,7 +2,7 @@ package com.toscaruntime.it.steps
 
 import java.nio.file.Path
 
-import com.toscaruntime.cli.command.{BootStrapCommand, DeploymentsCommand}
+import com.toscaruntime.cli.command.{BootStrapCommand, DeploymentsCommand, TeardownCommand}
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.it.Context
 import com.toscaruntime.it.TestConstant._
@@ -38,11 +38,16 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       assemblyPath,
       bootstrapPath.resolve(provider).resolve(target).resolve("archive"),
       testProvidersConfigPath.resolve(provider),
+      testPluginsConfigPath,
       repositoryPath,
-      Context.getInput(provider)
+      Context.getInput("bootstrap_" + provider)
     )
     AgentUtil.waitForBootstrapAgent(Context.client, provider, target)
     AgentUtil.bootstrap(Context.client, provider, target).outputs("public_daemon_url").asInstanceOf[String]
+  }
+
+  def teardown(provider: String = openstackProvider, target: String = swarmTarget) = {
+    TeardownCommand.teardown(Context.client, provider, target)
   }
 
   def listDeploymentImages() = {

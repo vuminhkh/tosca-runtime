@@ -4,6 +4,7 @@ import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
+import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import org.apache.commons.lang.StringUtils
@@ -71,7 +72,7 @@ object UseCommand {
       val basedir = state.attributes.get(Attributes.basedirAttribute).get
       val url = argsMap(dockerUrlOpt)
       val cert = argsMap.getOrElse(dockerCertOpt, null)
-      client.switchConnection(url, cert)
+      switchConnection(client, url, cert, basedir)
       switchConfiguration(url, cert, basedir)
       println(s"Begin to use docker daemon at [${argsMap(dockerUrlOpt)}] with api version [${client.dockerVersion}]")
     }
@@ -80,6 +81,11 @@ object UseCommand {
 
   def getDaemonConfigPath(basedir: Path) = {
     basedir.resolve("conf").resolve("daemon")
+  }
+
+  def switchConnection(client: ToscaRuntimeClient, url: String, cert: String, basedir: Path) = {
+    client.switchConnection(url, cert)
+    switchConfiguration(url, cert, basedir)
   }
 
   def switchConfiguration(url: String, cert: String, basedir: Path) = {

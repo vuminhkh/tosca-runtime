@@ -1,5 +1,6 @@
 package com.toscaruntime.util;
 
+import com.toscaruntime.exception.InterruptedByUserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,6 +91,7 @@ public class FailSafeUtil {
                     } catch (InterruptedException ie) {
                         log.warn("Retry interrupted at " + currentTimes, e);
                         Thread.currentThread().interrupt();
+                        throw new InterruptedByUserException("Retry interrupted at " + currentTimes, ie);
                     }
                 } else {
                     throw e;

@@ -43,6 +43,7 @@ object BootStrapCommand extends LazyLogging {
                            workDir: Path,
                            bootstrapTopology: Path,
                            providerConfigPath: Path,
+                           pluginConfigBasePath: Path,
                            repositoryPath: Path,
                            bootstrapInputPath: Option[Path]) = {
     val deploymentWorkDir = workDir.resolve("bootstrap_" + providerName + "_" + target)
@@ -59,11 +60,17 @@ object BootStrapCommand extends LazyLogging {
     } else {
       val compilationResult = Compiler.assembly(bootstrapTopology, deploymentWorkDir, repositoryPath, bootstrapInputPath)
       if (compilationResult.isSuccessful) {
+        val pluginConfigPaths = compilationResult.plugins.map(pluginConfigBasePath.resolve)
+        val missingPluginConfigs = pluginConfigPaths.filter(!isPluginConfigValid(_))
+        if (missingPluginConfigs.nonEmpty) {
+          missingPluginConfigs.foreach(pluginConfigPath => println(s"Missing plugin configuration at $pluginConfigPath"))
+          throw new FileNotFoundException("Missing plugin config " + missingPluginConfigs.mkString(", "))
+        }
         val image = client.createBootstrapImage(
           providerName,
           deploymentWorkDir,
           List(providerConfigPath),
-          List.empty,
+          pluginConfigPaths,
           target
         ).awaitImageId()
         println(s"Packaged bootstrap configuration as docker image [$image]")
@@ -91,10 +98,11 @@ object BootStrapCommand extends LazyLogging {
     }
     try {
       val providerConfigPath = basedir.resolve("conf").resolve("providers").resolve(providerName)
+      val pluginConfBase = basedir.resolve("conf").resolve("plugins")
       val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
       val workDir = basedir.resolve("work")
       val repositoryPath = basedir.resolve("repository")
-      val agentContainerId = createBootstrapAgent(providerName, target, client, workDir, bootstrapTopology, providerConfigPath, repositoryPath, if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None)
+      val agentContainerId = createBootstrapAgent(providerName, target, client, workDir, bootstrapTopology, providerConfigPath, pluginConfBase, repositoryPath, if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None)
       val logCallback = client.tailContainerLog(agentContainerId, System.out)
       try {
         AgentUtil.waitForBootstrapAgent(client, providerName, target)

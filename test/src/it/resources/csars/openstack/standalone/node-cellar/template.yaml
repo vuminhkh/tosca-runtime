@@ -25,6 +25,8 @@ topology_template:
         type: string
     external_network_name:
       type: string
+    cloud_init:
+      type: string
 
   node_templates:
 
@@ -36,11 +38,7 @@ topology_template:
         key_pair_name: { get_input: key_pair_name }
         security_group_names: { get_input: security_group_names }
         plugins: { get_input: plugin_configs }
-        user_data: |
-          #!/bin/sh
-          sudo cp /etc/hosts /tmp/hosts
-          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+        user_data: { get_input: cloud_init }
       requirements:
         - network: publicNetwork
         - network: Network
@@ -53,11 +51,7 @@ topology_template:
         key_pair_name: { get_input: key_pair_name }
         security_group_names: { get_input: security_group_names }
         plugins: { get_input: plugin_configs }
-        user_data: |
-          #!/bin/sh
-          sudo cp /etc/hosts /tmp/hosts
-          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+        user_data: { get_input: cloud_init }
       requirements:
         - network: publicNetwork
         - network: Network

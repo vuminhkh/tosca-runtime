@@ -1,13 +1,13 @@
 package com.toscaruntime.it.docker.bootstrap
 
 import com.toscaruntime.cli.command.UseCommand
-import com.toscaruntime.it.{AbstractSpec, Context}
 import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.AgentsSteps._
 import com.toscaruntime.it.steps.CsarsSteps._
 import com.toscaruntime.it.steps.DeploymentsSteps
 import com.toscaruntime.it.steps.DeploymentsSteps._
 import com.toscaruntime.it.util.URLChecker._
+import com.toscaruntime.it.{AbstractSpec, Context}
 import org.scalatest.MustMatchers
 
 import scala.concurrent.duration.DurationInt
@@ -30,7 +30,7 @@ class WordpressSpec extends AbstractSpec with MustMatchers {
       val daemonURL = DeploymentsSteps.bootstrap()
 
       And("I use this new daemon url to manage deployments")
-      UseCommand.switchConfiguration(daemonURL, "", testConfigPath)
+      UseCommand.switchConnection(Context.client, daemonURL, "", testConfigPath)
 
       And("A deployment image has been created for the wordpress docker topology")
       createDeploymentImage("wordpress") must be(true)
@@ -46,6 +46,12 @@ class WordpressSpec extends AbstractSpec with MustMatchers {
 
       And("I should be able to undeploy it without error")
       launchUndeployment("wordpress")
+
+      And("I should be able to switch to the local connection")
+      UseCommand.switchConnection(Context.client, Context.dockerConfig.getUrl, Context.dockerConfig.getCertPath, testConfigPath)
+
+      And("I should be able to teardown the bootstrap")
+      teardown()
     }
   }
 }

@@ -30,6 +30,8 @@ topology_template:
       type: list
       entry_schema:
         type: string
+    cloud_init:
+      type: string
 
   node_templates:
 
@@ -41,11 +43,7 @@ topology_template:
         key_name: { get_input: key_name }
         security_groups: { get_input: security_groups }
         plugins: { get_input: plugin_configs }
-        user_data: |
-          #!/bin/sh
-          sudo cp /etc/hosts /tmp/hosts
-          echo 127.0.0.1 `hostname` | sudo tee /etc/hosts > /dev/null
-          cat  /tmp/hosts | sudo tee -a /etc/hosts > /dev/null
+        user_data: { get_input: cloud_init }
       requirements:
         - network: Internet
       capabilities:

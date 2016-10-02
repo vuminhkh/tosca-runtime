@@ -4,9 +4,9 @@ import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.OperationOutput;
 import com.toscaruntime.artifact.OutputHandler;
+import com.toscaruntime.exception.InterruptedByUserException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactUploadException;
 import com.toscaruntime.exception.deployment.artifact.BadExecutorConfigurationException;
 import net.schmizz.sshj.SSHClient;
@@ -130,7 +130,7 @@ public class SSHConnection implements Connection {
             throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
         } catch (IOException e) {
             if (ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0) {
-                throw new ArtifactInterruptedException("Execution has been interrupted", e);
+                throw new InterruptedByUserException("Execution has been interrupted", e);
             } else {
                 throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
             }
@@ -156,7 +156,7 @@ public class SSHConnection implements Connection {
                 } catch (ConnectionException e) {
                     boolean isInterrupted = ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0;
                     if (isInterrupted) {
-                        throw new ArtifactInterruptedException("Execution has been interrupted", e);
+                        throw new InterruptedByUserException("Execution has been interrupted", e);
                     }
                 }
                 OperationOutput operationOutput = outputHandler.tryGetOperationOutput();

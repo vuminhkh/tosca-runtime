@@ -3,6 +3,7 @@ package com.toscaruntime.cli.command
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.cli.{Args, Attributes}
 import com.toscaruntime.constant.ProviderConstant
+import com.toscaruntime.rest.client.ToscaRuntimeClient
 import sbt.complete.DefaultParsers._
 import sbt.{Command, Help}
 
@@ -33,13 +34,18 @@ object TeardownCommand {
     val target = argsMap.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET)
     val logCallback = client.tailBootstrapLog(providerName, target, System.out)
     try {
-      val details = AgentUtil.teardown(client, providerName, target)
-      client.deleteBootstrapAgent(providerName, target)
-      client.deleteBootstrapImage(providerName, target)
+      val details = teardown(client, providerName, target)
       AgentUtil.printDetails(s"Bootstrap $providerName", details)
     } finally {
       logCallback.close()
     }
     state
+  }
+
+  def teardown(client: ToscaRuntimeClient, providerName: String, target: String) = {
+    val details = AgentUtil.teardown(client, providerName, target)
+    client.deleteBootstrapAgent(providerName, target)
+    client.deleteBootstrapImage(providerName, target)
+    details
   }
 }

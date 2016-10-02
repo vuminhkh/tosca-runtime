@@ -5,10 +5,10 @@ import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.artifact.OperationOutput;
 import com.toscaruntime.artifact.OutputHandler;
+import com.toscaruntime.exception.InterruptedByUserException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactIOException;
-import com.toscaruntime.exception.deployment.artifact.ArtifactInterruptedException;
 import com.toscaruntime.exception.deployment.artifact.BadExecutorConfigurationException;
 import com.toscaruntime.util.ArtifactExecutionUtil;
 import com.toscaruntime.util.FailSafeUtil;
@@ -54,7 +54,7 @@ public class BashExecutor implements Executor {
         try {
             Thread.sleep(waitBeforeArtifactExecution);
         } catch (InterruptedException e) {
-            throw new ArtifactInterruptedException("Interrupted", e);
+            throw new InterruptedByUserException("Interrupted", e);
         }
         refreshRecipe();
     }
