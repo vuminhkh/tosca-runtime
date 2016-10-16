@@ -260,7 +260,7 @@ The manager here is in fact a stateless proxy which dispatch the CLI's request t
   bootstrap --provider=openstack --target=swarm
   # On EC2
   bootstrap --provider=aws --target=swarm
-  # Note the output key 'public_daemon_url', this is the URL of the new docker daemon
+  # Note the output key 'public_docker_daemon_host', this is the URI of the new docker daemon
   ```
 
 * Target the new bootstrapped daemon: By default when you start to use Tosca Runtime CLI, it targets the local daemon of your machine.

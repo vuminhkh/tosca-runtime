@@ -19,6 +19,6 @@ object PluginUtil {
   }
 
   def isPluginTargetConfigValid(configPath: Path) = {
-    Files.isDirectory(configPath) && (Files.isRegularFile(configPath.resolve("plugin.conf")) || Files.isRegularFile(configPath.resolve("auto_generated_plugin.conf")))
+    Files.isDirectory(configPath) && Files.isRegularFile(configPath.resolve("plugin.conf"))
   }
 }

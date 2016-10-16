@@ -42,7 +42,7 @@ class AbstractSpec extends FeatureSpec with GivenWhenThen with LazyLogging with 
       CsarsSteps.downloadZipFileAndExtract("https://github.com/vuminhkh/alien4cloud-extended-types/archive/master.zip", tempPath)
       CsarsSteps.assertNoCompilationErrorsDetected(CsarsSteps.installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-base-types")))
       CsarsSteps.assertNoCompilationErrorsDetected(CsarsSteps.installCsar(tempPath.resolve("alien4cloud-extended-types-master").resolve("alien-extended-storage-types")))
-      UseCommand.switchConfiguration(Context.dockerConfig.getUrl, Context.dockerConfig.getCertPath, testConfigPath)
+      UseCommand.switchConfiguration(Context.dockerConfig, testConfigPath)
     } catch {
       case e: Throwable => logger.warn(s"Could not properly clean test data at ${testDataPath.toAbsolutePath}", e)
     }

@@ -1,7 +1,7 @@
-package com.toscaruntime.plugins.script.bash;
+package com.toscaruntime.plugins.script.shell;
 
-import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.Connection;
+import com.toscaruntime.artifact.ConnectionUtil;
 import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.artifact.OperationOutput;
 import com.toscaruntime.artifact.OutputHandler;
@@ -26,9 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-public class BashExecutor implements Executor {
+public class ShellExecutor implements Executor {
 
-    private static final Logger log = LoggerFactory.getLogger(BashExecutor.class);
+    private static final Logger log = LoggerFactory.getLogger(ShellExecutor.class);
 
     private Connection connection;
 
@@ -74,7 +74,7 @@ public class BashExecutor implements Executor {
     }
 
     @Override
-    public Map<String, String> executeArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
+    public Map<String, Object> executeArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         return FailSafeUtil.doActionWithRetryNoCheckedException(
                 () -> doExecuteArtifact(nodeId, operation, operationArtifactPath, inputs, deploymentArtifacts),
                 operationArtifactPath,
@@ -86,18 +86,18 @@ public class BashExecutor implements Executor {
         );
     }
 
-    private Map<String, String> doExecuteArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
+    private Map<String, Object> doExecuteArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         log.info("Begin to execute [{}][{}][{}] with env [{}] and deployment artifacts [{}]", nodeId, operation, operationArtifactPath, inputs, deploymentArtifacts);
         String remoteArtifactPath = Paths.get(remoteLocation).resolve(operationArtifactPath).toString();
         Path localPath = Paths.get(recipeLocation).resolve(operationArtifactPath);
         String statusCodeToken = UUID.randomUUID().toString();
         String environmentVariablesToken = UUID.randomUUID().toString();
-        try (OutputHandler outputHandler = new BashOutputHandler(statusCodeToken, environmentVariablesToken, nodeId + "/" + operation, localPath.getFileName().toString())) {
-            String sheBang = BashArtifactExecutorUtil.readSheBang(localPath);
-            String artifactWrapper = BashArtifactExecutorUtil.createArtifactWrapper(remoteArtifactPath, statusCodeToken, environmentVariablesToken, sheBang);
+        try (OutputHandler outputHandler = new ShellOutputHandler(statusCodeToken, environmentVariablesToken, nodeId + "/" + operation, localPath.getFileName().toString())) {
+            String sheBang = ConnectionUtil.readSheBang(localPath);
+            String artifactWrapper = ShellExecutorUtil.createArtifactWrapper(remoteArtifactPath, statusCodeToken, environmentVariablesToken, sheBang);
             // Set env
             Map<String, String> variables = ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, remoteLocation, "/");
-            Integer statusCode = connection.executeScript(artifactWrapper, variables, outputHandler);
+            Integer statusCode = connection.executeArtifact(artifactWrapper, variables, outputHandler);
             OperationOutput operationOutput;
             try {
                 operationOutput = outputHandler.getOperationOutput();

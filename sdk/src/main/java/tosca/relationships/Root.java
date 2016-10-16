@@ -12,6 +12,7 @@ import com.toscaruntime.sdk.util.OperationInputUtil;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.JSONUtil;
+import com.toscaruntime.util.PropertyUtil;
 import tosca.nodes.Compute;
 
 import java.io.IOException;
@@ -39,7 +40,7 @@ public abstract class Root extends AbstractRuntimeType {
         return node;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
+    protected Map<String, Object> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
         Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
         Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
         inputs.put("TARGET_NODE", getTarget().getName());
@@ -80,7 +81,7 @@ public abstract class Root extends AbstractRuntimeType {
         }
     }
 
-    protected Map<String, String> executeSourceOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
+    protected Map<String, Object> executeSourceOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
         Compute sourceHost = source.getComputableHost();
         if (sourceHost == null) {
             // This is unexpected as this kind of error should be detected in compilation phase
@@ -91,7 +92,7 @@ public abstract class Root extends AbstractRuntimeType {
         return sourceHost.execute(source.getId(), operationName, operationArtifactPath, artifactType, inputs, operationDeploymentArtifacts);
     }
 
-    protected Map<String, String> executeTargetOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
+    protected Map<String, Object> executeTargetOperation(String operationName, String operationArtifactPath, String artifactType, Map<String, Object> inputs) {
         Compute targetHost = target.getComputableHost();
         if (targetHost == null) {
             // This is unexpected as this kind of error should be detected in compilation phase
@@ -187,7 +188,8 @@ public abstract class Root extends AbstractRuntimeType {
         for (String interfaceName : outputInterfaces) {
             List<String> operationNames = config.getDeploymentPersister().syncGetRelationshipOutputOperations(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName);
             for (String operationName : operationNames) {
-                Map<String, String> outputs = config.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName, operationName);
+                Map<String, String> rawOutputs = config.getDeploymentPersister().syncGetRelationshipOutputs(getSource().getId(), getTarget().getId(), node.getRelationshipName(), interfaceName, operationName);
+                Map<String, Object> outputs = PropertyUtil.convertJsonPropertiesToMapProperties(rawOutputs);
                 operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
             }
         }
@@ -221,8 +223,8 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     @Override
-    public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
-        config.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipName(), interfaceName, operationName, outputs);
+    public void setOperationOutputs(String interfaceName, String operationName, Map<String, Object> outputs) {
+        config.getDeploymentPersister().syncSaveRelationshipOutputs(source.getId(), target.getId(), node.getRelationshipName(), interfaceName, operationName, PropertyUtil.convertMapPropertiesToJsonProperties(outputs));
         operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
     }
 

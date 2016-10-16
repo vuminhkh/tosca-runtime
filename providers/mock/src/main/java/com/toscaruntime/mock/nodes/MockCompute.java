@@ -53,9 +53,9 @@ public class MockCompute extends Compute {
     }
 
     @Override
-    public Map<String, String> execute(String nodeId, String operation, String operationArtifactPath, String artifactType, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
+    public Map<String, Object> execute(String nodeId, String operation, String operationArtifactPath, String artifactType, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         log.info("{} execute for {} operation {} with inputs {}", getId(), nodeId, operationArtifactPath, inputs);
-        Map<String, String> randomOutputs = new HashMap<>();
+        Map<String, Object> randomOutputs = new HashMap<>();
         randomOutputs.put("output1", UUID.randomUUID().toString());
         randomOutputs.put("output2", UUID.randomUUID().toString());
         return randomOutputs;

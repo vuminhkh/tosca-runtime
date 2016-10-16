@@ -6,7 +6,6 @@ import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
 import com.github.dockerjava.netty.DockerCmdExecFactoryImpl;
 import com.google.common.collect.Maps;
-import com.toscaruntime.exception.client.BadClientConfigurationException;
 import org.apache.commons.lang.StringUtils;
 
 import java.net.Inet4Address;
@@ -14,7 +13,8 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.NetworkInterface;
 import java.net.SocketException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.file.Paths;
 import java.util.Enumeration;
@@ -23,13 +23,13 @@ import java.util.Properties;
 
 public class DockerUtil {
 
-    private static final String DEFAULT_DOCKER_URL = "unix:///var/run/docker.sock";
+    private static final DockerDaemonConfig DEFAULT_DOCKER_CONF_FOR_LINUX = getDefaultDockerConfigForLinux();
 
-    private static final String DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS = "https://192.168.99.100:2376";
-
-    public static final String DOCKER_URL_KEY = "docker.io.url";
-
-    public static final String DOCKER_CERT_PATH_KEY = "docker.io.dockerCertPath";
+    private static final DockerDaemonConfig DEFAULT_DOCKER_CONF_FOR_MAC_WINDOWS = new DockerDaemonConfig(
+            "tcp://192.168.99.100:2376",
+            "1",
+            Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString()
+    );
 
     private static NetworkInterface guessMostRelevantInterface() throws SocketException {
         Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
@@ -51,108 +51,84 @@ public class DockerUtil {
         return NetworkInterface.getNetworkInterfaces().nextElement();
     }
 
-    private static String getDefaultDockerUrlForLinux() {
-        String defaultValueForLinux = DEFAULT_DOCKER_URL;
+    private static DockerDaemonConfig getDefaultDockerConfigForLinux() {
+        String defaultHostForLinux = "unix:///var/run/docker.sock";
         try {
             NetworkInterface networkInterface = guessMostRelevantInterface();
             if (networkInterface == null) {
-                return defaultValueForLinux;
+                return new DockerDaemonConfig(defaultHostForLinux, "0", null);
             }
             Enumeration<InetAddress> address = networkInterface.getInetAddresses();
             while (address.hasMoreElements()) {
                 InetAddress currentAddress = address.nextElement();
                 if (currentAddress instanceof Inet4Address && !currentAddress.isLoopbackAddress()) {
-                    return "http://" + currentAddress.getHostAddress() + ":2376";
+                    return new DockerDaemonConfig("tcp://" + currentAddress.getHostAddress() + ":2376", "0", null);
                 }
             }
-            return defaultValueForLinux;
+            return new DockerDaemonConfig(defaultHostForLinux, "0", null);
         } catch (SocketException ignored) {
-            return defaultValueForLinux;
+            return new DockerDaemonConfig(defaultHostForLinux, "0", null);
         }
     }
 
     public static DockerClient buildDockerClient(Map<String, String> providerProperties) {
         Properties properties = new Properties();
-        properties.putAll(providerProperties);
-        String url = (String) properties.remove(DOCKER_URL_KEY);
-        if (StringUtils.isBlank(url)) {
-            throw new BadClientConfigurationException("Docker url is not defined " + DOCKER_URL_KEY);
-        }
-        String certPath = (String) properties.remove(DOCKER_CERT_PATH_KEY);
-        try {
-            URL parsedUrl = new URL(url);
-            switch (parsedUrl.getProtocol()) {
-                case "http":
-                    properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
-                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
-                    break;
-                case "https":
-                    properties.put(DockerClientConfig.DOCKER_HOST, "tcp://" + parsedUrl.getHost() + ":" + parsedUrl.getPort());
-                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "1");
-                    properties.put(DockerClientConfig.DOCKER_CERT_PATH, certPath);
-                    break;
-                default:
-                    properties.put(DockerClientConfig.DOCKER_HOST, url);
-                    properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
-                    break;
-            }
-        } catch (MalformedURLException e) {
-            properties.put(DockerClientConfig.DOCKER_HOST, url);
-            properties.put(DockerClientConfig.DOCKER_TLS_VERIFY, "0");
-        }
         properties.put(DockerClientConfig.API_VERSION, "1.22");
+        properties.putAll(providerProperties);
         DockerClientConfig config = new DockerClientConfig.DockerClientConfigBuilder().withProperties(properties).build();
         DockerCmdExecFactoryImpl execFactory = new DockerCmdExecFactoryImpl();
         return DockerClientBuilder.getInstance(config).withDockerCmdExecFactory(execFactory).build();
     }
 
     public static DockerDaemonConfig getDefaultDockerDaemonConfig() throws MalformedURLException {
-        String dockerHostFromEnv = System.getenv("DOCKER_HOST");
-        String dockerURLFromProperty = System.getProperty(DOCKER_URL_KEY);
+        String dockerHostFromEnv = System.getenv(DockerClientConfig.DOCKER_HOST);
         if (StringUtils.isNotBlank(dockerHostFromEnv)) {
-            String useTLSFromEnv = System.getenv("DOCKER_TLS_VERIFY");
-            String protocol = "1".equals(useTLSFromEnv) ? "https" : "http";
-            URL parsed = new URL(dockerHostFromEnv.replace("tcp", protocol));
-            String host = parsed.getHost();
-            int port = parsed.getPort();
-            return new DockerDaemonConfig(protocol + "://" + host + ":" + port, System.getenv("DOCKER_CERT_PATH"));
-        } else if (StringUtils.isNotBlank(dockerURLFromProperty)) {
-            return new DockerDaemonConfig(dockerURLFromProperty, System.getProperty(DOCKER_CERT_PATH_KEY));
+            return new DockerDaemonConfig(dockerHostFromEnv, System.getenv(DockerClientConfig.DOCKER_TLS_VERIFY), System.getenv(DockerClientConfig.DOCKER_CERT_PATH));
         } else {
             String osName = System.getProperty("os.name");
             if (osName.startsWith("Windows") || osName.startsWith("Mac")) {
-                String certPath = Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString();
-                return new DockerDaemonConfig(DEFAULT_DOCKER_URL_FOR_MAC_WINDOWS, certPath);
+                return DEFAULT_DOCKER_CONF_FOR_MAC_WINDOWS;
             } else {
-                return new DockerDaemonConfig(getDefaultDockerUrlForLinux(), null);
+                return DEFAULT_DOCKER_CONF_FOR_LINUX;
             }
         }
     }
 
     public static String getDockerDaemonIP(Map<String, String> providerProperties) throws UnknownHostException {
-        String dockerURL = providerProperties.get(DOCKER_URL_KEY);
-        if (StringUtils.isBlank(dockerURL)) {
+        String dockerHost = providerProperties.get(DockerClientConfig.DOCKER_HOST);
+        if (StringUtils.isBlank(dockerHost)) {
             return "127.0.0.1";
         } else {
-            return InetAddress.getByName(getDockerHost(dockerURL)).getHostAddress();
+            return InetAddress.getByName(getDockerHostName(dockerHost)).getHostAddress();
         }
     }
 
-    public static DockerClient buildDockerClient(String url, String certPath) {
+    public static DockerClient buildDockerClient(DockerDaemonConfig config) {
         Map<String, String> providerProperties = Maps.newHashMap();
-        providerProperties.put(DOCKER_URL_KEY, url);
-        if (StringUtils.isNotBlank(certPath)) {
-            providerProperties.put(DOCKER_CERT_PATH_KEY, certPath);
+        providerProperties.put(DockerClientConfig.DOCKER_HOST, config.getHost());
+        if (StringUtils.isNotBlank(config.getCertPath())) {
+            providerProperties.put(DockerClientConfig.DOCKER_CERT_PATH, config.getCertPath());
+        }
+        if (StringUtils.isNotBlank(config.getTlsVerify())) {
+            providerProperties.put(DockerClientConfig.DOCKER_TLS_VERIFY, config.getTlsVerify());
         }
         return buildDockerClient(providerProperties);
     }
 
-    public static String getDockerUrl(Map<String, String> properties) {
-        return properties.get(DOCKER_URL_KEY);
+    public static String getDockerHostName(Map<String, String> properties) {
+        return properties.get(DockerClientConfig.DOCKER_HOST);
     }
 
     public static String getDockerCertPath(Map<String, String> properties) {
-        return properties.get(DOCKER_CERT_PATH_KEY);
+        return properties.get(DockerClientConfig.DOCKER_CERT_PATH);
+    }
+
+    public static String getDockerTlsVerify(Map<String, String> properties) {
+        return properties.get(DockerClientConfig.DOCKER_TLS_VERIFY);
+    }
+
+    public static DockerDaemonConfig getDockerDaemonConfig(Map<String, String> properties) {
+        return new DockerDaemonConfig(getDockerHostName(properties), getDockerTlsVerify(properties), getDockerCertPath(properties));
     }
 
     public static void showLog(DockerClient dockerClient, String containerId, boolean follow, int numberOfLines, LogContainerResultCallback logCallback) {
@@ -165,11 +141,11 @@ public class DockerUtil {
      * @param url url of docker
      * @return the ip address of the docker host
      */
-    public static String getDockerHost(String url) {
+    public static String getDockerHostName(String url) {
         try {
-            URL parsed = new URL(url);
+            URI parsed = new URI(url);
             return parsed.getHost();
-        } catch (MalformedURLException e) {
+        } catch (URISyntaxException e) {
             return "127.0.0.1";
         }
     }

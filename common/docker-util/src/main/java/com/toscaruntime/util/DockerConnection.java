@@ -3,11 +3,12 @@ package com.toscaruntime.util;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.ExecStartCmd;
-import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.Connection;
+import com.toscaruntime.artifact.ConnectionUtil;
 import com.toscaruntime.artifact.OutputHandler;
 import com.toscaruntime.artifact.SimpleOutputHandler;
 import com.toscaruntime.exception.InterruptedByUserException;
+import com.toscaruntime.exception.OperationNotImplementedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,28 +36,32 @@ public class DockerConnection implements Connection {
 
     private String containerId;
 
+    @Override
+    public void initialize(Map<String, Object> properties) {
+        this.dockerClient = DockerUtil.buildDockerClient(PropertyUtil.flatten(properties));
+        this.containerId = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.TARGET);
+    }
+
     /**
      * Run command and block until the end of execution, log all output to the given logger
      *
      * @param command command to be executed on the container
      * @param input   if the command has stdin
      */
-    private Integer runCommand(String command, InputStream input) {
+    private Integer runCommand(String command, InputStream input, OutputHandler outputHandler) {
         DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder();
-        try (SimpleOutputHandler simpleOutputHandler = new SimpleOutputHandler()) {
-            simpleOutputHandler.handleStdErr(dockerStreamDecoder.getStdErrStream());
-            simpleOutputHandler.handleStdOut(dockerStreamDecoder.getStdOutStream());
-            String execId = asyncRunCommand(command, input, dockerStreamDecoder);
-            try {
-                dockerStreamDecoder.awaitCompletion();
-            } catch (InterruptedException e) {
-                log.info("Command [{}] exec has been interrupted", command);
-                throw new InterruptedByUserException("Command [" + command + "] exec has been interrupted", e);
-            } catch (Exception e) {
-                throw new ArtifactExecutionException("Command [" + command + "] exec encountered error", e);
-            }
-            return dockerClient.inspectExecCmd(execId).exec().getExitCode();
+        outputHandler.handleStdErr(dockerStreamDecoder.getStdErrStream());
+        outputHandler.handleStdOut(dockerStreamDecoder.getStdOutStream());
+        String execId = asyncRunCommand(command, input, dockerStreamDecoder);
+        try {
+            dockerStreamDecoder.awaitCompletion();
+        } catch (InterruptedException e) {
+            log.info("Command [{}] exec has been interrupted", command);
+            throw new InterruptedByUserException("Command [" + command + "] exec has been interrupted", e);
+        } catch (Exception e) {
+            throw new ArtifactExecutionException("Command [" + command + "] exec encountered error", e);
         }
+        return dockerClient.inspectExecCmd(execId).exec().getExitCode();
     }
 
     private String asyncRunCommand(String command, InputStream input, DockerStreamDecoder outputDecoder) {
@@ -79,27 +84,34 @@ public class DockerConnection implements Connection {
 
     @Override
     public void upload(String localPath, String remotePath) {
-        String prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\"; mkdir -p \"" + remotePath + "\"; else mkdir -p \"" + remotePath + "\"; fi";
-        executeCommand(prepareCommand);
+        String prepareCommand = "if [ -e \"" + remotePath + "\" ]; then echo \"Remote path [" + remotePath + "] already exist, will overwrite\"; rm -rf \"" + remotePath + "\" && mkdir -p \"" + remotePath + "\"; else echo \"Remote path [" + remotePath + "] will be created\"; mkdir -p \"" + remotePath + "\"; fi";
+        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
+            executeCommand(prepareCommand, outputHandler);
+        }
         dockerClient.copyArchiveToContainerCmd(containerId).withHostResource(localPath).withDirChildrenOnly(true).withRemotePath(remotePath).exec();
     }
 
     @Override
-    public Integer executeCommand(String command) {
-        return runCommand("/bin/sh", new ByteArrayInputStream(command.getBytes(StandardCharsets.UTF_8)));
+    public Integer executeCommand(String command, OutputHandler outputHandler) {
+        return runCommand("/bin/sh", new ByteArrayInputStream(command.getBytes(StandardCharsets.UTF_8)), outputHandler);
     }
 
     @Override
-    public Integer executeScript(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeRemoteArtifact(String scriptPath, Map<String, String> variables, OutputHandler outputHandler) {
+        throw new OperationNotImplementedException("Method not implemented");
+    }
+
+    @Override
+    public Integer executeArtifact(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
         try (DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder()) {
             StringWriter rawWriter = new StringWriter();
             PrintWriter commandWriter = new PrintWriter(rawWriter);
-            List<String> setEnvCommands = BashArtifactExecutorUtil.getSetEnvCommands(variables);
+            List<String> setEnvCommands = ConnectionUtil.getSetEnvCommands(variables);
             setEnvCommands.forEach(commandWriter::println);
             commandWriter.write(scriptContent);
             outputHandler.handleStdErr(dockerStreamDecoder.getStdErrStream());
             outputHandler.handleStdOut(dockerStreamDecoder.getStdOutStream());
-            String execId = asyncRunCommand(BashArtifactExecutorUtil.readInterpreterCommand(new StringReader(scriptContent)), new ByteArrayInputStream(rawWriter.toString().getBytes(StandardCharsets.UTF_8)), dockerStreamDecoder);
+            String execId = asyncRunCommand(ConnectionUtil.readInterpreterCommand(new StringReader(scriptContent)), new ByteArrayInputStream(rawWriter.toString().getBytes(StandardCharsets.UTF_8)), dockerStreamDecoder);
             dockerStreamDecoder.awaitCompletion();
             return dockerClient.inspectExecCmd(execId).exec().getExitCode();
         } catch (InterruptedException e) {
@@ -111,12 +123,18 @@ public class DockerConnection implements Connection {
     }
 
     @Override
-    public void initialize(Map<String, Object> properties) {
-        this.dockerClient = DockerUtil.buildDockerClient(PropertyUtil.getMandatoryPropertyAsString(properties, "docker_url"), PropertyUtil.getPropertyAsString(properties, "cert_path"));
-        this.containerId = PropertyUtil.getMandatoryPropertyAsString(properties, "container_id");
+    public Integer executeCommand(String command) {
+        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
+            return executeCommand(command, outputHandler);
+        }
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
+        try {
+            this.dockerClient.close();
+        } catch (IOException e) {
+            log.warn("Could not close docker client", e);
+        }
     }
 }

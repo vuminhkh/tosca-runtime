@@ -27,7 +27,7 @@ public class SimpleOutputHandler implements OutputHandler {
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
             t.setDaemon(true);
-            t.setName("Docker_Log_Output_Thread_" + count.incrementAndGet());
+            t.setName("Simple_Output_Logger_Thread_" + count.incrementAndGet());
             return t;
         }
     });
@@ -40,16 +40,20 @@ public class SimpleOutputHandler implements OutputHandler {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                log.info(source + " : " + line);
+                onData(source, line);
             }
         }
+    }
+
+    protected void onData(String source, String line) {
+        log.info(source + " : " + line);
     }
 
     @Override
     public void handleStdOut(InputStream stdOut) {
         outFuture = executorService.submit(() -> {
             try {
-                readStream("stdOut", stdOut);
+                readStream("stdout", stdOut);
             } catch (IOException e) {
                 log.warn("Unable to read stdout", e);
             }
@@ -60,7 +64,7 @@ public class SimpleOutputHandler implements OutputHandler {
     public void handleStdErr(InputStream stdErr) {
         errFuture = executorService.submit(() -> {
             try {
-                readStream("stdErr", stdErr);
+                readStream("stderr", stdErr);
             } catch (IOException e) {
                 log.warn("Unable to read stderr", e);
             }

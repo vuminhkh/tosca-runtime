@@ -66,6 +66,10 @@ public abstract class Compute extends Root {
         return executor;
     }
 
+    public synchronized void unregisterExecutors() {
+        connectionCache.values().forEach(Connection::close);
+    }
+
     /**
      * Run operation on the compute instance
      *
@@ -76,7 +80,7 @@ public abstract class Compute extends Root {
      * @param inputs                environment variables for the operation
      * @param deploymentArtifacts   deployment artifacts that might be used by the operation
      */
-    public Map<String, String> execute(String nodeId, String operation, String operationArtifactPath, String artifactType, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
+    public Map<String, Object> execute(String nodeId, String operation, String operationArtifactPath, String artifactType, Map<String, Object> inputs, Map<String, String> deploymentArtifacts) {
         return getArtifactExecutor(artifactType).executeArtifact(nodeId, operation, operationArtifactPath, inputs, deploymentArtifacts);
     }
 

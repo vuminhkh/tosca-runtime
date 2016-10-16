@@ -1,4 +1,4 @@
-package com.toscaruntime.util;
+package com.toscaruntime.plugins.script.shell;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -7,9 +7,7 @@ import java.util.concurrent.Callable;
 
 import org.slf4j.Logger;
 
-import com.toscaruntime.artifact.ArtifactOutputProcessor;
-
-public class SSHStdOutLogger extends ArtifactOutputProcessor implements Callable<Void> {
+public class ShellStdOutLogger extends ArtifactOutputProcessor implements Callable<Void> {
 
     private String operationName;
 
@@ -19,7 +17,7 @@ public class SSHStdOutLogger extends ArtifactOutputProcessor implements Callable
 
     private InputStream scriptOutput;
 
-    public SSHStdOutLogger(String operationName, String scriptName, Logger logger, String statusToken, String environmentVariablesToken, InputStream scriptOutput) {
+    public ShellStdOutLogger(String operationName, String scriptName, Logger logger, String statusToken, String environmentVariablesToken, InputStream scriptOutput) {
         super(statusToken, environmentVariablesToken);
         this.operationName = operationName;
         this.scriptName = scriptName;

@@ -1,11 +1,5 @@
 image: "Swarm needs recent linux kernel, for example for Ubuntu it only works for Ubuntu Vivid and above"
 flavor: "2"
-key_content: |
-  -----BEGIN RSA PRIVATE KEY-----
-  Put here your private key
-  -----END RSA PRIVATE KEY-----
-
-login: "ubuntu"
 key_pair_name: "your keypair name"
 security_group_names: ["your security group"]
 external_network_name: "net-pub"

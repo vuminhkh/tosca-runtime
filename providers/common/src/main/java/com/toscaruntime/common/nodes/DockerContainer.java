@@ -14,8 +14,15 @@ public abstract class DockerContainer extends Compute {
      *
      * @return the docker url
      */
-    public abstract String getDockerURL();
+    public abstract String getDockerHost();
 
+
+    /**
+     * Is SSL enabled ?
+     *
+     * @return '1' indicate enabled other value mean disabled
+     */
+    public abstract String getTlsVerify();
 
     /**
      * Get the docker certificate path that can be used to communicate with the container

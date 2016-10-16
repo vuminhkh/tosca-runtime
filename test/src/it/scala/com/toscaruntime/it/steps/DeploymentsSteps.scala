@@ -43,7 +43,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
       Context.getInput("bootstrap_" + provider)
     )
     AgentUtil.waitForBootstrapAgent(Context.client, provider, target)
-    AgentUtil.bootstrap(Context.client, provider, target).outputs("public_daemon_url").asInstanceOf[String]
+    AgentUtil.bootstrap(Context.client, provider, target).outputs("public_docker_daemon_host").asInstanceOf[String]
   }
 
   def teardown(provider: String = openstackProvider, target: String = swarmTarget) = {

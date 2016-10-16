@@ -4,10 +4,9 @@ import java.nio.file._
 import javax.inject.Inject
 
 import com.github.dockerjava.api.model.NetworkSettings
-import com.toscaruntime.exception.UnexpectedException
 import com.toscaruntime.rest.client.DockerDaemonClient
 import com.toscaruntime.rest.model.{DeploymentInfoDTO, RestResponse}
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{DockerUtil, FileUtil}
 import com.typesafe.scalalogging.LazyLogging
 import play.api.cache._
 import play.api.libs.json._
@@ -15,9 +14,9 @@ import play.api.libs.ws.{WSClient, WSResponse}
 import play.api.mvc._
 import play.mvc.Http.MimeTypes
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.collection.JavaConverters._
 
 class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controller with LazyLogging {
 
@@ -26,7 +25,7 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
   private val agentURLCacheKeyPrefix: String = "agent_"
 
   // TODO better do it properly by performing connect operation in bootstrap recipe's relationship
-  private lazy val dockerClient = connect(System.getenv("DOCKER_URL"))
+  private lazy val dockerClient = connect()
 
   private lazy val bootstrapContextPath = Paths.get(play.Play.application().configuration().getString("com.toscaruntime.bootstrapContext"))
 
@@ -44,12 +43,8 @@ class ProxyController @Inject()(ws: WSClient, cache: CacheApi) extends Controlle
     }
   }
 
-  def connect(url: String) = {
-    if (url != null && url.nonEmpty) {
-      new DockerDaemonClient(url, null)
-    } else {
-      throw new UnexpectedException("Need docker url to initialize toscaruntime proxy")
-    }
+  def connect() = {
+    new DockerDaemonClient(DockerUtil.getDefaultDockerDaemonConfig)
   }
 
   def getURL(deploymentId: String): Option[String] = {

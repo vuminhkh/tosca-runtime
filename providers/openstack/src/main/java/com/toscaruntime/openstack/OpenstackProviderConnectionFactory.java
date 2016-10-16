@@ -1,11 +1,11 @@
 package com.toscaruntime.openstack;
 
-import com.toscaruntime.configuration.ProviderConnectionFactory;
+import com.toscaruntime.configuration.ConnectionFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class OpenstackProviderConnectionFactory implements ProviderConnectionFactory<OpenstackProviderConnection> {
+public class OpenstackProviderConnectionFactory implements ConnectionFactory<OpenstackProviderConnection> {
 
     @Override
     public OpenstackProviderConnection newConnection(Map<String, Object> properties, Map<String, Object> bootstrapContext, boolean multipleTargets) {

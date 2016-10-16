@@ -1,4 +1,5 @@
-ssh_port: "22"
+# Copy this file and rename it to plugin.conf, then configure your test configuration
+port: "22"
 connect_retry: "720"
 wait_between_connect_retry: "5 s"
 artifact_execution_retry: "1"

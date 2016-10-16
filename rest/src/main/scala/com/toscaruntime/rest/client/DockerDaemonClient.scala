@@ -1,7 +1,6 @@
 package com.toscaruntime.rest.client
 
 import java.io.{FileWriter, PrintStream}
-import java.net.URL
 import java.nio.file.{Files, Path, StandardOpenOption}
 
 import com.github.dockerjava.api.DockerClient
@@ -24,17 +23,16 @@ import scala.collection.JavaConverters._
   *
   * @author Minh Khang VU
   */
-class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogging {
+class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
 
-  var dockerClient: DockerClient = DockerUtil.buildDockerClient(url, certPath)
+  var dockerClient: DockerClient = DockerUtil.buildDockerClient(config)
 
   val yaml = new Yaml()
 
-  def setDockerClient(newUrl: String, newCertPath: String) = {
+  def setDockerClient(newConfig: DockerDaemonConfig) = {
     dockerClient.close()
-    dockerClient = DockerUtil.buildDockerClient(newUrl, newCertPath)
-    url = newUrl
-    certPath = newCertPath
+    dockerClient = DockerUtil.buildDockerClient(newConfig)
+    config = newConfig
   }
 
   private def findMappedPort(container: InspectContainerResponse, localPort: Int) = {
@@ -49,7 +47,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
       val proxy = proxyFound.iterator().next()
       val proxyPort = findMappedPort(dockerClient.inspectContainerCmd(proxy.getId).exec(), 9000)
       // TODO the public ip to join the container should be discovered more dynamically ?
-      Some("http://" + new URL(url).getHost + ":" + proxyPort)
+      Some("http://" + DockerUtil.getDockerHostName(config.getHost) + ":" + proxyPort)
     }
   }
 
@@ -67,7 +65,7 @@ class DockerDaemonClient(var url: String, var certPath: String) extends LazyLogg
 
   def getBootstrapAgentURL(deploymentId: String) = {
     getAgentInfo(deploymentId).filter(_.getState.getRunning).map { container =>
-      val daemonHost = DockerUtil.getDockerHost(url)
+      val daemonHost = DockerUtil.getDockerHostName(config.getHost)
       val port = container.getNetworkSettings.getPorts.getBindings.asScala.filterKeys(exposedPort => exposedPort.getProtocol == InternetProtocol.TCP && exposedPort.getPort == 9000).values.head.head.getHostPortSpec
       s"http://$daemonHost:$port/deployment"
     }

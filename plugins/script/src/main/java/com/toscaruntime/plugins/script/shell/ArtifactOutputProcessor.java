@@ -1,4 +1,6 @@
-package com.toscaruntime.artifact;
+package com.toscaruntime.plugins.script.shell;
+
+import com.toscaruntime.util.PropertyUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +18,7 @@ public abstract class ArtifactOutputProcessor {
 
     private AtomicReference<Integer> statusCode = new AtomicReference<>();
 
-    private Map<String, String> capturedEnvVars = new HashMap<>();
+    private Map<String, Object> capturedEnvVars = new HashMap<>();
 
     public ArtifactOutputProcessor(String statusCodeToken, String environmentVariablesToken) {
         this.statusCodeToken = statusCodeToken;
@@ -31,7 +33,7 @@ public abstract class ArtifactOutputProcessor {
                     // Only update the env vars with the ones of the wrapper script first
                     Matcher matcher = ENV_VAR_PATTERN.matcher(envVarWithValue);
                     if (matcher.matches()) {
-                        capturedEnvVars.put(matcher.group(1), matcher.group(2));
+                        capturedEnvVars.put(matcher.group(1), PropertyUtil.propertyValueFromString(matcher.group(2)));
                     }
                 }
             }
@@ -47,7 +49,7 @@ public abstract class ArtifactOutputProcessor {
         }
     }
 
-    public Map<String, String> getCapturedEnvVars() {
+    public Map<String, Object> getCapturedEnvVars() {
         return capturedEnvVars;
     }
 

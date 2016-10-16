@@ -1,9 +1,7 @@
-package com.toscaruntime.plugins.script.bash;
+package com.toscaruntime.plugins.script.shell;
 
 import com.toscaruntime.artifact.OperationOutput;
 import com.toscaruntime.artifact.OutputHandler;
-import com.toscaruntime.util.SSHStdErrLogger;
-import com.toscaruntime.util.SSHStdOutLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,17 +14,17 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class BashOutputHandler implements OutputHandler {
+public class ShellOutputHandler implements OutputHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(BashOutputHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(ShellOutputHandler.class);
 
     private String statusCodeToken = UUID.randomUUID().toString();
 
     private String environmentVariablesToken = UUID.randomUUID().toString();
 
-    private SSHStdOutLogger sshStdOutLogger;
+    private ShellStdOutLogger sshStdOutLogger;
 
-    private SSHStdErrLogger sshStdErrLogger;
+    private ShellStdErrLogger sshStdErrLogger;
 
     private Future<?> stdOutFuture;
 
@@ -49,7 +47,7 @@ public class BashOutputHandler implements OutputHandler {
         }
     });
 
-    public BashOutputHandler(String statusCodeToken, String environmentVariablesToken, String operation, String scriptName) {
+    public ShellOutputHandler(String statusCodeToken, String environmentVariablesToken, String operation, String scriptName) {
         this.statusCodeToken = statusCodeToken;
         this.environmentVariablesToken = environmentVariablesToken;
         this.operation = operation;
@@ -58,13 +56,13 @@ public class BashOutputHandler implements OutputHandler {
 
     @Override
     public void handleStdOut(InputStream stdOut) {
-        sshStdOutLogger = new SSHStdOutLogger(operation, scriptName, log, statusCodeToken, environmentVariablesToken, stdOut);
+        sshStdOutLogger = new ShellStdOutLogger(operation, scriptName, log, statusCodeToken, environmentVariablesToken, stdOut);
         stdOutFuture = executorService.submit(sshStdOutLogger);
     }
 
     @Override
     public void handleStdErr(InputStream stdErr) {
-        sshStdErrLogger = new SSHStdErrLogger(operation, scriptName, log, stdErr);
+        sshStdErrLogger = new ShellStdErrLogger(operation, scriptName, log, stdErr);
         stdErrFuture = executorService.submit(sshStdErrLogger);
     }
 

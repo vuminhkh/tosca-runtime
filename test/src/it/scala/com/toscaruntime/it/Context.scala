@@ -11,7 +11,7 @@ object Context {
 
   val dockerConfig = DockerUtil.getDefaultDockerDaemonConfig
 
-  val client = new ToscaRuntimeClient(dockerConfig.getUrl, dockerConfig.getCertPath)
+  val client = new ToscaRuntimeClient(dockerConfig)
 
   def getInput(testName: String) = {
     if (testName == dockerProvider) None

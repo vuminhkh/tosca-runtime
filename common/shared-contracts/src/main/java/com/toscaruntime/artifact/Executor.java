@@ -37,7 +37,7 @@ public interface Executor {
      * @param deploymentArtifacts   deployment artifacts associated to the operation
      * @return outputs of the operation
      */
-    Map<String, String> executeArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts);
+    Map<String, Object> executeArtifact(String nodeId, String operation, String operationArtifactPath, Map<String, Object> inputs, Map<String, String> deploymentArtifacts);
 
     /**
      * This method is called when the recipe needs to be refreshed

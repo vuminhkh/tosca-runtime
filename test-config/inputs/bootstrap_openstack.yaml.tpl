@@ -1,3 +1,4 @@
+# Copy this file and rename it to bootstrap_openstack.yaml, then configure your test configuration
 image: "Fill with yours"
 flavor: "2"
 key_pair_name: "Fill with yours"
@@ -9,6 +10,6 @@ cloud_init: |
 plugin_configs:
   script:
     configuration:
-      login: "ubuntu"
+      user: "ubuntu"
       key_content: |
         Fill with yours

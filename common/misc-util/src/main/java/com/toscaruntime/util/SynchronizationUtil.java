@@ -1,5 +1,7 @@
 package com.toscaruntime.util;
 
+import com.toscaruntime.exception.InterruptedByUserException;
+
 import java.util.concurrent.TimeUnit;
 
 public class SynchronizationUtil {
@@ -21,7 +23,8 @@ public class SynchronizationUtil {
                 try {
                     Thread.sleep(timeUnit.toMillis(coolDown));
                 } catch (InterruptedException e) {
-                    return false;
+                    Thread.currentThread().interrupt();
+                    throw new InterruptedByUserException("Retry interrupted at " + currentTimes, e);
                 }
             }
         }

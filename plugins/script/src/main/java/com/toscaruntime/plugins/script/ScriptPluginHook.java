@@ -1,20 +1,21 @@
 package com.toscaruntime.plugins.script;
 
+import com.github.dockerjava.core.DockerClientConfig;
+import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.artifact.ExecutorConfiguration;
 import com.toscaruntime.common.nodes.DockerContainer;
-import com.toscaruntime.common.nodes.LinuxCompute;
 import com.toscaruntime.constant.ToscaInterfaceConstant;
-import com.toscaruntime.plugins.script.bash.BashExecutor;
+import com.toscaruntime.plugins.script.shell.ShellExecutor;
+import com.toscaruntime.plugins.script.util.ScriptUtil;
 import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.util.DockerConnection;
 import com.toscaruntime.util.PropertyUtil;
 import com.toscaruntime.util.SSHConnection;
-import org.apache.commons.lang.StringUtils;
+import tosca.nodes.Compute;
 import tosca.nodes.Root;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class ScriptPluginHook extends AbstractPluginHook {
@@ -24,68 +25,57 @@ public class ScriptPluginHook extends AbstractPluginHook {
     @Override
     public void postConstruct(Deployment deployment, Map<String, Map<String, Object>> pluginProperties, Map<String, Object> bootstrapContext) {
         this.pluginProperties = pluginProperties;
-        deployment.registerArtifactExecutor("tosca.artifacts.Implementation.Bash", BashExecutor.class);
+        deployment.registerArtifactExecutor("tosca.artifacts.Implementation.Bash", ShellExecutor.class);
     }
 
     @Override
     public void postNodeInitialLoad(Root node) {
-        registerExecutor(node);
+        if (node instanceof Compute) {
+            registerExecutor((Compute) node);
+        }
     }
 
-    private Map<String, Object> getBaseConfiguration(Root node) {
-        Map<String, Object> nodeProperties = new HashMap<>();
-        // A node can override the default plugin configuration target
-        String target = PropertyUtil.getPropertyAsString(node.getProperties(), "plugins.script.target", "default");
-        if (this.pluginProperties != null && this.pluginProperties.containsKey(target)) {
-            // Get properties from plugin first so that properties from node can override
-            nodeProperties.putAll(this.pluginProperties.get(target));
-        }
-        Map<String, Object> scriptPluginConfigurationFromNode = (Map<String, Object>) PropertyUtil.getProperty(node.getProperties(), "plugins.script.configuration");
-        if (scriptPluginConfigurationFromNode != null) {
-            // Get properties from node for the plugin
-            nodeProperties.putAll(scriptPluginConfigurationFromNode);
-        }
-        Map<String, Object> executorProperties = new HashMap<>();
-        // Give every raw properties here
-        executorProperties.put("configuration", nodeProperties);
-        return executorProperties;
-    }
-
-    private void registerExecutor(Root node) {
-        // Post start operation computes should be available for artifact execution
-        if (node instanceof LinuxCompute) {
-            Map<String, Object> executorProperties = getBaseConfiguration(node);
-            LinuxCompute linuxCompute = (LinuxCompute) node;
-            executorProperties.put("ip", linuxCompute.getIpAddress());
-            executorProperties.put("port", PropertyUtil.getMandatoryPropertyAsString(executorProperties, "configuration.ssh_port"));
-            executorProperties.put("user", PropertyUtil.getMandatoryPropertyAsString(executorProperties, "configuration.login"));
-            executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
-            String pemPath = PropertyUtil.getPropertyAsString(executorProperties, "configuration.key_path");
-            String pemContent = PropertyUtil.getPropertyAsString(executorProperties, "configuration.key_content");
-            if (StringUtils.isNotBlank(pemContent)) {
-                executorProperties.put("pem_content", pemContent);
+    private void registerExecutor(Compute node) {
+        Map<String, Object> executorProperties = PropertyUtil.getPluginConfiguration("script", this.pluginProperties, node.getProperties());
+        String connectionType = PropertyUtil.getPropertyAsString(executorProperties, "connection_type");
+        Class<? extends Connection> connectionClass = ScriptUtil.getConnectionType(node, connectionType);
+        if (connectionClass == SSHConnection.class) {
+            if (node instanceof com.toscaruntime.common.nodes.Compute) {
+                executorProperties.put(Connection.TARGET, ((com.toscaruntime.common.nodes.Compute) node).getIpAddress());
+            } else {
+                executorProperties.put(Connection.TARGET, node.getAttribute("ip_address"));
             }
-            if (StringUtils.isNotBlank(pemPath)) {
-                executorProperties.put("pem_path", pemPath);
-            }
-            // A Linux VM needs SSH connection to execute bash script
-            ((LinuxCompute) node).registerExecutor(new ExecutorConfiguration(BashExecutor.class, SSHConnection.class, executorProperties));
-        } else if (node instanceof DockerContainer) {
-            Map<String, Object> executorProperties = getBaseConfiguration(node);
-            DockerContainer dockerContainer = (DockerContainer) node;
-            executorProperties.put("docker_url", dockerContainer.getDockerURL());
-            executorProperties.put("cert_path", dockerContainer.getDockerCertificatePath());
-            executorProperties.put("container_id", dockerContainer.getContainerId());
             executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
-            // A docker container needs a Docker connection
-            ((DockerContainer) node).registerExecutor(new ExecutorConfiguration(BashExecutor.class, DockerConnection.class, executorProperties));
+            node.registerExecutor(new ExecutorConfiguration(ShellExecutor.class, connectionClass, executorProperties));
+        } else if (connectionClass == DockerConnection.class) {
+            executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
+            if (node instanceof DockerContainer) {
+                DockerContainer dockerContainer = (DockerContainer) node;
+                executorProperties.put(DockerClientConfig.DOCKER_HOST, dockerContainer.getDockerHost());
+                executorProperties.put(DockerClientConfig.DOCKER_CERT_PATH, dockerContainer.getDockerCertificatePath());
+                executorProperties.put(DockerClientConfig.DOCKER_TLS_VERIFY, dockerContainer.getTlsVerify());
+                executorProperties.put(Connection.TARGET, dockerContainer.getContainerId());
+            } else {
+                executorProperties.put(DockerClientConfig.DOCKER_HOST, node.getAttribute(DockerClientConfig.DOCKER_HOST));
+                executorProperties.put(DockerClientConfig.DOCKER_CERT_PATH, node.getAttribute(DockerClientConfig.DOCKER_CERT_PATH));
+                executorProperties.put(DockerClientConfig.DOCKER_TLS_VERIFY, node.getAttribute(DockerClientConfig.DOCKER_TLS_VERIFY));
+                executorProperties.put(Connection.TARGET, node.getAttribute("provider_resource_id"));
+            }
+            node.registerExecutor(new ExecutorConfiguration(ShellExecutor.class, DockerConnection.class, executorProperties));
         }
     }
 
     @Override
     public void postExecuteNodeOperation(Root node, String interfaceName, String operationName) {
-        if (ToscaInterfaceConstant.NODE_STANDARD_INTERFACE.equals(interfaceName) && ToscaInterfaceConstant.START_OPERATION.equals(operationName)) {
-            registerExecutor(node);
+        if (ToscaInterfaceConstant.NODE_STANDARD_INTERFACE.equals(interfaceName) && ToscaInterfaceConstant.START_OPERATION.equals(operationName) && node instanceof Compute) {
+            registerExecutor((Compute) node);
+        }
+    }
+
+    @Override
+    public void preExecuteNodeOperation(Root node, String interfaceName, String operationName) {
+        if (ToscaInterfaceConstant.NODE_STANDARD_INTERFACE.equals(interfaceName) && ToscaInterfaceConstant.STOP_OPERATION.equals(operationName) && node instanceof Compute) {
+            ((Compute) node).unregisterExecutors();
         }
     }
 }

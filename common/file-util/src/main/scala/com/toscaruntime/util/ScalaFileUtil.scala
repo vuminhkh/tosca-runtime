@@ -8,19 +8,23 @@ import scala.collection.mutable.ListBuffer
 
 object ScalaFileUtil {
 
-  def listRecursive(path: Path, filter: Path => Boolean = _ => true) = {
-    val files = ListBuffer[Path]()
+  def doRecursiveWithPath[T](path: Path, action: Path => Unit, filter: Path => Boolean = _ => true) = {
     Files.walkFileTree(path, new SimpleFileVisitor[Path] {
       override def preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult = {
-        if (filter(dir)) files += dir
+        if (filter(dir)) action(dir)
         FileVisitResult.CONTINUE
       }
 
       override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-        if (filter(file)) files += file
+        if (filter(file)) action(file)
         FileVisitResult.CONTINUE
       }
     })
+  }
+
+  def listRecursive(path: Path, filter: Path => Boolean = _ => true) = {
+    val files = ListBuffer[Path]()
+    doRecursiveWithPath(path, nestedPath => files += nestedPath, filter)
     files.toList
   }
 

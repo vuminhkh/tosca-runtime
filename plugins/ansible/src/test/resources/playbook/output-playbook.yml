@@ -1,0 +1,5 @@
+---
+- hosts: all
+  tasks:
+  - name: produce output
+    set_fact: MY_OUTPUT="Great output"

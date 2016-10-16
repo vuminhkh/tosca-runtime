@@ -19,7 +19,7 @@ package @nodeType.packageName;
 @nodeType.methods.map { method =>
 public void @CaseUtil.lowerUnderscoreToCamelCase(method.name) @Html("() {")
   @method.implementation.map { implementation =>
-    @Html("java.util.Map<String, String> outputs = ")executeOperation("@method.name", "@nodeType.csarName/@implementation.reference", "@implementation.artifactType");
+    @Html("java.util.Map<String, Object> outputs = ")executeOperation("@method.name", "@nodeType.csarName/@implementation.reference", "@implementation.artifactType");
     setOperationOutputs("@method.interface", "@method.operation", outputs);
   }
   @Html("}")

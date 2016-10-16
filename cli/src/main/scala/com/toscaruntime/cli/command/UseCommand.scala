@@ -2,10 +2,11 @@ package com.toscaruntime.cli.command
 
 import java.nio.file.{Files, Path, Paths, StandardCopyOption}
 
+import com.github.dockerjava.core.DockerClientConfig
 import com.toscaruntime.cli.Attributes
 import com.toscaruntime.cli.parser.Parsers
 import com.toscaruntime.rest.client.ToscaRuntimeClient
-import com.toscaruntime.util.{DockerUtil, FileUtil}
+import com.toscaruntime.util.{DockerDaemonConfig, DockerUtil, FileUtil}
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
 import org.apache.commons.lang.StringUtils
 import sbt.complete.DefaultParsers._
@@ -25,29 +26,28 @@ object UseCommand {
 
   val useDefaultCommandName = "use-default"
 
-  private val dockerUrlOpt = "--url"
+  private val dockerHostOpt = "--host"
 
   private val dockerCertOpt = "--cert"
 
-  private lazy val dockerUrlArg = token(dockerUrlOpt) ~ (token("=") ~> token(URIClass))
+  private lazy val dockerUrlArg = token(dockerHostOpt) ~ (token("=") ~> token(URIClass))
 
   private lazy val dockerCertPathArg = token(dockerCertOpt) ~ (token("=") ~> token(Parsers.filePathParser))
 
   private lazy val useArgsParser = Space ~> (dockerUrlArg | dockerCertPathArg) +
 
-  private lazy val useHelp = Help(commandName, (commandName, "Use the specified docker daemon url"),
+  private lazy val useHelp = Help(commandName, (commandName, "Use the specified docker daemon"),
     s"""
-       |$commandName $dockerUrlOpt=<docker daemon url> $dockerCertOpt=<certificate path>
-       |$dockerUrlOpt%-30s of the docker daemon
-       |$dockerCertOpt%-30s (optional if https is not used) path to the the certificate to connect to the docker daemon
+       |$commandName $dockerHostOpt=<docker daemon host> $dockerCertOpt=<certificate path>
+       |$dockerHostOpt%-30s of the docker daemon
+       |$dockerCertOpt%-30s (optional if SSL is not enable) path to the the certificate to connect to the docker daemon
     """.stripMargin
   )
 
   private lazy val useDefaultHelp = Help(useDefaultCommandName, (useDefaultCommandName, "Use the default docker daemon url"),
     s"""Use the default docker daemon configuration, this order will be respected to detect the configuration:
         |1. Read from DOCKER_HOST, DOCKER_TLS_VERIFY, DOCKER_CERT_PATH
-        |2. If not found, read from system properties ${DockerUtil.DOCKER_URL_KEY} and ${DockerUtil.DOCKER_CERT_PATH_KEY}
-        |3. If not found, assign default values based on OS ${DockerUtil.getDefaultDockerDaemonConfig.getUrl}
+        |2. If not found, assign default values based on OS ${DockerUtil.getDefaultDockerDaemonConfig.getHost}
      """.stripMargin
   )
 
@@ -55,9 +55,9 @@ object UseCommand {
     val basedir = state.attributes.get(Attributes.basedirAttribute).get
     val defaultConfig = DockerUtil.getDefaultDockerDaemonConfig
     val client = state.attributes.get(Attributes.clientAttribute).get
-    client.switchConnection(defaultConfig.getUrl, defaultConfig.getCertPath)
-    switchConfiguration(defaultConfig.getUrl, defaultConfig.getCertPath, basedir)
-    println(s"Begin to use docker daemon at [${defaultConfig.getUrl}] with api version [${client.dockerVersion}]")
+    client.switchConnection(defaultConfig)
+    switchConfiguration(defaultConfig, basedir)
+    println(s"Begin to use docker daemon at [${defaultConfig.getHost}] with api version [${client.dockerVersion}]")
     state
   }
 
@@ -65,16 +65,18 @@ object UseCommand {
     val argsMap = args.toMap
     var fail = false
     val client = state.attributes.get(Attributes.clientAttribute).get
-    if (!argsMap.contains(dockerUrlOpt)) {
-      println(s"$dockerUrlOpt is mandatory")
+    if (!argsMap.contains(dockerHostOpt)) {
+      println(s"$dockerHostOpt is mandatory")
       fail = true
     } else {
       val basedir = state.attributes.get(Attributes.basedirAttribute).get
-      val url = argsMap(dockerUrlOpt)
+      val host = argsMap(dockerHostOpt)
       val cert = argsMap.getOrElse(dockerCertOpt, null)
-      switchConnection(client, url, cert, basedir)
-      switchConfiguration(url, cert, basedir)
-      println(s"Begin to use docker daemon at [${argsMap(dockerUrlOpt)}] with api version [${client.dockerVersion}]")
+      val tlsVerify = if (cert != null) "1" else null
+      val daemonConfig = new DockerDaemonConfig(host, tlsVerify, cert)
+      switchConnection(client, daemonConfig, basedir)
+      switchConfiguration(daemonConfig, basedir)
+      println(s"Begin to use docker daemon at [${argsMap(dockerHostOpt)}] with api version [${client.dockerVersion}]")
     }
     if (fail) state.fail else state
   }
@@ -83,26 +85,27 @@ object UseCommand {
     basedir.resolve("conf").resolve("daemon")
   }
 
-  def switchConnection(client: ToscaRuntimeClient, url: String, cert: String, basedir: Path) = {
-    client.switchConnection(url, cert)
-    switchConfiguration(url, cert, basedir)
+  def switchConnection(client: ToscaRuntimeClient, daemonConfig: DockerDaemonConfig, basedir: Path) = {
+    client.switchConnection(daemonConfig)
+    switchConfiguration(daemonConfig, basedir)
   }
 
-  def switchConfiguration(url: String, cert: String, basedir: Path) = {
+  def switchConfiguration(daemonConfig: DockerDaemonConfig, basedir: Path) = {
     val dockerConfigPath = getDaemonConfigPath(basedir)
     if (!Files.exists(dockerConfigPath)) {
       Files.createDirectories(dockerConfigPath)
     }
-    if (StringUtils.isNotBlank(cert)) {
-      copyCertificates(Paths.get(cert), dockerConfigPath.resolve("cert"))
+    if (StringUtils.isNotBlank(daemonConfig.getCertPath)) {
+      copyCertificates(Paths.get(daemonConfig.getCertPath), dockerConfigPath.resolve("cert"))
     }
     var config =
       s"""# Attention this file is auto-generated and might be overwritten when configuration changes
-          |${DockerUtil.DOCKER_URL_KEY}="$url"""".stripMargin
-    if (StringUtils.isNotBlank(cert)) {
+          |${DockerClientConfig.DOCKER_HOST}="${daemonConfig.getHost}"""".stripMargin
+    if (StringUtils.isNotBlank(daemonConfig.getCertPath) && StringUtils.isNotBlank(daemonConfig.getTlsVerify)) {
       config +=
         s"""
-           |${DockerUtil.DOCKER_CERT_PATH_KEY}=$${com.toscaruntime.target.dir}"/cert"""".stripMargin
+           |${DockerClientConfig.DOCKER_TLS_VERIFY}="${daemonConfig.getTlsVerify}"
+           |${DockerClientConfig.DOCKER_CERT_PATH}=$${com.toscaruntime.target.dir}"/cert"""".stripMargin
     }
     FileUtil.writeTextFile(config, dockerConfigPath.resolve("provider.conf"))
 
@@ -110,7 +113,7 @@ object UseCommand {
     val defaultDockerProviderConfigPath = basedir.resolve("conf").resolve("providers").resolve("docker").resolve("default")
     if (!Files.exists(defaultDockerProviderConfigPath.resolve("provider.conf"))) {
       FileUtil.copy(dockerConfigPath.resolve("provider.conf"), defaultDockerProviderConfigPath.resolve("auto_generated_provider.conf"), StandardCopyOption.REPLACE_EXISTING)
-      if (StringUtils.isNotBlank(cert)) copyCertificates(Paths.get(cert), defaultDockerProviderConfigPath.resolve("cert"))
+      if (StringUtils.isNotBlank(daemonConfig.getCertPath)) copyCertificates(Paths.get(daemonConfig.getCertPath), defaultDockerProviderConfigPath.resolve("cert"))
     }
     dockerConfigPath
   }

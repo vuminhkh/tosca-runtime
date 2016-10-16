@@ -32,9 +32,9 @@ topology_template:
       type: integer
 
   outputs:
-    public_daemon_url:
+    public_docker_daemon_host:
       description: The URL to access the docker daemon
-      value: { get_attribute: [ swarmManager, public_docker_url ] }
+      value: { get_attribute: [ swarmManager, public_docker_host ] }
     public_proxy_url:
       description: The public URL to access the proxy
       value: { get_attribute: [ proxy, public_proxy_url ] }

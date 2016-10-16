@@ -1,6 +1,6 @@
 package com.toscaruntime.runtime
 
-import java.net.{URL, URLClassLoader}
+import java.net.URL
 import java.nio.file._
 import java.util
 

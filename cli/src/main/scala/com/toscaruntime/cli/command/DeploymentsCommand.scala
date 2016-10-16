@@ -75,7 +75,6 @@ object DeploymentsCommand extends LazyLogging {
        |  CREATE_OPTIONS:
        |    ${csarOpt + "=<csar name>:<version>"}%-28s use an installed topology to create the deployment, if this option is set <topology path> argument is not necessary
        |    ${inputPathOpt + "=<input path>"}%-28s input for the deployment
-       |    ${Args.targetOpt + "=<provider>:<target>"}%-28s the provider's configuration, default to ${ProviderConstant.DEFAULT_TARGET}, can be repeated multiple times for hybrid deployment
        |    ${bootstrapOpt + "=<true|false>"}%-28s enable bootstrap mode, in this mode the agent will use public ip to connect to created compute
        |
        |  $deleteCmd%-30s Delete the deployment
@@ -129,22 +128,12 @@ object DeploymentsCommand extends LazyLogging {
     Files.createDirectories(deploymentWorkDir)
     val compilationResult = Compiler.assembly(topologyPath, deploymentWorkDir, repository, inputsPath)
     if (compilationResult.isSuccessful) {
-      val providerConfigPaths = compilationResult.providers.map(providerBaseConf.resolve)
-      val pluginConfigPaths = compilationResult.plugins.map(pluginBaseConf.resolve)
-
-      val missingProviderConfigs = providerConfigPaths.filter(!isProviderConfigValid(_))
-      missingProviderConfigs.foreach(providerConfigPath => println(s"Missing provider configuration at $providerConfigPath"))
-
-      val missingPluginConfigs = pluginConfigPaths.filter(!isPluginConfigValid(_))
-      missingPluginConfigs.foreach(pluginConfigPath => println(s"Missing plugin configuration at $pluginConfigPath"))
-
-      if (missingProviderConfigs.isEmpty && missingPluginConfigs.isEmpty) {
-        // No provider's configuration missing
-        client.createDeploymentImage(deploymentId, deploymentWorkDir, providerConfigPaths, pluginConfigPaths, bootstrapMode).awaitImageId()
-        return true
-      } else {
-        return false
-      }
+      val providerConfigPaths = compilationResult.providers.map(providerBaseConf.resolve).filter(isProviderConfigValid)
+      println(s"Use following provider configs [${providerConfigPaths.mkString(", ")}]")
+      val pluginConfigPaths = compilationResult.plugins.map(pluginBaseConf.resolve).filter(isPluginConfigValid)
+      println(s"Use following plugin configs [${pluginConfigPaths.mkString(", ")}]")
+      client.createDeploymentImage(deploymentId, deploymentWorkDir, providerConfigPaths, pluginConfigPaths, bootstrapMode).awaitImageId()
+      return true
     } else {
       CompilationUtil.showErrors(compilationResult)
       return false

@@ -14,7 +14,6 @@ import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -80,19 +79,13 @@ public abstract class Root extends AbstractRuntimeType {
     @Override
     public void initialLoad() {
         Map<String, String> rawAttributes = config.getDeploymentPersister().syncGetAttributes(getId());
-        for (Map.Entry<String, String> rawAttributeEntry : rawAttributes.entrySet()) {
-            try {
-                getAttributes().put(rawAttributeEntry.getKey(), JSONUtil.toObject(rawAttributeEntry.getValue()));
-            } catch (IOException e) {
-                throw new DeploymentPersistenceException("Cannot read as json from persistence attribute " + rawAttributeEntry.getKey() + " of node instance " + getId(), e);
-            }
-        }
+        getAttributes().putAll(PropertyUtil.convertJsonPropertiesToMapProperties(rawAttributes));
         List<String> outputInterfaces = config.getDeploymentPersister().syncGetOutputInterfaces(getId());
         for (String interfaceName : outputInterfaces) {
             List<String> operationNames = config.getDeploymentPersister().syncGetOutputOperations(getId(), interfaceName);
             for (String operationName : operationNames) {
-                Map<String, String> outputs = config.getDeploymentPersister().syncGetOutputs(getId(), interfaceName, operationName);
-                operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
+                Map<String, String> rawOutputs = config.getDeploymentPersister().syncGetOutputs(getId(), interfaceName, operationName);
+                operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), PropertyUtil.convertJsonPropertiesToMapProperties(rawOutputs));
             }
         }
         this.state = config.getDeploymentPersister().syncGetInstanceState(getId());
@@ -128,8 +121,9 @@ public abstract class Root extends AbstractRuntimeType {
     }
 
     @Override
-    public void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs) {
-        config.getDeploymentPersister().syncSaveInstanceOutputs(getId(), interfaceName, operationName, outputs);
+    public void setOperationOutputs(String interfaceName, String operationName, Map<String, Object> outputs) {
+        Map<String, String> flattenOutputs = PropertyUtil.convertMapPropertiesToJsonProperties(outputs);
+        config.getDeploymentPersister().syncSaveInstanceOutputs(getId(), interfaceName, operationName, flattenOutputs);
         operationOutputs.put(CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName), outputs);
     }
 
@@ -205,7 +199,7 @@ public abstract class Root extends AbstractRuntimeType {
         return postConfiguredRelationshipNodes;
     }
 
-    protected Map<String, String> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
+    protected Map<String, Object> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
         Compute host = getComputableHost();
         if (host == null) {
             // This error should be avoided by validating the recipe in compilation phase

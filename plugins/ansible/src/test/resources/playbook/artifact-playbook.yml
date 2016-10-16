@@ -1,0 +1,9 @@
+---
+- hosts: all
+  tasks:
+    - debug: var=MY_CONF
+    - local_action: stat path={{ MY_CONF }}
+      register: my_conf_file
+    - assert:
+        that:
+          - my_conf_file.stat.exists and not my_conf_file.stat.isdir

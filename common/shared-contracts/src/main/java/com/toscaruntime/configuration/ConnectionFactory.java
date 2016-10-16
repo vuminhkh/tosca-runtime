@@ -2,7 +2,7 @@ package com.toscaruntime.configuration;
 
 import java.util.Map;
 
-public interface ProviderConnectionFactory<T> {
+public interface ConnectionFactory<T> {
 
     /**
      * Create new connection for the provider

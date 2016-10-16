@@ -9,6 +9,7 @@ import com.ning.http.client.AsyncHttpClientConfig
 import com.toscaruntime.exception.UnexpectedException
 import com.toscaruntime.exception.client._
 import com.toscaruntime.rest.model._
+import com.toscaruntime.util.DockerDaemonConfig
 import com.typesafe.scalalogging.LazyLogging
 import play.api.http.Status
 import play.api.libs.json.{JsObject, Json}
@@ -25,19 +26,19 @@ import scala.language.postfixOps
   *
   * @author Minh Khang VU
   */
-class ToscaRuntimeClient(url: String, certPath: String) extends LazyLogging {
+class ToscaRuntimeClient(config: DockerDaemonConfig) extends LazyLogging {
 
   val system = akka.actor.ActorSystem("system")
 
-  private val daemonClient: DockerDaemonClient = new DockerDaemonClient(url, certPath)
+  private val daemonClient: DockerDaemonClient = new DockerDaemonClient(config)
 
   /**
     * When proxy url is not defined, we are in bootstrap mode on a non toscaruntime docker daemon
     */
   private var proxyURLOpt = daemonClient.getProxyURL
 
-  def switchConnection(url: String, certPath: String) = {
-    daemonClient.setDockerClient(url, certPath)
+  def switchConnection(config: DockerDaemonConfig) = {
+    daemonClient.setDockerClient(config)
     proxyURLOpt = daemonClient.getProxyURL
     logger.info(s"New proxy url detected [${proxyURLOpt.getOrElse("none")}]")
   }

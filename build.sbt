@@ -300,7 +300,7 @@ lazy val aws = project.in(file("providers/aws"))
 lazy val plugins = project.in(file("plugins")).settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-plugins"
-  ).aggregate(scriptPlugin, consulPlugin).enablePlugins(UniversalPlugin)
+  ).aggregate(scriptPlugin, consulPlugin, ansiblePlugin).enablePlugins(UniversalPlugin)
 
 lazy val scriptPlugin = project.in(file("plugins/script"))
   .settings(pluginSettings: _*)
@@ -310,7 +310,7 @@ lazy val scriptPlugin = project.in(file("plugins/script"))
     libraryDependencies ++= testDependencies,
     filterDirectoryName := "src/main/resources/toscaruntime-script-plugin-types",
     includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" }
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", sshUtil, dockerUtil).enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", sshUtil, dockerUtil % "test->test;compile->compile").enablePlugins(JavaAppPackaging)
 
 lazy val consulPlugin = project.in(file("plugins/consul"))
   .settings(pluginSettings: _*)
@@ -321,6 +321,16 @@ lazy val consulPlugin = project.in(file("plugins/consul"))
     includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     libraryDependencies += "com.orbitz.consul" % "consul-client" % "0.12.3"
   ).dependsOn(sdk % "provided", sharedContracts % "provided", miscUtil % "provided").enablePlugins(JavaAppPackaging)
+
+lazy val ansiblePlugin = project.in(file("plugins/ansible"))
+  .settings(pluginSettings: _*)
+  .settings(filterSettings: _*)
+  .settings(
+    name := "toscaruntime-ansible",
+    libraryDependencies ++= testDependencies,
+    filterDirectoryName := "src/main/resources/toscaruntime-ansible-plugin-types",
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" }
+  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", sshUtil, dockerUtil % "test->test;compile->compile").enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.in(file("sdk"))
   .settings(pluginSettings: _*)
@@ -394,6 +404,11 @@ lazy val cli = project.in(file("cli"))
       val scriptPluginTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-script-plugin-types" / version.value
       scriptPluginTarget.mkdirs()
       IO.copyDirectory((stage in scriptPlugin).value, scriptPluginTarget)
+
+      // Copy ansible plugin
+      val ansiblePluginTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-ansible-plugin-types" / version.value
+      ansiblePluginTarget.mkdirs()
+      IO.copyDirectory((stage in ansiblePlugin).value, ansiblePluginTarget)
 
       // Copy providers configurations
       val providerConf = target.value / "prepare-stage" / "conf" / "providers"

@@ -1,0 +1,9 @@
+---
+- hosts: all
+  tasks:
+  - name: execute script
+    script: ../scripts/bad-script.sh
+    environment:
+      MY_VARIABLE: "{{ MY_VARIABLE }}"
+    register: script_output
+  - debug: msg="{{ script_output.stdout }}"

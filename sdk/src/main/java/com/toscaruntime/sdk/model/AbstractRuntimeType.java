@@ -19,7 +19,7 @@ public abstract class AbstractRuntimeType {
     /**
      * Hold last operation outputs : operation name to key to value
      */
-    protected Map<String, Map<String, String>> operationOutputs = new HashMap<>();
+    protected Map<String, Map<String, Object>> operationOutputs = new HashMap<>();
 
     protected DeploymentConfig config;
 
@@ -68,7 +68,7 @@ public abstract class AbstractRuntimeType {
      * @param operationName operation name
      * @param outputs       outputs of the operation
      */
-    public abstract void setOperationOutputs(String interfaceName, String operationName, Map<String, String> outputs);
+    public abstract void setOperationOutputs(String interfaceName, String operationName, Map<String, Object> outputs);
 
     /**
      * This method is called to set the attribute of the instance, it will trigger the persistence of the attribute
@@ -145,15 +145,10 @@ public abstract class AbstractRuntimeType {
         return PropertyUtil.getProperty(this.config.getInputs(), inputName, null);
     }
 
-    protected String getOperationOutput(String interfaceName, String operationName, String outputName) {
+    protected Object getOperationOutput(String interfaceName, String operationName, String outputName) {
         String methodName = CodeGeneratorUtil.getGeneratedMethodName(interfaceName, operationName);
-        Map<String, String> outputs = operationOutputs.get(methodName);
-        if (outputs != null) {
-            String output = outputs.get(outputName);
-            return output != null ? output : "";
-        } else {
-            return "";
-        }
+        Map<String, Object> outputs = operationOutputs.get(methodName);
+        return outputs != null ? outputs.get(outputName) : null;
     }
 
     public DeploymentConfig getConfig() {
@@ -190,7 +185,7 @@ public abstract class AbstractRuntimeType {
         return operationInputs;
     }
 
-    public Map<String, Map<String, String>> getOperationOutputs() {
+    public Map<String, Map<String, Object>> getOperationOutputs() {
         return operationOutputs;
     }
 

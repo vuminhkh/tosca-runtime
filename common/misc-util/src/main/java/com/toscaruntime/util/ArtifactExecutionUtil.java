@@ -1,5 +1,7 @@
 package com.toscaruntime.util;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -22,6 +24,14 @@ public class ArtifactExecutionUtil {
         Map<String, String> deploymentArtifactsTransformed = deploymentArtifacts.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> recipeLocation + fileSeparator + entry.getValue()));
         envVarTransformed.putAll(deploymentArtifactsTransformed);
         return normalizeIdentifiers(envVarTransformed);
+    }
+
+    public static String resolve(Path basePath, String childPath) {
+        if (Paths.get(childPath).isAbsolute()) {
+            return basePath.resolve(childPath.substring(1, childPath.length())).toString();
+        } else {
+            return basePath.resolve(childPath).toString();
+        }
     }
 
     private static Map<String, String> normalizeIdentifiers(Map<String, String> envVars) {

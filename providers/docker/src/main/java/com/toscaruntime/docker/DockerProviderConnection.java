@@ -1,8 +1,10 @@
 package com.toscaruntime.docker;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.DockerClientConfig;
 import com.toscaruntime.docker.util.IpAddressUtil;
 import com.toscaruntime.exception.deployment.creation.ProviderInitializationException;
+import com.toscaruntime.util.DockerDaemonConfig;
 import com.toscaruntime.util.DockerUtil;
 import com.toscaruntime.util.PropertyUtil;
 import org.apache.commons.lang.StringUtils;
@@ -35,21 +37,18 @@ public class DockerProviderConnection {
 
     private String dockerNetworkName;
 
-    private String dockerURL;
-
-    private String dockerCertPath;
+    private DockerDaemonConfig dockerDaemonConfig;
 
     public DockerProviderConnection(Map<String, Object> pluginProperties, Map<String, Object> bootstrapContext) {
         Map<String, String> flattenProperties = PropertyUtil.flatten(pluginProperties);
+        dockerDaemonConfig = DockerUtil.getDockerDaemonConfig(flattenProperties);
         dockerClient = DockerUtil.buildDockerClient(flattenProperties);
-        dockerURL = DockerUtil.getDockerUrl(flattenProperties);
-        dockerCertPath = DockerUtil.getDockerCertPath(flattenProperties);
         try {
             dockerDaemonIP = DockerUtil.getDockerDaemonIP(flattenProperties);
         } catch (UnknownHostException e) {
             throw new ProviderInitializationException("Unable to resolve docker host", e);
         }
-        if (PropertyUtil.getMandatoryPropertyAsString(flattenProperties, DockerUtil.DOCKER_URL_KEY).equals(PropertyUtil.getPropertyAsString(bootstrapContext, "public_daemon_url"))) {
+        if (PropertyUtil.getMandatoryPropertyAsString(flattenProperties, DockerClientConfig.DOCKER_HOST).equals(PropertyUtil.getPropertyAsString(bootstrapContext, "public_docker_daemon_host"))) {
             // In a multiple target configuration then use information from bootstrap context only if the target concerns the bootstrapped daemon
             // Only available in swarm bootstrapped environment
             swarmNodesIPsMappings = IpAddressUtil.extractSwarmNodesIpsMappings(bootstrapContext);
@@ -85,11 +84,7 @@ public class DockerProviderConnection {
         return dockerNetworkName;
     }
 
-    public String getDockerURL() {
-        return dockerURL;
-    }
-
-    public String getDockerCertPath() {
-        return dockerCertPath;
+    public DockerDaemonConfig getDockerDaemonConfig() {
+        return dockerDaemonConfig;
     }
 }

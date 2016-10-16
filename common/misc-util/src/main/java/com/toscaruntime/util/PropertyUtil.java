@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 public class PropertyUtil {
 
@@ -71,6 +72,22 @@ public class PropertyUtil {
         return flattenProperties;
     }
 
+    public static Map<String, Object> convertJsonPropertiesToMapProperties(Map<String, String> flatten) {
+        return flatten.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> toObject(entry.getValue())));
+    }
+
+    public static Map<String, String> convertMapPropertiesToJsonProperties(Map<String, Object> properties) {
+        return properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> toJson(entry.getValue())));
+    }
+
+    public static String toJson(Object propertyValue) {
+        try {
+            return JSONUtil.toString(propertyValue);
+        } catch (JsonProcessingException e) {
+            throw new PropertyAccessException("Could not print <" + propertyValue + "> as json");
+        }
+    }
+
     public static List<Object> toList(String propertyValue) {
         try {
             return JSONUtil.toList(propertyValue);
@@ -87,6 +104,14 @@ public class PropertyUtil {
         }
     }
 
+    public static Object toObject(String propertyValue) {
+        try {
+            return JSONUtil.toObject(propertyValue);
+        } catch (IOException e) {
+            throw new PropertyAccessException("Could not parse <" + propertyValue + "> as a json object");
+        }
+    }
+
     public static String getMandatoryPropertyAsString(Map<String, ?> properties, String propertyName) {
         return propertyValueToString(getMandatoryProperty(properties, propertyName));
     }
@@ -97,6 +122,24 @@ public class PropertyUtil {
 
     public static String getPropertyAsString(Map<String, ?> properties, String propertyName, String defaultValue) {
         return propertyValueToString(getProperty(properties, propertyName, defaultValue));
+    }
+
+    public static Object propertyValueFromString(String propertyValue) {
+        try {
+            if (propertyValue == null) {
+                return null;
+            }
+            String trimmedPropertyValue = propertyValue.trim();
+            if (trimmedPropertyValue.startsWith("{")) {
+                return JSONUtil.toMap(trimmedPropertyValue);
+            } else if (trimmedPropertyValue.startsWith("[")) {
+                return JSONUtil.toList(trimmedPropertyValue);
+            } else {
+                return propertyValue;
+            }
+        } catch (IOException e) {
+            throw new PropertyAccessException("Cannot convert property value " + propertyValue + " to string");
+        }
     }
 
     public static String propertyValueToString(Object propertyValue) {
@@ -205,5 +248,29 @@ public class PropertyUtil {
             }
         }
         return value;
+    }
+
+    public static String getPluginConfigurationTarget(String pluginName, Map<String, Object> nodeProperties) {
+        return PropertyUtil.getPropertyAsString(nodeProperties, "plugins." + pluginName + ".target", "default");
+    }
+
+    public static Map<String, Object> getPluginNodeConfiguration(String pluginName, Map<String, Object> nodeProperties) {
+        return (Map<String, Object>) PropertyUtil.getProperty(nodeProperties, "plugins." + pluginName + ".configuration");
+    }
+
+    public static Map<String, Object> getPluginConfiguration(String pluginName, Map<String, Map<String, Object>> pluginProperties, Map<String, Object> overrideProperties) {
+        Map<String, Object> nodeProperties = new HashMap<>();
+        // A node can override the default plugin configuration target
+        String target = getPluginConfigurationTarget(pluginName, overrideProperties);
+        if (pluginProperties != null && pluginProperties.containsKey(target)) {
+            // Get properties from plugin first so that properties from node can override
+            nodeProperties.putAll(pluginProperties.get(target));
+        }
+        Map<String, Object> scriptPluginConfigurationFromNode = getPluginNodeConfiguration(pluginName, overrideProperties);
+        if (scriptPluginConfigurationFromNode != null) {
+            // Get properties from node for the plugin
+            nodeProperties.putAll(scriptPluginConfigurationFromNode);
+        }
+        return nodeProperties;
     }
 }

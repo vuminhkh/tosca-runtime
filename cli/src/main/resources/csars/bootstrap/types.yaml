@@ -22,8 +22,8 @@ node_types:
         description: list of images to pull once the daemon is started separated by ','
     attributes:
       docker_address: { concat: [ get_attribute: [HOST, ip_address], ":", get_property: [SELF, port]] }
-      docker_url: { concat: ["http://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, port] ] }
-      public_docker_url: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, port] ] }
+      docker_host: { concat: ["tcp://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, port] ] }
+      public_docker_host: { concat: ["tcp://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, port] ] }
     capabilities:
       daemon: com.toscaruntime.docker.capabilities.DeployContainer
     requirements:
@@ -97,8 +97,8 @@ node_types:
         type: integer
         default: 2375
     attributes:
-      docker_url: { concat: ["http://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, swarm_port] ] }
-      public_docker_url: { concat: ["http://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, swarm_port] ] }
+      docker_host: { concat: ["tcp://", get_attribute: [HOST, ip_address], ":", get_property: [SELF, swarm_port] ] }
+      public_docker_host: { concat: ["tcp://", get_attribute: [HOST, public_ip_address], ":", get_property: [SELF, swarm_port] ] }
     requirements:
       - daemon: com.toscaruntime.docker.capabilities.DeployContainer
         type: com.toscaruntime.docker.relationships.SwarmManagerDependsOnDaemon
@@ -182,8 +182,8 @@ relationship_types:
             DOCKER_COMMAND: { get_property: [SOURCE, docker_command] }
             DOCKER_PORTS: { get_property: [SOURCE, port_mapping] }
             DOCKER_LABELS: { get_property: [SOURCE, docker_labels] }
-            DOCKER_URL: { get_attribute: [TARGET, docker_url] }
-            PUBLIC_DOCKER_URL: { get_attribute: [TARGET, public_docker_url] }
+            DOCKER_HOST: { get_attribute: [TARGET, docker_host] }
+            PUBLIC_DOCKER_HOST: { get_attribute: [TARGET, public_docker_host] }
             DOCKER_NETWORK_ID: { get_attribute: [TARGET, docker_network_id] }
             DOCKER_CONTAINER_NAME: { get_property: [SOURCE, docker_container_name] }
           implementation: component/scripts/start_docker_component.sh

@@ -1,4 +1,4 @@
-package com.toscaruntime.util;
+package com.toscaruntime.plugins.script.shell;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -7,7 +7,7 @@ import java.util.concurrent.Callable;
 
 import org.slf4j.Logger;
 
-public class SSHStdErrLogger implements Callable<Void> {
+public class ShellStdErrLogger implements Callable<Void> {
 
     private String operationName;
 
@@ -17,7 +17,7 @@ public class SSHStdErrLogger implements Callable<Void> {
 
     private InputStream scriptOutput;
 
-    public SSHStdErrLogger(String operationName, String scriptName, Logger logger, InputStream scriptOutput) {
+    public ShellStdErrLogger(String operationName, String scriptName, Logger logger, InputStream scriptOutput) {
         this.operationName = operationName;
         this.scriptName = scriptName;
         this.logger = logger;

@@ -1,3 +1,4 @@
+# Copy this file and rename it to bootstrap_aws.yaml, then configure your test configuration
 image_id: "ami-71e88902"
 instance_type: "t2.small"
 key_name: "Fill with yours"
@@ -8,6 +9,6 @@ cloud_init: |
 plugin_configs:
   script:
     configuration:
-      login: "ubuntu"
+      user: "ubuntu"
       key_content: |
         Fill with yours

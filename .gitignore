@@ -35,6 +35,7 @@ cli/src/main/resources/bootstrap/openstack/swarm/inputs.yml
 cli/src/main/resources/conf/providers/openstack/default/provider.conf
 cli/src/main/resources/conf/providers/aws/default/provider.conf
 cli/src/main/resources/conf/plugins/script/default/plugin.conf
+cli/src/main/resources/conf/plugins/ansible/default/plugin.conf
 
 *.pem
 

@@ -12,6 +12,8 @@ import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.util.DockerUtil
 import sbt._
 
+import scala.collection.JavaConverters._
+
 /**
   * Entry point for the cli
   *
@@ -23,24 +25,22 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     * The call to `initialState` sets up the application.
     * The call to runLogged starts command processing. */
   def run(configuration: xsbti.AppConfiguration): xsbti.MainResult =
-    MainLoop.runLogged(initialState(configuration))
+  MainLoop.runLogged(initialState(configuration))
 
   def buildDockerClient(basedir: Path) = {
-    val existingConfiguration = UseCommand.getConfiguration(basedir)
-    if (existingConfiguration.nonEmpty) {
-      val url = existingConfiguration.get(DockerUtil.DOCKER_URL_KEY).get
-      val cert = existingConfiguration.getOrElse(DockerUtil.DOCKER_CERT_PATH_KEY, null)
-      val existingClient = new ToscaRuntimeClient(url, cert)
-      println(s"Begin to use docker daemon at [$url] with api version [${existingClient.dockerVersion}]")
+    val existingConfiguration = UseCommand.getConfiguration(basedir).asJava
+    if (!existingConfiguration.isEmpty) {
+      val existingClient = new ToscaRuntimeClient(DockerUtil.getDockerDaemonConfig(existingConfiguration))
+      println(s"Begin to use docker daemon at [${DockerUtil.getDockerHostName(existingConfiguration)}] with api version [${existingClient.dockerVersion}]")
       existingClient
     } else {
       val defaultConfig = DockerUtil.getDefaultDockerDaemonConfig
       if ("true".equals(System.getProperty("toscaruntime.clientMode"))) {
         // Auto configure by copying default machine's certificates to provider default conf only when the flag toscaruntime.clientMode is set
         // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
-        UseCommand.switchConfiguration(defaultConfig.getUrl, defaultConfig.getCertPath, basedir)
+        UseCommand.switchConfiguration(defaultConfig, basedir)
       }
-      new ToscaRuntimeClient(defaultConfig.getUrl, defaultConfig.getCertPath)
+      new ToscaRuntimeClient(defaultConfig)
     }
   }
 
@@ -96,7 +96,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       Files.createDirectories(workDir)
     }
     var commands = configuration.arguments().toSeq
-    if(commands.isEmpty) commands = Seq("shell")
+    if (commands.isEmpty) commands = Seq("shell")
     State(configuration, commandDefinitions, Set.empty, None, commands, State.newHistory, attributes, initialGlobalLogging, State.Continue)
   }
 

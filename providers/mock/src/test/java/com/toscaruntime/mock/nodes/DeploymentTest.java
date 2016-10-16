@@ -2,7 +2,9 @@ package com.toscaruntime.mock.nodes;
 
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.mock.MockProviderHook;
+import com.toscaruntime.sdk.Provider;
 import com.toscaruntime.sdk.ProviderHook;
+import com.toscaruntime.sdk.SimpleTypeRegistry;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,7 +16,9 @@ import tosca.nodes.Root;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -36,7 +40,8 @@ public class DeploymentTest {
         MockDeployment mockDeployment = new MockDeployment();
         try {
             ProviderHook providerHook = new MockProviderHook();
-//            mockDeployment.initializeConfig("test", Paths.get("."), new HashMap<>(), new HashMap<>(), new HashMap<>(), providerHook, new ArrayList<>(), Mockito.mock(DeploymentPersister.class), true);
+            List<Provider> providers = Collections.singletonList(new Provider(new HashMap<>(), Collections.singletonList(providerHook)));
+            mockDeployment.initializeConfig("test", Paths.get("."), new HashMap<>(), new SimpleTypeRegistry(new HashMap<>()), new HashMap<>(), providers, new ArrayList<>(), Mockito.mock(DeploymentPersister.class), true);
             mockDeployment.run(mockDeployment.install()).waitForCompletion(2, TimeUnit.MINUTES);
             Set<Root> allWebServers = mockDeployment.getNodeInstancesByNodeName("WebServer");
             Set<Root> allJavas = mockDeployment.getNodeInstancesByNodeName("Java");

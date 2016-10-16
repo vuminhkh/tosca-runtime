@@ -215,14 +215,23 @@ public class Container extends DockerContainer {
         this.connection = connection;
     }
 
+    public DockerProviderConnection getConnection() {
+        return connection;
+    }
+
     @Override
-    public String getDockerURL() {
-        return connection.getDockerURL();
+    public String getDockerHost() {
+        return connection.getDockerDaemonConfig().getHost();
     }
 
     @Override
     public String getDockerCertificatePath() {
-        return connection.getDockerCertPath();
+        return connection.getDockerDaemonConfig().getCertPath();
+    }
+
+    @Override
+    public String getTlsVerify() {
+        return connection.getDockerDaemonConfig().getTlsVerify();
     }
 
     public String getContainerId() {

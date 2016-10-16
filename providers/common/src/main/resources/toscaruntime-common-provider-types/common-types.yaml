@@ -48,10 +48,8 @@ node_types:
         entry_schema:
           type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
-      providers:
-        type: map
-        entry_schema:
-          type: com.toscaruntime.common.datatypes.PluginConfiguration
+      provider:
+        type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
 
   com.toscaruntime.common.nodes.DockerContainer:
@@ -80,10 +78,8 @@ node_types:
         entry_schema:
           type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
-      providers:
-        type: map
-        entry_schema:
-          type: com.toscaruntime.common.datatypes.PluginConfiguration
+      provider:
+        type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
 
   com.toscaruntime.common.nodes.BlockStorage:
@@ -100,8 +96,6 @@ node_types:
         entry_schema:
           type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false
-      providers:
-        type: map
-        entry_schema:
-          type: com.toscaruntime.common.datatypes.PluginConfiguration
+      provider:
+        type: com.toscaruntime.common.datatypes.PluginConfiguration
         required: false

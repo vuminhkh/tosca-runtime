@@ -1,18 +1,20 @@
 package com.toscaruntime.util;
 
-import com.toscaruntime.artifact.BashArtifactExecutorUtil;
 import com.toscaruntime.artifact.Connection;
+import com.toscaruntime.artifact.ConnectionUtil;
 import com.toscaruntime.artifact.OperationOutput;
 import com.toscaruntime.artifact.OutputHandler;
+import com.toscaruntime.artifact.SimpleOutputHandler;
 import com.toscaruntime.exception.InterruptedByUserException;
+import com.toscaruntime.exception.OperationNotImplementedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactAuthenticationFailureException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactConnectException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactUploadException;
 import com.toscaruntime.exception.deployment.artifact.BadExecutorConfigurationException;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.Factory;
-import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.common.SSHException;
+import net.schmizz.sshj.common.SecurityUtils;
 import net.schmizz.sshj.connection.ConnectionException;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.SessionChannel;
@@ -31,6 +33,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.Security;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +41,16 @@ import java.util.concurrent.TimeUnit;
 public class SSHConnection implements Connection {
 
     private static final Logger log = LoggerFactory.getLogger(SSHConnection.class);
+
+    static {
+        Security.removeProvider(SecurityUtils.BOUNCY_CASTLE);
+        SecurityUtils.setRegisterBouncyCastle(true);
+        if (SecurityUtils.isBouncyCastleRegistered()) {
+            log.info("Bouncy Castle registered");
+        } else {
+            log.warn("Bouncy Castle not registered");
+        }
+    }
 
     private SSHClient sshClient;
 
@@ -57,13 +70,13 @@ public class SSHConnection implements Connection {
 
     @Override
     public void initialize(Map<String, Object> properties) {
-        this.user = PropertyUtil.getMandatoryPropertyAsString(properties, "user");
-        this.ip = PropertyUtil.getMandatoryPropertyAsString(properties, "ip");
-        this.port = Integer.parseInt(PropertyUtil.getMandatoryPropertyAsString(properties, "port"));
-        this.pemPath = PropertyUtil.getPropertyAsString(properties, "pem_path");
-        this.pemContent = PropertyUtil.getPropertyAsString(properties, "pem_content");
+        this.user = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.USER);
+        this.ip = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.TARGET);
+        this.port = Integer.parseInt(PropertyUtil.getMandatoryPropertyAsString(properties, Connection.PORT));
+        this.pemPath = PropertyUtil.getPropertyAsString(properties, Connection.KEY_PATH);
+        this.pemContent = PropertyUtil.getPropertyAsString(properties, Connection.KEY_CONTENT);
         if (StringUtils.isBlank(this.pemContent) && StringUtils.isBlank(this.pemPath)) {
-            throw new BadExecutorConfigurationException("Executor is not configured properly, one of pem_path or pem_content is expected");
+            throw new BadExecutorConfigurationException("Executor is not configured properly, one of key_path or key_content is expected");
         }
         this.connectRetry = getConnectRetry(properties);
         this.waitBetweenConnectRetry = getWaitBetweenConnectRetry(properties);
@@ -90,8 +103,10 @@ public class SSHConnection implements Connection {
             sshClient.addHostKeyVerifier((h, p, k) -> true);
             sshClient.connect(ip, port);
             if (StringUtils.isNotBlank(pemPath)) {
+                log.info("Use key at [" + pemPath + "] to connect to the machine [" + ip + "]");
                 sshClient.authPublickey(user, pemPath);
             } else {
+                log.info("Use key content with length [" + pemContent.length() + "] to connect to the machine [" + ip + "]");
                 KeyFormat format = KeyProviderUtil.detectKeyFileFormat(pemContent, false);
                 final FileKeyProvider fkp =
                         Factory.Named.Util.create(sshClient.getTransport().getConfig().getFileKeyProviderFactories(), format.toString());
@@ -109,27 +124,29 @@ public class SSHConnection implements Connection {
 
     @Override
     public Integer executeCommand(String command) {
+        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
+            return executeCommand(command, outputHandler);
+        }
+    }
+
+    @Override
+    public Integer executeCommand(String command, OutputHandler outputHandler) {
         checkConnection();
         try (Session session = sshClient.startSession();
              Session.Command sshCommand = session.exec(command)) {
             sshCommand.join();
-            if (sshCommand.getExitStatus() != 0) {
-                log.error("Execute command [{}] finished with error status [{}] with standard output [{}] and error output [{}]",
-                        command,
-                        sshCommand.getExitStatus(),
-                        new String(IOUtils.readFully(sshCommand.getInputStream()).toByteArray()),
-                        new String(IOUtils.readFully(sshCommand.getErrorStream()).toByteArray()));
+            outputHandler.handleStdOut(sshCommand.getInputStream());
+            outputHandler.handleStdErr(sshCommand.getErrorStream());
+            if (sshCommand.getExitStatus() == null || sshCommand.getExitStatus() != 0) {
+                log.error("Execute command [{}] finished with error status [{}]", command, sshCommand.getExitStatus());
             } else {
-                log.info("Execute command [{}] finished normally with standard output [{}] and error output [{}]",
-                        command,
-                        new String(IOUtils.readFully(sshCommand.getInputStream()).toByteArray()),
-                        new String(IOUtils.readFully(sshCommand.getErrorStream()).toByteArray()));
+                log.info("Execute command [{}] finished normally", command);
             }
             return sshCommand.getExitStatus();
         } catch (ConnectionException | TransportException e) {
-            throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
-        } catch (IOException e) {
-            if (ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0) {
+            boolean isInterrupted = ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0;
+            if (isInterrupted) {
+                log.info("Command execution has been interrupted", e);
                 throw new InterruptedByUserException("Execution has been interrupted", e);
             } else {
                 throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
@@ -138,14 +155,19 @@ public class SSHConnection implements Connection {
     }
 
     @Override
-    public Integer executeScript(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeRemoteArtifact(String scriptPath, Map<String, String> variables, OutputHandler outputHandler) {
+        throw new OperationNotImplementedException("Method not implemented");
+    }
+
+    @Override
+    public Integer executeArtifact(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
         checkConnection();
         try (Session session = sshClient.startSession();
              SessionChannel shell = (SessionChannel) session.startShell();
              PrintWriter commandWriter = new PrintWriter(shell.getOutputStream())) {
             outputHandler.handleStdOut(shell.getInputStream());
             outputHandler.handleStdErr(shell.getErrorStream());
-            List<String> setEnvCommands = BashArtifactExecutorUtil.getSetEnvCommands(variables);
+            List<String> setEnvCommands = ConnectionUtil.getSetEnvCommands(variables);
             setEnvCommands.forEach(commandWriter::println);
             commandWriter.println(scriptContent);
             commandWriter.println("exit");
@@ -156,6 +178,7 @@ public class SSHConnection implements Connection {
                 } catch (ConnectionException e) {
                     boolean isInterrupted = ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0;
                     if (isInterrupted) {
+                        log.info("Script execution has been interrupted", e);
                         throw new InterruptedByUserException("Execution has been interrupted", e);
                     }
                 }
@@ -201,9 +224,9 @@ public class SSHConnection implements Connection {
     @Override
     public void upload(String localPath, String remotePath) {
         checkConnection();
-        try {
+        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
             String prepareCommand = getPrepareUploadArtifactCommand(remotePath);
-            executeCommand(prepareCommand);
+            executeCommand(prepareCommand, outputHandler);
             SCPFileTransfer scpFileTransfer = sshClient.newSCPFileTransfer();
             scpFileTransfer.upload(localPath, remotePath);
         } catch (ConnectionException | TransportException e) {
