@@ -22,11 +22,11 @@ public class AnsibleDockerConnection extends AnsibleConnection {
     }
 
     @Override
-    protected String appendConnectionInfo(String ansibleCommand) {
-        ansibleCommand = exportVariable(ansibleCommand, DockerClientConfig.DOCKER_HOST, this.dockerDaemonConfig.getHost());
-        ansibleCommand = exportVariable(ansibleCommand, DockerClientConfig.DOCKER_CERT_PATH, this.dockerDaemonConfig.getCertPath());
-        ansibleCommand = exportVariable(ansibleCommand, DockerClientConfig.DOCKER_TLS_VERIFY, this.dockerDaemonConfig.getTlsVerify());
-        ansibleCommand = super.appendConnectionInfo(ansibleCommand);
-        return ansibleCommand;
+    protected AnsibleCommandBuilder appendConnectionInfo(AnsibleCommandBuilder ansibleCommandBuilder) {
+        ansibleCommandBuilder
+                .export(DockerClientConfig.DOCKER_HOST, this.dockerDaemonConfig.getHost())
+                .export(DockerClientConfig.DOCKER_CERT_PATH, this.dockerDaemonConfig.getCertPath())
+                .export(DockerClientConfig.DOCKER_TLS_VERIFY, this.dockerDaemonConfig.getTlsVerify());
+        return super.appendConnectionInfo(ansibleCommandBuilder);
     }
 }

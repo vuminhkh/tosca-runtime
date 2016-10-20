@@ -124,6 +124,24 @@ public class PropertyUtil {
         return propertyValueToString(getProperty(properties, propertyName, defaultValue));
     }
 
+    public static <T> Map<String, T> getPropertyAsMap(Map<String, ?> properties, String propertyName) {
+        Object propertyValue = getProperty(properties, propertyName);
+        if (propertyValue instanceof Map) {
+            return (Map<String, T>) propertyValue;
+        } else {
+            return null;
+        }
+    }
+
+    public static <T> List<T> getPropertyAsList(Map<String, ?> properties, String propertyName) {
+        Object propertyValue = getProperty(properties, propertyName);
+        if (propertyValue instanceof List) {
+            return (List<T>) propertyValue;
+        } else {
+            return null;
+        }
+    }
+
     public static Object propertyValueFromString(String propertyValue) {
         try {
             if (propertyValue == null) {
@@ -138,7 +156,7 @@ public class PropertyUtil {
                 return propertyValue;
             }
         } catch (IOException e) {
-            throw new PropertyAccessException("Cannot convert property value " + propertyValue + " to string");
+            return propertyValue;
         }
     }
 

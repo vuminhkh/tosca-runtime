@@ -96,8 +96,9 @@ public class ShellExecutor implements Executor {
             String sheBang = ConnectionUtil.readSheBang(localPath);
             String artifactWrapper = ShellExecutorUtil.createArtifactWrapper(remoteArtifactPath, statusCodeToken, environmentVariablesToken, sheBang);
             // Set env
-            Map<String, String> variables = ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, remoteLocation, "/");
-            Integer statusCode = connection.executeArtifact(artifactWrapper, variables, outputHandler);
+            Map<String, Object> artifactInputs = ArtifactExecutionUtil.processDeploymentArtifacts(deploymentArtifacts, remoteLocation, "/");
+            artifactInputs.putAll(inputs);
+            Integer statusCode = connection.executeArtifact(artifactWrapper, ArtifactExecutionUtil.processInputs(artifactInputs), outputHandler);
             OperationOutput operationOutput;
             try {
                 operationOutput = outputHandler.getOperationOutput();

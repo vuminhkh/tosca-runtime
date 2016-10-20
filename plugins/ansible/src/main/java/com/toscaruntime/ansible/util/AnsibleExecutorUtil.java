@@ -14,6 +14,7 @@ public class AnsibleExecutorUtil {
         try (PrintWriter commandWriter = new PrintWriter(new BufferedWriter(new OutputStreamWriter(Files.newOutputStream(tempArtifactWrapper))))) {
             commandWriter.println("- include: " + userDataDir.resolve(artifactPath).toString());
             commandWriter.println("- hosts: all");
+            commandWriter.println("  tags: [ always ]");
             commandWriter.println("  tasks:");
             commandWriter.println("    - local_action: copy content=\"{{ hostvars[inventory_hostname] }}\" dest=" + userDataDir.resolve(tempDirPath).resolve(executionToken).toString());
         }

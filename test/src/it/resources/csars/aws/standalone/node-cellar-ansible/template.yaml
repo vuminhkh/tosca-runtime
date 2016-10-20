@@ -1,0 +1,48 @@
+tosca_definitions_version: tosca_simple_yaml_1_0_0_wd03
+description: Node cellar partial topology for aws with ansible
+template_name: Nodecellar-ansible-template-aws-sa
+template_version: 1.0.0-SNAPSHOT
+template_author: MKV
+
+imports:
+  - mongod-ansible-type:*
+  - toscaruntime-aws-provider-types:*
+
+topology_template:
+  inputs:
+    plugin_configs:
+      type: com.toscaruntime.common.datatypes.PluginConfiguration
+    image_id:
+      type: string
+    instance_type:
+      type: string
+    key_name:
+      type: string
+    security_groups:
+      type: list
+      entry_schema:
+        type: string
+    cloud_init:
+      type: string
+
+  node_templates:
+
+    MongoHost:
+      type: com.toscaruntime.aws.nodes.Instance
+      properties:
+        image_id: { get_input: image_id }
+        instance_type: { get_input: instance_type }
+        key_name: { get_input: key_name }
+        security_groups: { get_input: security_groups }
+        plugins: { get_input: plugin_configs }
+        user_data: { get_input: cloud_init }
+      requirements:
+        - network: Internet
+
+    MongoDB:
+      type: alien.nodes.ansible.Mongod
+      requirements:
+        - host: MongoHost
+
+    Internet:
+      type: com.toscaruntime.aws.nodes.PublicNetwork

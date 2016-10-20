@@ -23,10 +23,10 @@ public class AnsibleDockerConnectionTest {
             Assert.assertEquals(1, (int) dockerConnection.executeCommand("exit 2"));
             dockerConnection.upload(ClassLoaderUtil.getPathForResource("playbook").toString(), "playbook");
             try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
-                Assert.assertEquals(0, (int) dockerConnection.executeRemoteArtifact("playbook/good-playbook.yml", ImmutableMap.<String, String>builder().put("MY_VARIABLE", "Good variable").build(), outputHandler));
+                Assert.assertEquals(0, (int) dockerConnection.executeRemoteArtifact("playbook/good-playbook.yml", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Good variable").build(), outputHandler));
             }
             try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
-                Assert.assertNotEquals(0, (int) dockerConnection.executeRemoteArtifact("playbook/bad-playbook.yml", ImmutableMap.<String, String>builder().put("MY_VARIABLE", "Bad variable").build(), outputHandler));
+                Assert.assertNotEquals(0, (int) dockerConnection.executeRemoteArtifact("playbook/bad-playbook.yml", ImmutableMap.<String, Object>builder().put("MY_VARIABLE", "Bad variable").build(), outputHandler));
             }
         }));
     }

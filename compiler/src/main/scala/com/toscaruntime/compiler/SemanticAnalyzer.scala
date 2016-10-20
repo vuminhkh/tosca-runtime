@@ -313,7 +313,7 @@ object SemanticAnalyzer {
     operation.implementation.map { implementation =>
       if (implementation.ref.isEmpty) {
         compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact's reference is missing", implementation.pos, None)
-      } else if (!Files.isRegularFile(recipePath.resolve(implementation.ref.get.value))) {
+      } else if (!Files.exists(recipePath.resolve(implementation.ref.get.value))) {
         compilationErrors += CompilationError("Operation [" + operationId.value + "]'s implementation artifact [" + implementation.ref.get.value + "] is not found in recipe path [" + recipePath + "]", implementation.pos, Some(implementation.ref.get.value))
       } else if (implementation.typeName.nonEmpty && TypeLoader.loadArtifactType(implementation.typeName.get.value, csarPath).isEmpty) {
         compilationErrors += CompilationError(s"Operation [${operationId.value}]'s implementation artifact's type [${implementation.typeName.get.value}] is unknown", implementation.typeName.get.pos, Some(implementation.typeName.get.value))

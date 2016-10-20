@@ -29,16 +29,19 @@ public class ConnectionRegistry<T> {
 
     public synchronized T getConnection(String target, Map<String, Object> overrideProperties) {
         Map<String, Object> targetConfiguration = targetConfigurations.get(target);
-        if (targetConfiguration == null) {
-            throw new TargetConfigurationNotFoundException("Target " + target + " is not configured");
-        }
         Map<String, Object> finalConfiguration;
-        if (overrideProperties != null) {
+        if (targetConfiguration == null) {
+            if (overrideProperties != null) {
+                finalConfiguration = overrideProperties;
+            } else {
+                throw new TargetConfigurationNotFoundException("Target " + target + " is not configured and properties are not overridden at node level");
+            }
+        } else {
             finalConfiguration = new HashMap<>();
             finalConfiguration.putAll(targetConfiguration);
-            finalConfiguration.putAll(overrideProperties);
-        } else {
-            finalConfiguration = targetConfiguration;
+            if (overrideProperties != null) {
+                finalConfiguration.putAll(overrideProperties);
+            }
         }
         ConnectionProperties configurationWrapper = new ConnectionProperties(finalConfiguration);
         T connection = connectionCache.get(configurationWrapper);

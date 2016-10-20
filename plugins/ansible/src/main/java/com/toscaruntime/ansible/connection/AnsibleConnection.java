@@ -7,6 +7,7 @@ import com.toscaruntime.artifact.OutputHandler;
 import com.toscaruntime.exception.OperationNotImplementedException;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactIOException;
+import com.toscaruntime.exception.deployment.configuration.PropertyAccessException;
 import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
 import org.apache.commons.lang.StringUtils;
@@ -19,6 +20,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 public abstract class AnsibleConnection implements Connection {
@@ -111,36 +113,20 @@ public abstract class AnsibleConnection implements Connection {
         }
     }
 
-    protected String appendOption(String command, String optionName, String optionValue) {
-        if (StringUtils.isNotBlank(optionValue)) {
-            return command + String.format(" --%s=%s", optionName, optionValue);
-        } else {
-            return command;
-        }
-    }
-
-    protected String exportVariable(String command, String variableName, String variableValue) {
-        if (StringUtils.isNotBlank(variableValue)) {
-            return String.format("export %s=%s; ", variableName, variableValue) + command;
-        } else {
-            return command;
-        }
-    }
-
-    protected String appendConnectionInfo(String ansibleCommand) {
-        ansibleCommand = exportVariable(ansibleCommand, "ANSIBLE_HOST_KEY_CHECKING", "False");
-        ansibleCommand = appendOption(ansibleCommand, "inventory-file", getTargetWithPort());
-        ansibleCommand = appendOption(ansibleCommand, "user", this.user);
-        ansibleCommand = appendOption(ansibleCommand, "private-key", this.remoteKeyFile);
-        ansibleCommand = appendOption(ansibleCommand, "connection", this.connectionType);
-        return ansibleCommand;
+    protected AnsibleCommandBuilder appendConnectionInfo(AnsibleCommandBuilder ansibleCommandBuilder) {
+        return ansibleCommandBuilder
+                .export("ANSIBLE_HOST_KEY_CHECKING", "False")
+                .option("inventory-file", getTargetWithPort())
+                .option("user", this.user)
+                .option("private-key", this.remoteKeyFile)
+                .option("connection", this.connectionType);
     }
 
     private String wrapCommandWithAnsible(String command) {
-        String ansibleCommand = this.ansibleBinPath + " all";
-        ansibleCommand = appendConnectionInfo(ansibleCommand);
-        ansibleCommand = appendOption(ansibleCommand, "module-name", "shell");
-        ansibleCommand = appendOption(ansibleCommand, "args", String.format("'%s'", command.replace("'", "'\"'\"'")));
+        String ansibleCommand = appendConnectionInfo(new AnsibleCommandBuilder(this.ansibleBinPath + " all"))
+                .option("module-name", "shell")
+                .option("args", String.format("'%s'", command.replace("'", "'\"'\"'")))
+                .build();
         if (log.isDebugEnabled()) {
             log.debug("Execute command with [{}]", ansibleCommand);
         }
@@ -161,38 +147,56 @@ public abstract class AnsibleConnection implements Connection {
 
     public Map<String, Object> getFacts(String factPath) {
         String factsRawOutput = CommandUtil.evaluate(controlMachineConnection, "cat " + this.userDataDir.resolve(factPath));
-        int indexOfAccolade = factsRawOutput.indexOf('{');
-        if (indexOfAccolade >= 0) {
-            return PropertyUtil.toMap(factsRawOutput.substring(indexOfAccolade, factsRawOutput.length()));
-        } else {
+        try {
+            return PropertyUtil.toMap(factsRawOutput);
+        } catch (PropertyAccessException e) {
             return Collections.emptyMap();
+        } finally {
+            controlMachineConnection.executeCommand("rm -f " + this.userDataDir.resolve(factPath));
         }
     }
 
-    private String wrapPlaybookWithAnsible(String playbookPath, Map<String, String> variables) {
-        String ansibleCommand = this.ansiblePlaybookBinPath;
-        ansibleCommand = appendConnectionInfo(ansibleCommand);
+    private AnsibleCommandBuilder wrapPlaybookWithAnsible(String playbookPath, Map<String, Object> variables) {
+        AnsibleCommandBuilder ansibleCommandBuilder = appendConnectionInfo(new AnsibleCommandBuilder(this.ansiblePlaybookBinPath));
         if (variables != null && !variables.isEmpty()) {
             try {
-                ansibleCommand = appendOption(ansibleCommand, "extra-vars", "'" + JSONUtil.toString(variables) + "'");
+                ansibleCommandBuilder = ansibleCommandBuilder.option("extra-vars", "'" + JSONUtil.toString(variables) + "'");
             } catch (JsonProcessingException e) {
                 throw new UnexpectedException("Could not serialize environment variables for playbook", e);
             }
         }
-        ansibleCommand += " " + playbookPath;
-        if (log.isDebugEnabled()) {
-            log.debug("Execute playbook with [{}]", ansibleCommand);
+        ansibleCommandBuilder.argument(playbookPath);
+        return ansibleCommandBuilder;
+    }
+
+    @Override
+    public Integer executeRemoteArtifact(String playbookPath, Map<String, Object> variables, OutputHandler outputHandler) {
+        Map<String, Object> inputsWithoutAnsibleConfig = new HashMap<>(variables);
+        // Reserved keyword ansible
+        inputsWithoutAnsibleConfig.remove("ansible");
+        AnsibleCommandBuilder ansibleCommandBuilder = wrapPlaybookWithAnsible(this.userDataDir.resolve(playbookPath).toString(), inputsWithoutAnsibleConfig);
+        // Reserved keyword for specific ansible options
+        Map<String, Object> ansibleConfig = PropertyUtil.getPropertyAsMap(variables, "ansible");
+        if (ansibleConfig != null) {
+            ansibleCommandBuilder
+                    .exports(PropertyUtil.getPropertyAsMap(ansibleConfig, "env_vars"))
+                    .options(PropertyUtil.getPropertyAsMap(ansibleConfig, "options"))
+                    .flags(PropertyUtil.getPropertyAsList(ansibleConfig, "flags"))
+                    .arguments(PropertyUtil.getPropertyAsList(ansibleConfig, "arguments"));
         }
-        return ansibleCommand;
+        String ansibleCommand = ansibleCommandBuilder.build();
+        if (log.isDebugEnabled()) {
+            log.debug("Execute playbook with command [{}]", ansibleCommand);
+        }
+        Integer commandStatus = controlMachineConnection.executeCommand(ansibleCommand, outputHandler);
+        if (commandStatus == null || commandStatus != 0) {
+            log.error("Execute playbook [" + ansibleCommand + "] failed with status [" + commandStatus + "]");
+        }
+        return commandStatus;
     }
 
     @Override
-    public Integer executeRemoteArtifact(String playbookPath, Map<String, String> variables, OutputHandler outputHandler) {
-        return controlMachineConnection.executeCommand(wrapPlaybookWithAnsible(this.userDataDir.resolve(playbookPath).toString(), variables), outputHandler);
-    }
-
-    @Override
-    public Integer executeArtifact(String playbookContent, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeArtifact(String playbookContent, Map<String, Object> variables, OutputHandler outputHandler) {
         throw new OperationNotImplementedException("Method not implemented");
     }
 

@@ -15,7 +15,6 @@ import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.exception.deployment.plugins.PluginConfigurationException;
 import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.util.DockerConnection;
 import com.toscaruntime.util.PropertyUtil;
 import tosca.nodes.Compute;
 import tosca.nodes.Root;
@@ -69,7 +68,7 @@ public class AnsiblePluginHook extends AbstractPluginHook {
             }
             executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
             node.registerExecutor(new ExecutorConfiguration(AnsiblePlaybookExecutor.class, connectionClass, executorProperties));
-        } else if (connectionClass == DockerConnection.class) {
+        } else if (connectionClass == AnsibleDockerConnection.class) {
             executorProperties.put(Executor.LOCAL_RECIPE_LOCATION_KEY, node.getConfig().getArtifactsPath().toString());
             if (node instanceof DockerContainer) {
                 DockerContainer dockerContainer = (DockerContainer) node;
@@ -83,7 +82,7 @@ public class AnsiblePluginHook extends AbstractPluginHook {
                 executorProperties.put(DockerClientConfig.DOCKER_TLS_VERIFY, node.getAttribute(DockerClientConfig.DOCKER_TLS_VERIFY));
                 executorProperties.put(Connection.TARGET, node.getAttribute("provider_resource_id"));
             }
-            node.registerExecutor(new ExecutorConfiguration(AnsiblePlaybookExecutor.class, AnsibleDockerConnection.class, executorProperties));
+            node.registerExecutor(new ExecutorConfiguration(AnsiblePlaybookExecutor.class, connectionClass, executorProperties));
         }
     }
 

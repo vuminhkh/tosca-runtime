@@ -59,9 +59,10 @@ public class AnsiblePlaybookExecutor implements Executor {
             throw new ArtifactIOException("Could not create wrapper for playbook", e);
         }
         connection.upload(artifactWrapper.toString(), tempLocation);
-        Map<String, String> variables = ArtifactExecutionUtil.processInputs(inputs, deploymentArtifacts, connection.getUserDataDir().resolve(remoteLocation).toString(), "/");
+        Map<String, Object> artifactInputs = ArtifactExecutionUtil.processDeploymentArtifacts(deploymentArtifacts, connection.getUserDataDir().resolve(remoteLocation).toString(), "/");
+        artifactInputs.putAll(inputs);
         try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
-            Integer statusCode = connection.executeRemoteArtifact(Paths.get(tempLocation).resolve(artifactWrapper.getFileName()).toString(), variables, outputHandler);
+            Integer statusCode = connection.executeRemoteArtifact(Paths.get(tempLocation).resolve(artifactWrapper.getFileName()).toString(), artifactInputs, outputHandler);
             if (statusCode != 0) {
                 throw new ArtifactExecutionException(String.format("[%s][%s][%s]", nodeId, operation, operationArtifactPath) + " : Playbook execution failed with exit status " + statusCode);
             } else {

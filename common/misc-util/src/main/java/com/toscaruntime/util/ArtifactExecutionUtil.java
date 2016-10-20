@@ -14,16 +14,25 @@ public class ArtifactExecutionUtil {
     /**
      * Process inputs and deployment artifacts for operation
      *
-     * @param inputs              inputs of the operation
-     * @param deploymentArtifacts deployment artifacts for the operation
-     * @param recipeLocation      location of the recipe
+     * @param inputs inputs of the operation
      * @return parsed and processed environment variables
      */
-    public static Map<String, String> processInputs(Map<String, Object> inputs, Map<String, String> deploymentArtifacts, String recipeLocation, String fileSeparator) {
-        Map<String, String> envVarTransformed = inputs.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> escapeQuote(PropertyUtil.propertyValueToString(entry.getValue()))));
-        Map<String, String> deploymentArtifactsTransformed = deploymentArtifacts.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> recipeLocation + fileSeparator + entry.getValue()));
-        envVarTransformed.putAll(deploymentArtifactsTransformed);
+    public static Map<String, Object> processInputs(Map<String, Object> inputs) {
+        Map<String, Object> envVarTransformed = inputs.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> escapeQuote(PropertyUtil.propertyValueToString(entry.getValue()))));
         return normalizeIdentifiers(envVarTransformed);
+    }
+
+    /**
+     * Process deployment artifacts to append recipe location to the relative artifact path
+     *
+     * @param deploymentArtifacts deployment artifacts map
+     * @param recipeLocation      location of the recipe
+     * @param fileSeparator       file separator
+     * @return normalized artifact map
+     */
+    public static Map<String, Object> processDeploymentArtifacts(Map<String, String> deploymentArtifacts, String recipeLocation, String fileSeparator) {
+        Map<String, Object> deploymentArtifactsTransformed = deploymentArtifacts.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> recipeLocation + fileSeparator + entry.getValue()));
+        return normalizeIdentifiers(deploymentArtifactsTransformed);
     }
 
     public static String resolve(Path basePath, String childPath) {
@@ -34,7 +43,7 @@ public class ArtifactExecutionUtil {
         }
     }
 
-    private static Map<String, String> normalizeIdentifiers(Map<String, String> envVars) {
+    private static Map<String, Object> normalizeIdentifiers(Map<String, Object> envVars) {
         // Shell script environment variable can only alpha numeric character and begin with an alphabetic character
         return envVars.entrySet().stream().collect(Collectors.toMap(
                 entry -> {

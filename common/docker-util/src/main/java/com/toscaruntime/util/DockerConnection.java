@@ -97,12 +97,12 @@ public class DockerConnection implements Connection {
     }
 
     @Override
-    public Integer executeRemoteArtifact(String scriptPath, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeRemoteArtifact(String scriptPath, Map<String, Object> variables, OutputHandler outputHandler) {
         throw new OperationNotImplementedException("Method not implemented");
     }
 
     @Override
-    public Integer executeArtifact(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeArtifact(String scriptContent, Map<String, Object> variables, OutputHandler outputHandler) {
         try (DockerStreamDecoder dockerStreamDecoder = new DockerStreamDecoder()) {
             StringWriter rawWriter = new StringWriter();
             PrintWriter commandWriter = new PrintWriter(rawWriter);

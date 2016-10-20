@@ -36,7 +36,7 @@ public class CommandUtil {
         }) {
             Integer status = connection.executeCommand("echo " + marker + " && " + command + " && echo " + marker, outputHandler);
             if (status == null || status != 0) {
-                throw new ArtifactExecutionException("Command failed to execute [" + command + "]");
+                throw new ArtifactExecutionException("Command failed to execute [" + command + "] with output [" + valueHolder.get() + "]");
             }
             return valueHolder.get().toString();
         }

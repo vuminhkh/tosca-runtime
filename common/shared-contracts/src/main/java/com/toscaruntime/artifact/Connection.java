@@ -14,7 +14,7 @@ public interface Connection extends Closeable {
     String KEY_CONTENT = "key_content";
 
     String TARGET = "target";
-    
+
     /**
      * Called at the beginning to initialize the connection
      *
@@ -38,7 +38,7 @@ public interface Connection extends Closeable {
      * @param outputHandler   handler for script's output
      * @return status code
      */
-    Integer executeArtifact(String artifactContent, Map<String, String> variables, OutputHandler outputHandler);
+    Integer executeArtifact(String artifactContent, Map<String, Object> variables, OutputHandler outputHandler);
 
     /**
      * Execute a command on the connected host, just log out the standard output and the error output
@@ -65,7 +65,7 @@ public interface Connection extends Closeable {
      * @param outputHandler handler for script's output
      * @return status code
      */
-    Integer executeRemoteArtifact(String artifactPath, Map<String, String> variables, OutputHandler outputHandler);
+    Integer executeRemoteArtifact(String artifactPath, Map<String, Object> variables, OutputHandler outputHandler);
 
     /**
      * Close the connection and free all occupied resources

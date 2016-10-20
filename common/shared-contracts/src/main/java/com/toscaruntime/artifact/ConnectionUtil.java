@@ -13,11 +13,11 @@ import java.util.stream.Collectors;
 
 public class ConnectionUtil {
 
-    public static List<String> getSetEnvCommands(Map<String, String> env) {
+    public static List<String> getSetEnvCommands(Map<String, Object> env) {
         // Set envs
         if (env != null) {
             return env.entrySet().stream().filter(envEntry -> envEntry.getValue() != null).map(
-                    envEntry -> "export " + envEntry.getKey() + "='" + envEntry.getValue() + "'"
+                    envEntry -> "export " + envEntry.getKey() + "='" + (envEntry.getValue() != null ? envEntry.getValue() : "") + "'"
             ).collect(Collectors.toList());
         } else {
             return new ArrayList<>();

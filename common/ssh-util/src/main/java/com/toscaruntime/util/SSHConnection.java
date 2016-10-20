@@ -155,12 +155,12 @@ public class SSHConnection implements Connection {
     }
 
     @Override
-    public Integer executeRemoteArtifact(String scriptPath, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeRemoteArtifact(String scriptPath, Map<String, Object> variables, OutputHandler outputHandler) {
         throw new OperationNotImplementedException("Method not implemented");
     }
 
     @Override
-    public Integer executeArtifact(String scriptContent, Map<String, String> variables, OutputHandler outputHandler) {
+    public Integer executeArtifact(String scriptContent, Map<String, Object> variables, OutputHandler outputHandler) {
         checkConnection();
         try (Session session = sshClient.startSession();
              SessionChannel shell = (SessionChannel) session.startShell();
