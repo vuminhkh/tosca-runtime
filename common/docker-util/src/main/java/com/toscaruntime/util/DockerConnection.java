@@ -7,7 +7,6 @@ import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.ConnectionUtil;
 import com.toscaruntime.artifact.OutputHandler;
 import com.toscaruntime.artifact.SimpleOutputHandler;
-import com.toscaruntime.exception.InterruptedByUserException;
 import com.toscaruntime.exception.OperationNotImplementedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import org.slf4j.Logger;
@@ -36,9 +35,12 @@ public class DockerConnection implements Connection {
 
     private String containerId;
 
+    private DockerDaemonConfig daemonConfig;
+
     @Override
     public void initialize(Map<String, Object> properties) {
-        this.dockerClient = DockerUtil.buildDockerClient(PropertyUtil.flatten(properties));
+        this.daemonConfig = DockerUtil.getDockerDaemonConfig(PropertyUtil.flatten(properties));
+        this.dockerClient = DockerUtil.buildDockerClient(this.daemonConfig);
         this.containerId = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.TARGET);
     }
 
@@ -55,10 +57,8 @@ public class DockerConnection implements Connection {
         String execId = asyncRunCommand(command, input, dockerStreamDecoder);
         try {
             dockerStreamDecoder.awaitCompletion();
-        } catch (InterruptedException e) {
-            log.info("Command [{}] exec has been interrupted", command);
-            throw new InterruptedByUserException("Command [" + command + "] exec has been interrupted", e);
         } catch (Exception e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactExecutionException("Command [" + command + "] exec encountered error", e);
         }
         return dockerClient.inspectExecCmd(execId).exec().getExitCode();
@@ -114,10 +114,8 @@ public class DockerConnection implements Connection {
             String execId = asyncRunCommand(ConnectionUtil.readInterpreterCommand(new StringReader(scriptContent)), new ByteArrayInputStream(rawWriter.toString().getBytes(StandardCharsets.UTF_8)), dockerStreamDecoder);
             dockerStreamDecoder.awaitCompletion();
             return dockerClient.inspectExecCmd(execId).exec().getExitCode();
-        } catch (InterruptedException e) {
-            log.info("Script execution has been interrupted", e);
-            throw new InterruptedByUserException("Script execution has been interrupted", e);
         } catch (Exception e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactExecutionException("Script execution exec encountered error", e);
         }
     }
@@ -136,5 +134,12 @@ public class DockerConnection implements Connection {
         } catch (IOException e) {
             log.warn("Could not close docker client", e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "DockerConnection{" +
+                "containerId='" + containerId + '\'' +
+                '}';
     }
 }

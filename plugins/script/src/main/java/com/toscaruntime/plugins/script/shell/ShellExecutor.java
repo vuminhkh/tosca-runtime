@@ -51,6 +51,7 @@ public class ShellExecutor implements Executor {
         this.artifactExecutionRetry = getArtifactExecutionRetry(properties);
         this.waitBetweenArtifactExecutionRetry = getWaitBetweenArtifactExecutionRetry(properties);
         long waitBeforeArtifactExecution = getWaitBeforeArtifactExecution(properties);
+        log.info("Initializing shell executor " + toString());
         try {
             Thread.sleep(waitBeforeArtifactExecution);
         } catch (InterruptedException e) {
@@ -60,16 +61,16 @@ public class ShellExecutor implements Executor {
     }
 
     private static int getArtifactExecutionRetry(Map<String, Object> properties) {
-        return Integer.parseInt(PropertyUtil.getPropertyAsString(properties, "configuration.artifact_execution_retry", "1"));
+        return Integer.parseInt(PropertyUtil.getPropertyAsString(properties, "artifact_execution_retry", "1"));
     }
 
     private static long getWaitBetweenArtifactExecutionRetry(Map<String, Object> properties) {
-        String waitBetweenArtifactExecutionRetry = PropertyUtil.getPropertyAsString(properties, "configuration.wait_between_artifact_execution_retry", "10 s");
+        String waitBetweenArtifactExecutionRetry = PropertyUtil.getPropertyAsString(properties, "wait_between_artifact_execution_retry", "10 s");
         return ToscaUtil.convertToSeconds(waitBetweenArtifactExecutionRetry);
     }
 
     private long getWaitBeforeArtifactExecution(Map<String, Object> properties) {
-        String waitBeforeArtifactExecution = PropertyUtil.getPropertyAsString(properties, "configuration.wait_before_artifact_execution", "10 s");
+        String waitBeforeArtifactExecution = PropertyUtil.getPropertyAsString(properties, "wait_before_artifact_execution", "10 s");
         return ToscaUtil.convertToSeconds(waitBeforeArtifactExecution);
     }
 
@@ -122,5 +123,16 @@ public class ShellExecutor implements Executor {
     @Override
     public void refreshRecipe() {
         this.connection.upload(recipeLocation, remoteLocation);
+    }
+
+    @Override
+    public String toString() {
+        return "ShellExecutor{" +
+                "connection=" + connection +
+                ", recipeLocation='" + recipeLocation + '\'' +
+                ", remoteLocation='" + remoteLocation + '\'' +
+                ", artifactExecutionRetry=" + artifactExecutionRetry +
+                ", waitBetweenArtifactExecutionRetry=" + waitBetweenArtifactExecutionRetry +
+                '}';
     }
 }

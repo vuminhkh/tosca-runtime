@@ -7,4 +7,4 @@ artifact_types:
   com.toscaruntime.artifacts.Implementation.AnsiblePlaybook:
     derived_from: tosca.artifacts.Implementation
     description: Ansible playbook
-    file_ext: [ ansible ]
+    file_ext: [ yml, yaml ]

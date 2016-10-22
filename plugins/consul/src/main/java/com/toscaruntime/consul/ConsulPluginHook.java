@@ -15,7 +15,7 @@ import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tosca.constants.InstanceState;
+import com.toscaruntime.constant.InstanceState;
 import tosca.nodes.Compute;
 import tosca.nodes.Root;
 

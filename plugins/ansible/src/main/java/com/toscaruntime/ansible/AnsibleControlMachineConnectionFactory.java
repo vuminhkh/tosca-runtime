@@ -13,7 +13,7 @@ public class AnsibleControlMachineConnectionFactory implements ConnectionFactory
 
     @Override
     public Connection newConnection(Map<String, Object> properties, Map<String, Object> bootstrapContext, boolean multipleTargets) {
-        String connectionType = PropertyUtil.getMandatoryPropertyAsString(properties, "connection_type");
+        String connectionType = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.CONNECTION_TYPE);
         switch (connectionType) {
             case "ssh":
                 SSHConnection sshConnection = new SSHConnection();

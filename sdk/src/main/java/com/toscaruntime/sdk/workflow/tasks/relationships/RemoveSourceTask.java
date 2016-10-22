@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 
-import tosca.constants.RelationshipInstanceState;
+import com.toscaruntime.constant.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 public class RemoveSourceTask extends AbstractRelationshipTask {

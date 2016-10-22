@@ -3,7 +3,7 @@ package com.toscaruntime.cli.util
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
-import _root_.tosca.constants.{InstanceState, RelationshipInstanceState}
+import com.toscaruntime.constant.{InstanceState, RelationshipInstanceState}
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.rest.model.{AbstractInstanceDTO, DeploymentDTO}
 import com.toscaruntime.util.FailSafeUtil

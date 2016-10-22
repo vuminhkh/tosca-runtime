@@ -6,7 +6,7 @@ import java.util.Set;
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 
-import tosca.constants.InstanceState;
+import com.toscaruntime.constant.InstanceState;
 import tosca.nodes.Root;
 
 public class ConfigureTask extends AbstractNodeTask {

@@ -6,7 +6,10 @@ template_author: MKV
 
 imports:
   - mongod-ansible-type:*
+  - nodejs-ansible-type:*
+  - nodecellar-type:*
   - toscaruntime-aws-provider-types:*
+  - toscaruntime-script-plugin-types:*
 
 topology_template:
   inputs:
@@ -43,6 +46,38 @@ topology_template:
       type: alien.nodes.ansible.Mongod
       requirements:
         - host: MongoHost
+
+    NodeCellarHost:
+      type: com.toscaruntime.aws.nodes.Instance
+      properties:
+        image_id: { get_input: image_id }
+        instance_type: { get_input: instance_type }
+        key_name: { get_input: key_name }
+        security_groups: { get_input: security_groups }
+        plugins: { get_input: plugin_configs }
+        user_data: { get_input: cloud_init }
+      requirements:
+        - network: Internet
+
+    Nodejs:
+      type: alien.nodes.ansible.Nodejs
+      requirements:
+        - host: NodeCellarHost
+
+    Nodecellar:
+      type: alien.nodes.Nodecellar
+      properties:
+        context_root: "/"
+        port: 8088
+      requirements:
+        - host:
+            node: Nodejs
+            capability: tosca.capabilities.Container
+            relationship: alien.relationships.NodecellarHostedOnNodejs
+        - database:
+            node: MongoDB
+            capability: tosca.capabilities.Endpoint.Database
+            relationship: alien.relationships.NodejsConnectToMongo
 
     Internet:
       type: com.toscaruntime.aws.nodes.PublicNetwork

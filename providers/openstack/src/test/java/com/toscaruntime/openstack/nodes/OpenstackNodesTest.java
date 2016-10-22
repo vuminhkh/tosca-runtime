@@ -12,7 +12,7 @@ import com.toscaruntime.util.ClassLoaderUtil;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
-import tosca.constants.RelationshipInstanceState;
+import com.toscaruntime.constant.RelationshipInstanceState;
 import tosca.relationships.AttachTo;
 
 import java.util.ArrayList;

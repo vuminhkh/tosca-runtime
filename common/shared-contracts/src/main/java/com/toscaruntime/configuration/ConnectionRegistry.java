@@ -1,6 +1,8 @@
 package com.toscaruntime.configuration;
 
 import com.toscaruntime.exception.deployment.configuration.TargetConfigurationNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,6 +13,8 @@ import java.util.Map;
  * @param <T> type of the provider connection
  */
 public class ConnectionRegistry<T> {
+
+    private static final Logger log = LoggerFactory.getLogger(ConnectionRegistry.class);
 
     private Map<String, Map<String, Object>> targetConfigurations;
 
@@ -46,11 +50,13 @@ public class ConnectionRegistry<T> {
         ConnectionProperties configurationWrapper = new ConnectionProperties(finalConfiguration);
         T connection = connectionCache.get(configurationWrapper);
         if (connection != null) {
+            log.info("Get connection from cache for target " + target + " for " + connection.getClass());
             return connection;
         } else {
             // In multiple target for the same provider configuration, information from bootstrap context might not be used
             // For example the network openstack that was used to bootstrap may not be reachable from all the targets
             connection = this.connectionFactory.newConnection(finalConfiguration, bootstrapContext, targetConfigurations.size() > 1 || overrideProperties != null);
+            log.info("Create new connection for target " + target + " for " + connection.getClass());
             this.connectionCache.put(configurationWrapper, connection);
         }
         return connection;

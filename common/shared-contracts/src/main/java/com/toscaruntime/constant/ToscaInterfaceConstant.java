@@ -22,6 +22,10 @@ public class ToscaInterfaceConstant {
 
     public static final String POST_CONFIGURE_TARGET_OPERATION = "post_configure_target";
 
+    public static final String TARGET_CHANGED_OPERATION = "target_changed";
+
+    public static final String SOURCE_CHANGED_OPERATION = "source_changed";
+    
     public static final String CREATE_OPERATION = "create";
 
     public static final String CONFIGURE_OPERATION = "configure";

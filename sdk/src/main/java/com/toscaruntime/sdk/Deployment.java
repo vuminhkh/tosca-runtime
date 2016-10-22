@@ -2,6 +2,7 @@ package com.toscaruntime.sdk;
 
 import com.toscaruntime.artifact.Executor;
 import com.toscaruntime.constant.CompilerConstant;
+import com.toscaruntime.constant.FunctionConstant;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.deployment.NodeTaskDTO;
 import com.toscaruntime.deployment.RelationshipTaskDTO;
@@ -26,6 +27,7 @@ import com.toscaruntime.sdk.workflow.WorkflowExecution;
 import com.toscaruntime.sdk.workflow.tasks.AbstractGenericTask;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
+import com.toscaruntime.util.StreamUtil;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -470,7 +472,7 @@ public abstract class Deployment {
             @Override
             protected void doRun() {
                 if (currentOperationInputs != null) {
-                    Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
+                    Map<String, OperationInputDefinition> convertedInputs = StreamUtil.safeEntryStream(inputs).collect(Collectors.toMap(
                             Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
                     ));
                     concernedRelationshipInstances.forEach(instance -> {
@@ -527,7 +529,7 @@ public abstract class Deployment {
             @Override
             protected void doRun() {
                 if (currentOperationInputs != null) {
-                    Map<String, OperationInputDefinition> convertedInputs = inputs.entrySet().stream().collect(Collectors.toMap(
+                    Map<String, OperationInputDefinition> convertedInputs = StreamUtil.safeEntryStream(inputs).collect(Collectors.toMap(
                             Map.Entry::getKey, entry -> (OperationInputDefinition) entry::getValue
                     ));
                     concernedInstances.forEach(instance -> {
@@ -731,7 +733,7 @@ public abstract class Deployment {
      * @return workflow execution
      */
     public WorkflowExecution teardown() {
-        Map<String, Root> nativeNodeInstances = nodeInstances.entrySet().stream().filter(entry -> providerHooks.stream().anyMatch(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.isNativeType(entry.getValue().getClass())))).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Root> nativeNodeInstances = StreamUtil.safeEntryStream(nodeInstances).filter(entry -> providerHooks.stream().anyMatch(providerHook -> DeploymentUtil.runWithClassLoader(providerHook.getClass().getClassLoader(), () -> providerHook.isNativeType(entry.getValue().getClass())))).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Set<tosca.relationships.Root> nativeRelationshipInstances = relationshipInstances.stream().filter(relationship -> nativeNodeInstances.containsKey(relationship.getSource().getId()) && nativeNodeInstances.containsKey(relationship.getTarget().getId())).collect(Collectors.toSet());
         return createUninstallWorkflow(nativeNodeInstances, nativeRelationshipInstances);
     }
@@ -742,7 +744,7 @@ public abstract class Deployment {
 
     public Object evaluateFunction(String functionName, String... paths) {
         switch (functionName) {
-            case "get_input":
+            case FunctionConstant.GET_INPUT:
                 return config.getInputs().get(paths[0]);
             default:
                 Set<Root> instances = getNodeInstancesByNodeName(paths[0]);
@@ -761,7 +763,7 @@ public abstract class Deployment {
     }
 
     public Object evaluateCompositeFunction(String functionName, Object... memberValue) {
-        if ("concat".equals(functionName)) {
+        if (FunctionConstant.CONCAT.equals(functionName)) {
             return FunctionUtil.concat(memberValue);
         } else {
             throw new IllegalFunctionException("Function " + functionName + " is not supported on deployment");

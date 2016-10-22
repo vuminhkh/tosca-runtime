@@ -4,7 +4,7 @@ import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tosca.constants.InstanceState;
+import com.toscaruntime.constant.InstanceState;
 import tosca.nodes.Root;
 
 import java.util.Map;

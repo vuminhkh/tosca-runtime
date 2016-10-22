@@ -10,8 +10,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
-import tosca.constants.InstanceState;
-import tosca.constants.RelationshipInstanceState;
+import com.toscaruntime.constant.InstanceState;
+import com.toscaruntime.constant.RelationshipInstanceState;
 import tosca.nodes.Root;
 
 import java.nio.file.Paths;

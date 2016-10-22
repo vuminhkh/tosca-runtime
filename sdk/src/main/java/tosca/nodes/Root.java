@@ -13,6 +13,7 @@ import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
+import com.toscaruntime.constant.InputConstant;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -20,6 +21,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static com.toscaruntime.constant.FunctionConstant.GET_ATTRIBUTE;
+import static com.toscaruntime.constant.FunctionConstant.GET_INPUT;
+import static com.toscaruntime.constant.FunctionConstant.GET_OPERATION_OUTPUT;
+import static com.toscaruntime.constant.FunctionConstant.GET_PROPERTY;
+import static com.toscaruntime.constant.FunctionConstant.HOST;
+import static com.toscaruntime.constant.FunctionConstant.SELF;
+import static com.toscaruntime.constant.InputConstant.INSTANCE;
+import static com.toscaruntime.constant.InputConstant.INSTANCES;
+import static com.toscaruntime.constant.InputConstant.NODE;
 
 public abstract class Root extends AbstractRuntimeType {
 
@@ -207,10 +218,10 @@ public abstract class Root extends AbstractRuntimeType {
         }
         Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
         Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
-        inputs.put("NODE", getName());
-        inputs.put("INSTANCE", getId());
-        inputs.put("INSTANCES", OperationInputUtil.makeInstancesVariable(getNode().getInstances()));
-        inputs.put("HOST", getHost().getName());
+        inputs.put(NODE, getName());
+        inputs.put(INSTANCE, getId());
+        inputs.put(INSTANCES, OperationInputUtil.makeInstancesVariable(getNode().getInstances()));
+        inputs.put(InputConstant.HOST, getHost().getName());
         for (Root sibling : getNode().getInstances()) {
             // This will inject also other instances input value
             Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
@@ -258,20 +269,20 @@ public abstract class Root extends AbstractRuntimeType {
         if (paths.length == 0) {
             throw new IllegalFunctionException("Function " + functionName + " path is empty");
         }
-        if ("get_input".equals(functionName)) {
+        if (GET_INPUT.equals(functionName)) {
             return getInput(paths[0]);
         }
         String entity = paths[0];
         Object value;
         switch (entity) {
-            case "HOST":
+            case HOST:
                 if (getHost() == null) {
                     throw new IllegalFunctionException("Cannot " + functionToString(functionName, paths) + " as this node does not have a direct host");
                 }
                 return getHost().evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
-            case "SELF":
+            case SELF:
                 switch (functionName) {
-                    case "get_property":
+                    case GET_PROPERTY:
                         if (paths.length == 2) {
                             value = getProperty(paths[1]);
                         } else if (paths.length == 3) {
@@ -280,10 +291,10 @@ public abstract class Root extends AbstractRuntimeType {
                             throw new IllegalFunctionException("get_property must be followed by entity and the property name (2 arguments), or entity then requirement/capability name and property name (3 arguments)");
                         }
                         break;
-                    case "get_attribute":
+                    case GET_ATTRIBUTE:
                         value = getAttribute(paths[1]);
                         break;
-                    case "get_operation_output":
+                    case GET_OPERATION_OUTPUT:
                         value = getOperationOutput(paths[1], paths[2], paths[3]);
                         break;
                     default:

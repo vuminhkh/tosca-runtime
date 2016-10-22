@@ -15,6 +15,8 @@ public interface Connection extends Closeable {
 
     String TARGET = "target";
 
+    String CONNECTION_TYPE = "connection_type";
+
     /**
      * Called at the beginning to initialize the connection
      *

@@ -2,7 +2,7 @@ package com.toscaruntime.sdk.workflow.tasks.nodes;
 
 import com.toscaruntime.constant.ToscaInterfaceConstant;
 import com.toscaruntime.sdk.util.WorkflowUtil;
-import tosca.constants.InstanceState;
+import com.toscaruntime.constant.InstanceState;
 import tosca.nodes.Root;
 
 import java.util.Map;

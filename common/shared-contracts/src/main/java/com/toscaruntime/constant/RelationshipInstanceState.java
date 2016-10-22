@@ -1,4 +1,4 @@
-package tosca.constants;
+package com.toscaruntime.constant;
 
 public class RelationshipInstanceState {
 

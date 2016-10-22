@@ -16,6 +16,7 @@ import com.toscaruntime.exception.deployment.plugins.PluginConfigurationExceptio
 import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
 import com.toscaruntime.util.PropertyUtil;
+import com.toscaruntime.util.StreamUtil;
 import tosca.nodes.Compute;
 import tosca.nodes.Root;
 
@@ -31,7 +32,7 @@ public class AnsiblePluginHook extends AbstractPluginHook {
     @Override
     public void postConstruct(Deployment deployment, Map<String, Map<String, Object>> pluginProperties, Map<String, Object> bootstrapContext) {
         this.pluginProperties = pluginProperties;
-        Map<String, Map<String, Object>> controlMachineProperties = this.pluginProperties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+        Map<String, Map<String, Object>> controlMachineProperties = StreamUtil.safeEntryStream(this.pluginProperties).collect(Collectors.toMap(Map.Entry::getKey, entry -> {
             Object controlMachineProperty = PropertyUtil.getMandatoryProperty(entry.getValue(), "control_machine");
             if (!(controlMachineProperty instanceof Map)) {
                 throw new PluginConfigurationException("control_machine property value must be a complex object");
@@ -58,7 +59,7 @@ public class AnsiblePluginHook extends AbstractPluginHook {
         }
         Connection controlMachineConnection = this.controlMachineConnectionRegistry.getConnection(configuredTarget, (Map<String, Object>) controlMachineProperty);
         executorProperties.put(AnsibleConnection.CONTROL_MACHINE_CONNECTION, controlMachineConnection);
-        String connectionType = PropertyUtil.getPropertyAsString(executorProperties, "connection_type");
+        String connectionType = PropertyUtil.getPropertyAsString(executorProperties, Connection.CONNECTION_TYPE);
         Class<? extends Connection> connectionClass = AnsibleUtil.getConnectionType(node, connectionType);
         if (connectionClass == AnsibleSSHConnection.class) {
             if (node instanceof com.toscaruntime.common.nodes.Compute) {

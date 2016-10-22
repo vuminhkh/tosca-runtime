@@ -18,7 +18,7 @@ public class ArtifactExecutionUtil {
      * @return parsed and processed environment variables
      */
     public static Map<String, Object> processInputs(Map<String, Object> inputs) {
-        Map<String, Object> envVarTransformed = inputs.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> escapeQuote(PropertyUtil.propertyValueToString(entry.getValue()))));
+        Map<String, Object> envVarTransformed = StreamUtil.safeEntryStream(inputs).collect(Collectors.toMap(Map.Entry::getKey, entry -> escapeQuote(PropertyUtil.propertyValueToString(entry.getValue()))));
         return normalizeIdentifiers(envVarTransformed);
     }
 
@@ -31,7 +31,7 @@ public class ArtifactExecutionUtil {
      * @return normalized artifact map
      */
     public static Map<String, Object> processDeploymentArtifacts(Map<String, String> deploymentArtifacts, String recipeLocation, String fileSeparator) {
-        Map<String, Object> deploymentArtifactsTransformed = deploymentArtifacts.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> recipeLocation + fileSeparator + entry.getValue()));
+        Map<String, Object> deploymentArtifactsTransformed = StreamUtil.safeEntryStream(deploymentArtifacts).collect(Collectors.toMap(Map.Entry::getKey, entry -> recipeLocation + fileSeparator + entry.getValue()));
         return normalizeIdentifiers(deploymentArtifactsTransformed);
     }
 
@@ -45,7 +45,7 @@ public class ArtifactExecutionUtil {
 
     private static Map<String, Object> normalizeIdentifiers(Map<String, Object> envVars) {
         // Shell script environment variable can only alpha numeric character and begin with an alphabetic character
-        return envVars.entrySet().stream().collect(Collectors.toMap(
+        return StreamUtil.safeEntryStream(envVars).collect(Collectors.toMap(
                 entry -> {
                     String normalizedKey = entry.getKey().replaceAll("\\W", "_");
                     if (Character.isDigit(normalizedKey.charAt(0))) {

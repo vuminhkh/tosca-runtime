@@ -73,6 +73,7 @@ object UseCommand {
       val host = argsMap(dockerHostOpt)
       val cert = argsMap.getOrElse(dockerCertOpt, null)
       val tlsVerify = if (cert != null) "1" else null
+      // TODO manage extra properties to configure the docker client
       val daemonConfig = new DockerDaemonConfig(host, tlsVerify, cert)
       switchConnection(client, daemonConfig, basedir)
       switchConfiguration(daemonConfig, basedir)

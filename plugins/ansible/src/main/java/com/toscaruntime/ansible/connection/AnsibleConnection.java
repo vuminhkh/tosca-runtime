@@ -4,12 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.toscaruntime.artifact.CommandUtil;
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.OutputHandler;
+import com.toscaruntime.constant.InputConstant;
 import com.toscaruntime.exception.OperationNotImplementedException;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactIOException;
 import com.toscaruntime.exception.deployment.configuration.PropertyAccessException;
 import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
+import com.toscaruntime.util.ToscaUtil;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,15 +21,21 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public abstract class AnsibleConnection implements Connection {
 
-    public static final String CONTROL_MACHINE_CONNECTION = "control_machine_connection";
-
     private static final Logger log = LoggerFactory.getLogger(AnsibleConnection.class);
+
+    public static final String CONTROL_MACHINE_CONNECTION = "control_machine_connection";
+    public static final String DATA_DIR = "data_dir";
+    public static final String ANSIBLE_COMMAND = "ansible_command";
+    public static final String ANSIBLE_PLAYBOOK_COMMAND = "ansible_playbook_command";
+    public static final String CONNECT_TIMEOUT = "connect_timeout";
+    public static final String DELAY = "delay";
 
     private Connection controlMachineConnection;
 
@@ -47,6 +55,10 @@ public abstract class AnsibleConnection implements Connection {
 
     private String ansiblePlaybookBinPath;
 
+    private long connectTimeout;
+
+    private long delay;
+
     @Override
     public void initialize(Map<String, Object> properties) {
         this.controlMachineConnection = (Connection) PropertyUtil.getMandatoryProperty(properties, CONTROL_MACHINE_CONNECTION);
@@ -54,7 +66,7 @@ public abstract class AnsibleConnection implements Connection {
         this.user = PropertyUtil.getPropertyAsString(properties, Connection.USER);
         String portRaw = PropertyUtil.getPropertyAsString(properties, Connection.PORT);
         this.port = StringUtils.isNotBlank(portRaw) ? Integer.parseInt(portRaw) : null;
-        String dataDir = PropertyUtil.getPropertyAsString(properties, "data_dir", Paths.get(getHomeDirOnControlMachine()).resolve(".toscaruntime").toString());
+        String dataDir = PropertyUtil.getPropertyAsString(properties, DATA_DIR, Paths.get(getHomeDirOnControlMachine()).resolve(".toscaruntime").toString());
         this.userDataDir = Paths.get(dataDir).resolve(this.target.replaceAll("\\W", "_"));
         // Create folder for keys
         String pemPath = PropertyUtil.getPropertyAsString(properties, Connection.KEY_PATH);
@@ -71,13 +83,26 @@ public abstract class AnsibleConnection implements Connection {
                 throw new ArtifactIOException("Error creating temp file", e);
             }
         }
-        this.connectionType = PropertyUtil.getPropertyAsString(properties, "connection_type");
-        this.ansibleBinPath = PropertyUtil.getPropertyAsString(properties, "ansible_bin_path", "ansible");
-        this.ansiblePlaybookBinPath = PropertyUtil.getPropertyAsString(properties, "ansible_playbook_bin_path", "ansible-playbook");
+        this.connectionType = PropertyUtil.getPropertyAsString(properties, Connection.CONNECTION_TYPE);
+        this.ansibleBinPath = PropertyUtil.getPropertyAsString(properties, ANSIBLE_COMMAND, "ansible");
+        this.ansiblePlaybookBinPath = PropertyUtil.getPropertyAsString(properties, ANSIBLE_PLAYBOOK_COMMAND, "ansible-playbook");
+        // Connect timeout and delay that will be used to wait for SSH connection becomes available on the target
+        this.connectTimeout = getPropertyAsTime(properties, CONNECT_TIMEOUT, "5 m");
+        this.delay = getPropertyAsTime(properties, DELAY, "2 s");
+    }
+
+    private static long getPropertyAsTime(Map<String, Object> properties, String propertyName, String defaultValue) {
+        String waitBetweenConnectRetry = PropertyUtil.getPropertyAsString(properties, propertyName, defaultValue);
+        return ToscaUtil.convertToSeconds(waitBetweenConnectRetry);
     }
 
     private String getHomeDirOnControlMachine() {
-        return CommandUtil.evaluate(controlMachineConnection, "echo $HOME");
+        try {
+            return CommandUtil.evaluate(controlMachineConnection, "echo $HOME");
+        } catch (Exception r) {
+            log.warn("Unable to retrieve home directory on control machine", r.getMessage());
+            return "";
+        }
     }
 
     private Path writeToTempFile(String content) throws IOException {
@@ -88,14 +113,14 @@ public abstract class AnsibleConnection implements Connection {
 
     private void moveKey(Path pemPath) {
         this.remoteKeyFile = this.userDataDir.resolve("_toscaruntime.pem").toString();
-        executeCommandOnControlMachine("mv " + this.userDataDir.resolve(pemPath.getFileName()).toString() + " " + this.remoteKeyFile + " && chmod 0400 " + this.remoteKeyFile);
+        Integer commandStatus = executeCommandOnControlMachine("mv " + this.userDataDir.resolve(pemPath.getFileName()).toString() + " " + this.remoteKeyFile + " && chmod 0400 " + this.remoteKeyFile);
+        if (commandStatus == null || commandStatus != 0) {
+            throw new UnexpectedException("Unable to move key on the control machine, exit status [" + commandStatus + "]");
+        }
     }
 
-    private void executeCommandOnControlMachine(String command) {
-        Integer commandStatus = controlMachineConnection.executeCommand(command);
-        if (commandStatus == null || commandStatus != 0) {
-            throw new UnexpectedException("Unable to execute command on the control machine [" + command + "]");
-        }
+    protected Integer executeCommandOnControlMachine(String command) {
+        return controlMachineConnection.executeCommand(command);
     }
 
     @Override
@@ -169,11 +194,22 @@ public abstract class AnsibleConnection implements Connection {
         return ansibleCommandBuilder;
     }
 
+    private void removeAnsibleConfigFromInput(Map<String, Object> inputsWithoutAnsibleConfig, String entity) {
+        String allInstances = PropertyUtil.getPropertyAsString(inputsWithoutAnsibleConfig, entity);
+        if (StringUtils.isNotBlank(allInstances)) {
+            // Remove reserved input ansible from all other instances input
+            Arrays.stream(allInstances.split(",")).map(String::trim).forEach(instance -> inputsWithoutAnsibleConfig.remove(instance + "_ansible"));
+        }
+    }
+
     @Override
     public Integer executeRemoteArtifact(String playbookPath, Map<String, Object> variables, OutputHandler outputHandler) {
         Map<String, Object> inputsWithoutAnsibleConfig = new HashMap<>(variables);
         // Reserved keyword ansible
         inputsWithoutAnsibleConfig.remove("ansible");
+        removeAnsibleConfigFromInput(inputsWithoutAnsibleConfig, InputConstant.INSTANCES);
+        removeAnsibleConfigFromInput(inputsWithoutAnsibleConfig, InputConstant.TARGET_INSTANCES);
+        // Build the input to execute the playbook
         AnsibleCommandBuilder ansibleCommandBuilder = wrapPlaybookWithAnsible(this.userDataDir.resolve(playbookPath).toString(), inputsWithoutAnsibleConfig);
         // Reserved keyword for specific ansible options
         Map<String, Object> ansibleConfig = PropertyUtil.getPropertyAsMap(variables, "ansible");
@@ -185,9 +221,7 @@ public abstract class AnsibleConnection implements Connection {
                     .arguments(PropertyUtil.getPropertyAsList(ansibleConfig, "arguments"));
         }
         String ansibleCommand = ansibleCommandBuilder.build();
-        if (log.isDebugEnabled()) {
-            log.debug("Execute playbook with command [{}]", ansibleCommand);
-        }
+        log.info("Execute playbook with command [{}]", ansibleCommand);
         Integer commandStatus = controlMachineConnection.executeCommand(ansibleCommand, outputHandler);
         if (commandStatus == null || commandStatus != 0) {
             log.error("Execute playbook [" + ansibleCommand + "] failed with status [" + commandStatus + "]");
@@ -202,7 +236,6 @@ public abstract class AnsibleConnection implements Connection {
 
     @Override
     public void close() {
-        controlMachineConnection.close();
     }
 
     public String getUser() {
@@ -223,5 +256,25 @@ public abstract class AnsibleConnection implements Connection {
 
     public void setConnectionType(String connectionType) {
         this.connectionType = connectionType;
+    }
+
+    public long getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    public long getDelay() {
+        return delay;
+    }
+
+    public Integer getPort() {
+        return port;
+    }
+
+    public String getAnsibleBinPath() {
+        return ansibleBinPath;
+    }
+
+    public String getTarget() {
+        return target;
     }
 }

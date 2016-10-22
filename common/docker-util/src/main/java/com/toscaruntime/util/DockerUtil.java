@@ -18,6 +18,7 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.file.Paths;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -28,8 +29,7 @@ public class DockerUtil {
     private static final DockerDaemonConfig DEFAULT_DOCKER_CONF_FOR_MAC_WINDOWS = new DockerDaemonConfig(
             "tcp://192.168.99.100:2376",
             "1",
-            Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString()
-    );
+            Paths.get(System.getProperty("user.home")).resolve(".docker").resolve("machine").resolve("machines").resolve("default").toString());
 
     private static NetworkInterface guessMostRelevantInterface() throws SocketException {
         Enumeration<NetworkInterface> networkInterfaceEnumeration = NetworkInterface.getNetworkInterfaces();
@@ -112,6 +112,7 @@ public class DockerUtil {
         if (StringUtils.isNotBlank(config.getTlsVerify())) {
             providerProperties.put(DockerClientConfig.DOCKER_TLS_VERIFY, config.getTlsVerify());
         }
+        providerProperties.putAll(config.getExtraProperties());
         return buildDockerClient(providerProperties);
     }
 
@@ -128,7 +129,11 @@ public class DockerUtil {
     }
 
     public static DockerDaemonConfig getDockerDaemonConfig(Map<String, String> properties) {
-        return new DockerDaemonConfig(getDockerHostName(properties), getDockerTlsVerify(properties), getDockerCertPath(properties));
+        Map<String, String> extraProperties = new HashMap<>(properties);
+        extraProperties.remove(DockerClientConfig.DOCKER_HOST);
+        extraProperties.remove(DockerClientConfig.DOCKER_CERT_PATH);
+        extraProperties.remove(DockerClientConfig.DOCKER_TLS_VERIFY);
+        return new DockerDaemonConfig(getDockerHostName(properties), getDockerTlsVerify(properties), getDockerCertPath(properties), extraProperties);
     }
 
     public static void showLog(DockerClient dockerClient, String containerId, boolean follow, int numberOfLines, LogContainerResultCallback logCallback) {

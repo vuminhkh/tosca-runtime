@@ -20,6 +20,30 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.toscaruntime.constant.FunctionConstant.GET_ATTRIBUTE;
+import static com.toscaruntime.constant.FunctionConstant.GET_INPUT;
+import static com.toscaruntime.constant.FunctionConstant.GET_OPERATION_OUTPUT;
+import static com.toscaruntime.constant.FunctionConstant.GET_PROPERTY;
+import static com.toscaruntime.constant.FunctionConstant.SELF;
+import static com.toscaruntime.constant.FunctionConstant.SOURCE;
+import static com.toscaruntime.constant.FunctionConstant.TARGET;
+import static com.toscaruntime.constant.InputConstant.SOURCE_INSTANCE;
+import static com.toscaruntime.constant.InputConstant.SOURCE_INSTANCES;
+import static com.toscaruntime.constant.InputConstant.SOURCE_NODE;
+import static com.toscaruntime.constant.InputConstant.TARGET_INSTANCE;
+import static com.toscaruntime.constant.InputConstant.TARGET_INSTANCES;
+import static com.toscaruntime.constant.InputConstant.TARGET_NODE;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.ADD_SOURCE_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.ADD_TARGET_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.POST_CONFIGURE_SOURCE_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.POST_CONFIGURE_TARGET_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.PRE_CONFIGURE_SOURCE_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.PRE_CONFIGURE_TARGET_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.REMOVE_SOURCE_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.REMOVE_TARGET_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.SOURCE_CHANGED_OPERATION;
+import static com.toscaruntime.constant.ToscaInterfaceConstant.TARGET_CHANGED_OPERATION;
+
 public abstract class Root extends AbstractRuntimeType {
 
     private tosca.nodes.Root source;
@@ -43,31 +67,29 @@ public abstract class Root extends AbstractRuntimeType {
     protected Map<String, Object> executeOperation(String operationName, String operationArtifactPath, String artifactType) {
         Map<String, OperationInputDefinition> inputDefinitions = operationInputs.get(operationName);
         Map<String, Object> inputs = OperationInputUtil.evaluateInputDefinitions(inputDefinitions);
-        inputs.put("TARGET_NODE", getTarget().getName());
-        inputs.put("TARGET_INSTANCE", getTarget().getId());
-        inputs.put("TARGET_INSTANCE", getTarget().getId());
-        inputs.put("TARGET_INSTANCES", OperationInputUtil.makeInstancesVariable(getTarget().getNode().getInstances()));
-        inputs.put("SOURCE_NODE", getSource().getName());
-        inputs.put("SOURCE_INSTANCE", getSource().getId());
-        inputs.put("SOURCE_INSTANCE", getSource().getId());
-        inputs.put("SOURCE_INSTANCES", OperationInputUtil.makeInstancesVariable(getSource().getNode().getInstances()));
+        inputs.put(TARGET_NODE, getTarget().getName());
+        inputs.put(TARGET_INSTANCE, getTarget().getId());
+        inputs.put(TARGET_INSTANCES, OperationInputUtil.makeInstancesVariable(getTarget().getNode().getInstances()));
+        inputs.put(SOURCE_NODE, getSource().getName());
+        inputs.put(SOURCE_INSTANCE, getSource().getId());
+        inputs.put(SOURCE_INSTANCES, OperationInputUtil.makeInstancesVariable(getSource().getNode().getInstances()));
         for (Root sibling : getNode().getRelationshipInstances()) {
             // Inject also other inputs from other instances
             Map<String, OperationInputDefinition> siblingInputDefinitions = sibling.getOperationInputs().get(operationName);
             inputs.putAll(OperationInputUtil.evaluateInputDefinitions(sibling.getTarget().getId(), siblingInputDefinitions));
         }
         switch (operationName) {
-            case "pre_configure_source":
-            case "post_configure_source":
-            case "add_target":
-            case "target_changed":
-            case "remove_target":
+            case PRE_CONFIGURE_SOURCE_OPERATION:
+            case POST_CONFIGURE_SOURCE_OPERATION:
+            case ADD_TARGET_OPERATION:
+            case TARGET_CHANGED_OPERATION:
+            case REMOVE_TARGET_OPERATION:
                 return executeSourceOperation(operationName, operationArtifactPath, artifactType, inputs);
-            case "pre_configure_target":
-            case "post_configure_target":
-            case "add_source":
-            case "source_changed":
-            case "remove_source":
+            case PRE_CONFIGURE_TARGET_OPERATION:
+            case POST_CONFIGURE_TARGET_OPERATION:
+            case ADD_SOURCE_OPERATION:
+            case SOURCE_CHANGED_OPERATION:
+            case REMOVE_SOURCE_OPERATION:
                 return executeTargetOperation(operationName, operationArtifactPath, artifactType, inputs);
             default:
                 if (operationName.endsWith("_source")) {
@@ -106,19 +128,19 @@ public abstract class Root extends AbstractRuntimeType {
     public Object evaluateFunction(String functionName, String... paths) {
         String entity = paths[0];
         switch (entity) {
-            case "SOURCE":
+            case SOURCE:
                 return source.evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
-            case "TARGET":
+            case TARGET:
                 return target.evaluateFunction(functionName, FunctionUtil.setEntityToSelf(paths));
-            case "SELF":
+            case SELF:
                 switch (functionName) {
-                    case "get_property":
+                    case GET_PROPERTY:
                         return getProperty(paths[1]);
-                    case "get_attribute":
+                    case GET_ATTRIBUTE:
                         return getAttribute(paths[1]);
-                    case "get_input":
+                    case GET_INPUT:
                         return getInput(paths[1]);
-                    case "get_operation_output":
+                    case GET_OPERATION_OUTPUT:
                         return getOperationOutput(paths[1], paths[2], paths[3]);
                     default:
                         throw new IllegalFunctionException("Function " + functionName + " is not supported");

@@ -73,11 +73,11 @@ public class PropertyUtil {
     }
 
     public static Map<String, Object> convertJsonPropertiesToMapProperties(Map<String, String> flatten) {
-        return flatten.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> toObject(entry.getValue())));
+        return StreamUtil.safeEntryStream(flatten).collect(Collectors.toMap(Map.Entry::getKey, entry -> toObject(entry.getValue())));
     }
 
     public static Map<String, String> convertMapPropertiesToJsonProperties(Map<String, Object> properties) {
-        return properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry -> toJson(entry.getValue())));
+        return StreamUtil.safeEntryStream(properties).collect(Collectors.toMap(Map.Entry::getKey, entry -> toJson(entry.getValue())));
     }
 
     public static String toJson(Object propertyValue) {

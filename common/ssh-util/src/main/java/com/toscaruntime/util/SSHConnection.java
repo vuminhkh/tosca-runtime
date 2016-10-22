@@ -14,7 +14,6 @@ import com.toscaruntime.exception.deployment.artifact.BadExecutorConfigurationEx
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.Factory;
 import net.schmizz.sshj.common.SSHException;
-import net.schmizz.sshj.common.SecurityUtils;
 import net.schmizz.sshj.connection.ConnectionException;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.SessionChannel;
@@ -33,7 +32,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.Security;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -41,16 +39,6 @@ import java.util.concurrent.TimeUnit;
 public class SSHConnection implements Connection {
 
     private static final Logger log = LoggerFactory.getLogger(SSHConnection.class);
-
-    static {
-        Security.removeProvider(SecurityUtils.BOUNCY_CASTLE);
-        SecurityUtils.setRegisterBouncyCastle(true);
-        if (SecurityUtils.isBouncyCastleRegistered()) {
-            log.info("Bouncy Castle registered");
-        } else {
-            log.warn("Bouncy Castle not registered");
-        }
-    }
 
     private SSHClient sshClient;
 
@@ -80,15 +68,16 @@ public class SSHConnection implements Connection {
         }
         this.connectRetry = getConnectRetry(properties);
         this.waitBetweenConnectRetry = getWaitBetweenConnectRetry(properties);
+        log.info("Initializing SSH connection " + toString());
         establishConnection();
     }
 
     private static int getConnectRetry(Map<String, Object> properties) {
-        return Integer.parseInt(PropertyUtil.getPropertyAsString(properties, "configuration.connect_retry", "720"));
+        return Integer.parseInt(PropertyUtil.getPropertyAsString(properties, "connect_retry", "720"));
     }
 
     private static long getWaitBetweenConnectRetry(Map<String, Object> properties) {
-        String waitBetweenConnectRetry = PropertyUtil.getPropertyAsString(properties, "configuration.wait_between_connect_retry", "5 s");
+        String waitBetweenConnectRetry = PropertyUtil.getPropertyAsString(properties, "wait_between_connect_retry", "5 s");
         return ToscaUtil.convertToSeconds(waitBetweenConnectRetry);
     }
 
@@ -116,9 +105,15 @@ public class SSHConnection implements Connection {
                 sshClient.authPublickey(user, fkp);
             }
         } catch (UserAuthException e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactAuthenticationFailureException("User authentication failure : " + e.getMessage(), e);
         } catch (IOException e) {
-            throw new ArtifactConnectException("IO failure : " + e.getMessage(), e);
+            ExceptionUtil.checkInterrupted(e);
+            if (e.getMessage() != null) {
+                throw new ArtifactConnectException("IO failure : " + e.getMessage(), e);
+            } else {
+                throw new ArtifactConnectException(null, e);
+            }
         }
     }
 
@@ -144,13 +139,8 @@ public class SSHConnection implements Connection {
             }
             return sshCommand.getExitStatus();
         } catch (ConnectionException | TransportException e) {
-            boolean isInterrupted = ExceptionUtils.indexOfType(e, InterruptedException.class) >= 0;
-            if (isInterrupted) {
-                log.info("Command execution has been interrupted", e);
-                throw new InterruptedByUserException("Execution has been interrupted", e);
-            } else {
-                throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
-            }
+            ExceptionUtil.checkInterrupted(e);
+            throw new ArtifactConnectException("Cannot execute command [" + command + "], encountered connection error", e);
         }
     }
 
@@ -192,6 +182,7 @@ public class SSHConnection implements Connection {
             }
             return shell.getExitStatus();
         } catch (ConnectionException | TransportException e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactConnectException("Execution connection error", e);
         }
     }
@@ -230,8 +221,10 @@ public class SSHConnection implements Connection {
             SCPFileTransfer scpFileTransfer = sshClient.newSCPFileTransfer();
             scpFileTransfer.upload(localPath, remotePath);
         } catch (ConnectionException | TransportException e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactConnectException("Upload [" + localPath + "] to [" + remotePath + "] encountered connection error", e);
         } catch (IOException e) {
+            ExceptionUtil.checkInterrupted(e);
             throw new ArtifactUploadException("Fatal error happened while trying to upload", e);
         }
     }
@@ -246,5 +239,18 @@ public class SSHConnection implements Connection {
         } catch (IOException e) {
             log.warn("Could not close ssh executor", e);
         }
+    }
+
+    @Override
+    public String toString() {
+        return "SSHConnection{" +
+                "user='" + user + '\'' +
+                ", ip='" + ip + '\'' +
+                ", port=" + port +
+                ", pemPath='" + pemPath + '\'' +
+                ", pemContent='" + (pemContent != null ? pemContent.length() : 0) + '\'' +
+                ", connectRetry=" + connectRetry +
+                ", waitBetweenConnectRetry=" + waitBetweenConnectRetry +
+                '}';
     }
 }
