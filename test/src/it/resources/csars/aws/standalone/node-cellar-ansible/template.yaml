@@ -81,3 +81,7 @@ topology_template:
 
     Internet:
       type: com.toscaruntime.aws.nodes.PublicNetwork
+
+  outputs:
+    Nodecellar_nodecellar_url:
+      value: { get_attribute: [ Nodecellar, nodecellar_url ] }
