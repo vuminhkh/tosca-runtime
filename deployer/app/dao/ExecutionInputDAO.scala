@@ -27,7 +27,7 @@ trait ExecutionInputsComponent extends ExecutionsComponent {
 
     def execution = foreignKey("EXECUTION_INPUT_EXECUTION_FK", executionId, Executions)(_.id, onUpdate = ForeignKeyAction.Cascade, onDelete = ForeignKeyAction.Cascade)
 
-    def * = (executionId, key, value) <>(ExecutionInputEntity.tupled, ExecutionInputEntity.unapply)
+    def * = (executionId, key, value) <> (ExecutionInputEntity.tupled, ExecutionInputEntity.unapply)
   }
 
 }

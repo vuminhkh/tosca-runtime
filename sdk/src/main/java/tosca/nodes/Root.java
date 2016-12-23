@@ -1,5 +1,6 @@
 package tosca.nodes;
 
+import com.toscaruntime.constant.InputConstant;
 import com.toscaruntime.exception.UnexpectedException;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.exception.deployment.persistence.DeploymentPersistenceException;
@@ -13,7 +14,6 @@ import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.JSONUtil;
 import com.toscaruntime.util.PropertyUtil;
-import com.toscaruntime.constant.InputConstant;
 
 import java.util.Collections;
 import java.util.HashSet;

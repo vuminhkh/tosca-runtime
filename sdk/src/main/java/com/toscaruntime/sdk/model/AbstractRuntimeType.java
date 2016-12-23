@@ -1,11 +1,11 @@
 package com.toscaruntime.sdk.model;
 
+import com.toscaruntime.constant.InstanceState;
 import com.toscaruntime.exception.deployment.configuration.IllegalFunctionException;
 import com.toscaruntime.util.CodeGeneratorUtil;
 import com.toscaruntime.util.FunctionUtil;
 import com.toscaruntime.util.PropertyUtil;
 import org.apache.commons.lang.StringUtils;
-import com.toscaruntime.constant.InstanceState;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -10,6 +10,8 @@ import sbt.complete.DefaultParsers._
   */
 object Args {
 
+  val synopsisToken = "SYNOPSIS"
+
   val providerOpt = "--provider"
 
   val providerOptParser = token(providerOpt) ~ (token("=") ~> (token(ProviderConstant.DOCKER) | token(ProviderConstant.OPENSTACK) | token(ProviderConstant.AWS)))

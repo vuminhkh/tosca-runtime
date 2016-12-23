@@ -1,17 +1,11 @@
 package com.toscaruntime.util;
 
 import org.apache.commons.compress.utils.Charsets;
-import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.lang.StringUtils;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.Charset;
-import java.nio.file.CopyOption;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -20,7 +14,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
@@ -28,128 +21,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public final class FileUtil {
 
     private FileUtil() {
-    }
-
-    static void putZipEntry(ZipOutputStream zipOutputStream, ZipEntry zipEntry, Path file) throws IOException {
-        zipOutputStream.putNextEntry(zipEntry);
-        try (InputStream input = new BufferedInputStream(Files.newInputStream(file))) {
-            IOUtils.copy(input, zipOutputStream);
-            zipOutputStream.closeEntry();
-        }
-    }
-
-    public static String getChildEntryRelativePath(Path base, Path child, boolean convertToLinuxPath) {
-        String path = base.toUri().relativize(child.toUri()).getPath();
-        if (convertToLinuxPath && !"/".equals(base.getFileSystem().getSeparator())) {
-            return path.replace(base.getFileSystem().getSeparator(), "/");
-        } else {
-            return path;
-        }
-    }
-
-    /**
-     * Recursively zip file and directory
-     *
-     * @param inputPath  file path can be directory
-     * @param outputPath where to put the zip
-     * @throws IOException when IO error happened
-     */
-    public static void zip(Path inputPath, Path outputPath) throws IOException {
-        zip(inputPath, "", outputPath);
-    }
-
-    public static void zip(Path inputPath, String outputPrefix, Path outputPath) throws IOException {
-        if (!Files.exists(inputPath)) {
-            throw new FileNotFoundException("File not found " + inputPath);
-        }
-        touch(outputPath);
-        try (ZipOutputStream zipOutputStream = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(outputPath)))) {
-            if (!Files.isDirectory(inputPath)) {
-                putZipEntry(zipOutputStream, new ZipEntry(outputPrefix + "/" + inputPath.getFileName().toString()), inputPath);
-            } else {
-                Files.walkFileTree(inputPath, new ZipDirWalker(inputPath, zipOutputStream, outputPrefix));
-            }
-            zipOutputStream.flush();
-        }
-    }
-
-    /**
-     * Unzip a zip file to a destination folder.
-     *
-     * @param zipFile     The zip file to unzip.
-     * @param destination The destination folder in which to save the file.
-     * @throws IOException In case something fails.
-     */
-    public static void unzip(final Path zipFile, final Path destination) throws IOException {
-        try (FileSystem zipFS = FileSystems.newFileSystem(zipFile, null)) {
-            final Path root = zipFS.getPath("/");
-            copy(root, destination, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    public static String relativizePath(Path root, Path child) {
-        String childPath = child.toAbsolutePath().toString();
-        String rootPath = root.toAbsolutePath().toString();
-        if (childPath.equals(rootPath)) {
-            return "";
-        }
-        int indexOfRootInChild = childPath.indexOf(rootPath);
-        if (indexOfRootInChild != 0) {
-            throw new IllegalArgumentException("Child path " + childPath + "is not beginning with root path " + rootPath);
-        }
-        String relativizedPath = childPath.substring(rootPath.length(), childPath.length());
-        while (relativizedPath.startsWith(root.getFileSystem().getSeparator())) {
-            relativizedPath = relativizedPath.substring(1);
-        }
-        return relativizedPath;
-    }
-
-    /**
-     * Copy file or directory. In case of directory, the copy is recursive
-     *
-     * @param source      source directory or file
-     * @param destination destination directory or file
-     * @param options     copy options
-     * @throws IOException
-     */
-    public static void copy(final Path source, final Path destination, final CopyOption... options) throws IOException {
-        if (Files.isRegularFile(source)) {
-            // Simple file copy
-            if (Files.notExists(destination)) {
-                Files.createDirectories(destination.getParent());
-            }
-            Files.copy(source, destination, options);
-            return;
-        }
-
-        // Directories copy
-        if (Files.notExists(destination)) {
-            Files.createDirectories(destination);
-        }
-
-        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                String fileRelativePath = relativizePath(source, file);
-                Path destFile = destination.resolve(fileRelativePath);
-                Files.copy(file, destFile, options);
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                String dirRelativePath = relativizePath(source, dir);
-                Path destDir = destination.resolve(dirRelativePath);
-                Files.createDirectories(destDir);
-                return FileVisitResult.CONTINUE;
-            }
-        });
     }
 
     private static class EraserWalker extends SimpleFileVisitor<Path> {
@@ -221,25 +96,6 @@ public final class FileUtil {
         Files.createDirectories(outputFile.getParent());
         return Files
                 .write(outputFile, text.getBytes(Charsets.UTF_8), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
-    }
-
-    /**
-     * Create an empty file at the given path
-     *
-     * @param path to create file
-     * @throws IOException
-     */
-    public static boolean touch(Path path) throws IOException {
-        Path parentDir = path.getParent();
-        if (!Files.exists(parentDir)) {
-            Files.createDirectories(parentDir);
-            return true;
-        }
-        if (!Files.exists(path)) {
-            Files.createFile(path);
-            return true;
-        }
-        return false;
     }
 
     /**

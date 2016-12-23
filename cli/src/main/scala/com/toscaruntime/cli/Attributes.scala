@@ -3,6 +3,7 @@ package com.toscaruntime.cli
 import java.nio.file.Path
 
 import com.toscaruntime.rest.client.ToscaRuntimeClient
+import com.typesafe.config.Config
 import sbt.AttributeKey
 
 /**
@@ -16,4 +17,5 @@ object Attributes {
 
   val basedirAttribute: AttributeKey[Path] = AttributeKey[Path]("basedir")
 
+  val config: AttributeKey[Config] = AttributeKey[Config]("config")
 }

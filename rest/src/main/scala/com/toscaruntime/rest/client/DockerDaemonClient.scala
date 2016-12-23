@@ -9,7 +9,7 @@ import com.github.dockerjava.api.model._
 import com.github.dockerjava.core.command.{BuildImageResultCallback, LogContainerResultCallback}
 import com.google.common.collect.Maps
 import com.toscaruntime.constant.{DeployerConstant, RuntimeConstant}
-import com.toscaruntime.exception.client.{AgentNotRunningException, DaemonResourcesNotFoundException, InvalidArgumentException}
+import com.toscaruntime.exception.client.{AgentNotRunningException, DaemonResourcesNotFoundException, ImageNotFoundException, InvalidArgumentException}
 import com.toscaruntime.rest.model.DeploymentInfoDTO
 import com.toscaruntime.util._
 import com.typesafe.config.{ConfigFactory, ConfigValueFactory}
@@ -85,11 +85,6 @@ class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
     }.toMap
   }
 
-  def copyDockerFile(outputPath: Path, deploymentId: String) = {
-    Files.copy(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), outputPath)
-    Files.write(outputPath, s"LABEL ${RuntimeConstant.DEPLOYMENT_ID_LABEL}=$deploymentId\n".getBytes("UTF-8"), StandardOpenOption.APPEND)
-  }
-
   /**
     * Create a deployment agent's docker image with custom setup
     *
@@ -98,11 +93,14 @@ class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
     * @param providerConfigPaths the path for the configuration of the provider
     * @return id of the created docker image
     */
-  def createAgentImage(deploymentId: String, bootstrap: Boolean, recipePath: Path, providerConfigPaths: List[Path], pluginConfigPaths: List[Path], bootstrapContext: Map[String, Any]) = {
+  def createAgentImage(deploymentId: String, fromImage: String, bootstrap: Boolean, recipePath: Path, providerConfigPaths: List[Path], pluginConfigPaths: List[Path], bootstrapContext: Map[String, Any]) = {
     val tempDockerImageBuildDir = Files.createTempDirectory("tosca")
+    logger.info(s"Temporary build directory for agent image $deploymentId from $fromImage can be found at $tempDockerImageBuildDir")
     val tempRecipePath = tempDockerImageBuildDir.resolve("deployment")
-    PathUtil.openAsDirectory(recipePath, FileUtil.copy(_, tempRecipePath))
-    copyDockerFile(tempDockerImageBuildDir.resolve("Dockerfile"), deploymentId)
+    PathUtil.openAsDirectory(recipePath, ScalaFileUtil.copyRecursive(_, tempRecipePath))
+    val tempDockerFile = tempDockerImageBuildDir.resolve("Dockerfile")
+    TextFilterUtil.filterStream(Thread.currentThread().getContextClassLoader.getResourceAsStream("Dockerfile"), tempDockerFile, Map("deployer.image" -> fromImage))
+    Files.write(tempDockerFile, s"LABEL ${RuntimeConstant.DEPLOYMENT_ID_LABEL}=$deploymentId\n".getBytes("UTF-8"), StandardOpenOption.APPEND)
     val deploymentConfig = ConfigFactory.empty()
       .withValue(DeployerConstant.DEPLOYMENT_NAME_KEY, ConfigValueFactory.fromAnyRef(deploymentId))
       .withValue(DeployerConstant.BOOTSTRAP_KEY, ConfigValueFactory.fromAnyRef(bootstrap))
@@ -110,17 +108,33 @@ class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
     // Copy provider configs
     val copiedProviderConfigPaths = tempDockerImageBuildDir.resolve("providers")
     Files.createDirectories(copiedProviderConfigPaths)
-    providerConfigPaths.foreach(providerConfigPath => FileUtil.copy(providerConfigPath, copiedProviderConfigPaths.resolve(providerConfigPath.getFileName)))
+    providerConfigPaths.foreach(providerConfigPath => ScalaFileUtil.copyRecursive(providerConfigPath, copiedProviderConfigPaths.resolve(providerConfigPath.getFileName)))
     // Change auto generated conf to regular conf
     ScalaFileUtil.listRecursive(copiedProviderConfigPaths, file => Files.isRegularFile(file) && file.getFileName.toString == "auto_generated_provider.conf").foreach(path => Files.move(path, path.resolveSibling("provider.conf")))
     // Copy plugin configs
     val copiedPluginConfigPaths = tempDockerImageBuildDir.resolve("plugins")
     Files.createDirectories(copiedPluginConfigPaths)
-    pluginConfigPaths.foreach(pluginConfigPath => FileUtil.copy(pluginConfigPath, copiedPluginConfigPaths.resolve(pluginConfigPath.getFileName)))
+    pluginConfigPaths.foreach(pluginConfigPath => ScalaFileUtil.copyRecursive(pluginConfigPath, copiedPluginConfigPaths.resolve(pluginConfigPath.getFileName)))
     if (bootstrapContext.nonEmpty) {
       yaml.dump(JavaScalaConversionUtil.toJavaMap(bootstrapContext), new FileWriter(tempDockerImageBuildDir.resolve("bootstrapContext.yaml").toFile))
     }
     dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(s"toscaruntime/deployment_$deploymentId").withNoCache(true).exec(new BuildImageResultCallback)
+  }
+
+  def createBaseImage(packagePath: Path, packageType: String, fromBaseImage: String, tag: String) = {
+    val tempDockerImageBuildDir = Files.createTempDirectory(packageType)
+    logger.info(s"Temporary build directory for $packageType $tag from $fromBaseImage can be found at $tempDockerImageBuildDir")
+    ScalaFileUtil.copyRecursive(packagePath, tempDockerImageBuildDir)
+    TextFilterUtil.filterStream(Files.newInputStream(packagePath.resolve("Dockerfile")), tempDockerImageBuildDir.resolve("Dockerfile"), Map(s"$packageType.baseImage" -> fromBaseImage))
+    dockerClient.buildImageCmd(tempDockerImageBuildDir.toFile).withTag(tag).withNoCache(true).exec(new BuildImageResultCallback)
+  }
+
+  def createDeployerImage(deployerPackagePath: Path, fromBaseImage: String, tag: String) = {
+    createBaseImage(deployerPackagePath, "deployer", fromBaseImage, tag)
+  }
+
+  def createProxyImage(proxyPackagePath: Path, fromBaseImage: String, tag: String) = {
+    createBaseImage(proxyPackagePath, "proxy", fromBaseImage, tag)
   }
 
   def updateAgentRecipe(deploymentId: String, recipePath: Path) = {
@@ -139,18 +153,59 @@ class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
     images.headOption
   }
 
-  def listDeploymentImages() = {
-    val images = dockerClient.listImagesCmd().withLabelFilter(Map(RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE).asJava).exec().asScala
+  private def listDockerImages(filters: Map[String, String]) = {
+    val images = dockerClient.listImagesCmd().withLabelFilter(filters.asJava).exec().asScala
       .filter(image => image.getRepoTags != null && image.getRepoTags.nonEmpty && !image.getRepoTags()(0).equals("<none>:<none>"))
     images.toList.map { image =>
       dockerClient.inspectImageCmd(image.getId).exec()
     }
   }
 
+  def listDeploymentImages() = {
+    listDockerImages(Map(
+      RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE,
+      RuntimeConstant.IMAGE_TYPE_LABEL -> RuntimeConstant.DEPLOYMENT_IMAGE_TYPE_VALUE
+    ))
+  }
+
+  def listDeployerImages() = {
+    listDockerImages(Map(
+      RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE,
+      RuntimeConstant.IMAGE_TYPE_LABEL -> RuntimeConstant.DEPLOYER_IMAGE_TYPE_VALUE
+    ))
+  }
+
+  def listProxyImages() = {
+    listDockerImages(Map(
+      RuntimeConstant.ORGANIZATION_LABEL -> RuntimeConstant.ORGANIZATION_VALUE,
+      RuntimeConstant.IMAGE_TYPE_LABEL -> RuntimeConstant.PROXY_IMAGE_TYPE_VALUE
+    ))
+  }
+
   def deleteDeploymentImage(deploymentId: String) = {
     getAgentImage(deploymentId).map { agentImage =>
       dockerClient.removeImageCmd(agentImage.getId).exec()
     }.orElse(throw new DaemonResourcesNotFoundException(s"Deployment image $deploymentId not found"))
+  }
+
+  def deleteImage(imageId: String, imageType: String) = {
+    val imageResponse = dockerClient.inspectImageCmd(imageId).exec()
+    val labels = imageResponse.getConfig.getLabels
+    if (labels != null &&
+      labels.get(RuntimeConstant.ORGANIZATION_LABEL) == RuntimeConstant.ORGANIZATION_VALUE &&
+      labels.get(RuntimeConstant.IMAGE_TYPE_LABEL) == imageType) {
+      dockerClient.removeImageCmd(imageId).exec()
+    } else {
+      throw new ImageNotFoundException(s"Image $imageId cannot be found or is not a $imageType image")
+    }
+  }
+
+  def deleteDeployerImage(imageId: String) = {
+    deleteImage(imageId, RuntimeConstant.DEPLOYER_IMAGE_TYPE_VALUE)
+  }
+
+  def deleteProxyImage(imageId: String) = {
+    deleteImage(imageId, RuntimeConstant.PROXY_IMAGE_TYPE_VALUE)
   }
 
   def cleanDanglingImages() = {
@@ -225,7 +280,7 @@ class DockerDaemonClient(var config: DockerDaemonConfig) extends LazyLogging {
         output.print(new String(item.getPayload, "UTF-8"))
       }
     }
-    DockerUtil.showLog(dockerClient, containerId, true, 1000, logCallBack)
+    DockerUtil.showLog(dockerClient, containerId, true, Integer.MAX_VALUE, logCallBack)
     logCallBack
   }
 

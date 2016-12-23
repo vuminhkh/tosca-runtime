@@ -1,5 +1,7 @@
 package com.toscaruntime.artifact;
 
+import org.apache.commons.lang.StringUtils;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -51,5 +53,15 @@ public class ConnectionUtil {
     public static String readInterpreterCommand(Reader script) throws IOException {
         String shebang = readSheBang(script);
         return shebang.substring(2);
+    }
+
+    public static String truncateArtifactName(String name, int maxLength) {
+        if (StringUtils.isBlank(name)) {
+            return "Unknown";
+        } else if (name.length() > maxLength) {
+            return name.substring(0, maxLength) + "...";
+        } else {
+            return name;
+        }
     }
 }

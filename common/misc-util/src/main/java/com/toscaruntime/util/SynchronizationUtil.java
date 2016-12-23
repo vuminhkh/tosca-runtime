@@ -23,7 +23,6 @@ public class SynchronizationUtil {
                 try {
                     Thread.sleep(timeUnit.toMillis(coolDown));
                 } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
                     throw new InterruptedByUserException("Retry interrupted at " + currentTimes, e);
                 }
             }

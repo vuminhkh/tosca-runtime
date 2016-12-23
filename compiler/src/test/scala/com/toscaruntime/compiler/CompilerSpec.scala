@@ -1,7 +1,5 @@
 package com.toscaruntime.compiler
 
-import java.nio.file.Paths
-
 import _root_.tosca.nodes.Root
 import com.toscaruntime.compiler.tosca.ParsedValue
 import com.toscaruntime.util.{ClassLoaderUtil, GitClient}

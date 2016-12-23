@@ -10,6 +10,7 @@ import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.exception.UnexpectedException
 import com.toscaruntime.rest.client.ToscaRuntimeClient
 import com.toscaruntime.util.DockerUtil
+import com.typesafe.config.ConfigFactory
 import sbt._
 
 import scala.collection.JavaConverters._
@@ -24,11 +25,10 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
   /** Defines the entry point for the application.
     * The call to `initialState` sets up the application.
     * The call to runLogged starts command processing. */
-  def run(configuration: xsbti.AppConfiguration): xsbti.MainResult =
-  MainLoop.runLogged(initialState(configuration))
+  def run(configuration: xsbti.AppConfiguration): xsbti.MainResult = MainLoop.runLogged(initialState(configuration))
 
   def buildDockerClient(basedir: Path) = {
-    val existingConfiguration = UseCommand.getConfiguration(basedir).asJava
+    val existingConfiguration = DaemonCommand.getConfiguration(basedir).asJava
     if (!existingConfiguration.isEmpty) {
       val existingClient = new ToscaRuntimeClient(DockerUtil.getDockerDaemonConfig(existingConfiguration))
       println(s"Begin to use docker daemon at [${DockerUtil.getDockerHostName(existingConfiguration)}] with api version [${existingClient.dockerVersion}]")
@@ -38,7 +38,7 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       if ("true".equals(System.getProperty("toscaruntime.clientMode"))) {
         // Auto configure by copying default machine's certificates to provider default conf only when the flag toscaruntime.clientMode is set
         // This will ensure that when we perform sbt build, the cert of the machine will not be copied to the build
-        UseCommand.switchConfiguration(defaultConfig, basedir)
+        DaemonCommand.switchConfiguration(defaultConfig, basedir)
       }
       new ToscaRuntimeClient(defaultConfig)
     }
@@ -59,13 +59,14 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
     * and initial commands to run.  See the State API documentation for details. */
   def initialState(configuration: xsbti.AppConfiguration): State = {
     val commandDefinitions = Seq(
-      CsarsCommand.instance,
-      DeploymentsCommand.instance,
-      UseCommand.instance,
-      UseCommand.useDefaultInstance,
+      CsarCommand.instance,
+      DeployerCommand.instance,
+      ProxyCommand.instance,
+      DeploymentCommand.instance,
+      DaemonCommand.instance,
       BootStrapCommand.instance,
       TeardownCommand.instance,
-      AgentsCommand.instance,
+      AgentCommand.instance,
       BasicCommands.shell,
       BasicCommands.history,
       BasicCommands.nop,
@@ -73,10 +74,12 @@ class ToscaRuntimeCLI extends xsbti.AppMain {
       BasicCommands.exit)
     val basedir = Paths.get(System.getProperty("toscaruntime.basedir", System.getProperty("user.dir") + "/..")).toAbsolutePath
     val osName = System.getProperty("os.name")
+    val cliConfig = ConfigFactory.parseFile(basedir.resolve("conf").resolve("toscaruntime.conf").toFile)
     println(s"Starting tosca runtime cli on [$osName] operating system from [$basedir]")
     val attributes = AttributeMap(
       AttributeEntry(Attributes.clientAttribute, buildDockerClient(basedir)),
-      AttributeEntry(Attributes.basedirAttribute, basedir)
+      AttributeEntry(Attributes.basedirAttribute, basedir),
+      AttributeEntry(Attributes.config, cliConfig)
     )
     // FIXME Installing normative types and bootstrap types in repository should be done in the build and not in the code
     val repositoryDir = basedir.resolve("repository")

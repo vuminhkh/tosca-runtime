@@ -93,7 +93,7 @@ public class ShellExecutor implements Executor {
         Path localPath = Paths.get(recipeLocation).resolve(operationArtifactPath);
         String statusCodeToken = UUID.randomUUID().toString();
         String environmentVariablesToken = UUID.randomUUID().toString();
-        try (OutputHandler outputHandler = new ShellOutputHandler(statusCodeToken, environmentVariablesToken, nodeId + "/" + operation, localPath.getFileName().toString())) {
+        try (OutputHandler outputHandler = new ShellOutputHandler(statusCodeToken, environmentVariablesToken, nodeId, operation, localPath.getFileName().toString())) {
             String sheBang = ConnectionUtil.readSheBang(localPath);
             String artifactWrapper = ShellExecutorUtil.createArtifactWrapper(remoteArtifactPath, statusCodeToken, environmentVariablesToken, sheBang);
             // Set env

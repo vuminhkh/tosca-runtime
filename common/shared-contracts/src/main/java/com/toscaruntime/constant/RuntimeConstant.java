@@ -7,6 +7,10 @@ public class RuntimeConstant {
     public static final String DEPLOYMENT_ID_LABEL = "com.toscaruntime.deploymentId";
     public static final String ORGANIZATION_LABEL = "organization";
     public static final String ORGANIZATION_VALUE = "toscaruntime.com";
+    public static final String IMAGE_TYPE_LABEL = "com.toscaruntime.imageType";
+    public static final String DEPLOYER_IMAGE_TYPE_VALUE = "deployer";
+    public static final String DEPLOYMENT_IMAGE_TYPE_VALUE = "deployment";
+    public static final String PROXY_IMAGE_TYPE_VALUE = "proxy";
     public static final String PROVIDER_TYPE_LABEL = "com.toscaruntime.providerType";
     public static final String PROVIDER_TARGET_LABEL = "com.toscaruntime.providerTarget";
     public static final String AGENT_TYPE_LABEL = "com.toscaruntime.agentType";

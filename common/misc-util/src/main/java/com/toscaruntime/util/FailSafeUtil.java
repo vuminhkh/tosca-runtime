@@ -90,7 +90,6 @@ public class FailSafeUtil {
                         Thread.sleep(timeUnit.toMillis(coolDownPeriod));
                     } catch (InterruptedException ie) {
                         log.warn("Retry interrupted at " + currentTimes, e);
-                        Thread.currentThread().interrupt();
                         throw new InterruptedByUserException("Retry interrupted at " + currentTimes, ie);
                     }
                 } else {

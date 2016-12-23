@@ -1,10 +1,10 @@
 package com.toscaruntime.runtime
 
-import java.nio.file.{Paths, StandardCopyOption}
+import java.nio.file.Paths
 
 import com.toscaruntime.compiler.{AbstractSpec, Compiler}
 import com.toscaruntime.deployment.DeploymentPersister
-import com.toscaruntime.util.{FileUtil, GitClient}
+import com.toscaruntime.util.{FileUtil, GitClient, ScalaFileUtil}
 import org.mockito.Mockito
 
 class DeployerSpec extends AbstractSpec {
@@ -29,7 +29,7 @@ class DeployerSpec extends AbstractSpec {
 
       val wordpressTopologyOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyWordpressDocker/")
       FileUtil.delete(assemblyPath.resolve("topologyWordpressDocker/providers/docker/src/main/java/com/toscaruntime/docker/DockerProviderHook.java"))
-      FileUtil.copy(Paths.get("providers/mock/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyWordpressDocker/providers/docker/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), StandardCopyOption.REPLACE_EXISTING)
+      ScalaFileUtil.copyRecursive(Paths.get("providers/mock/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyWordpressDocker/providers/docker/src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "wordpress",
         deploymentAssemblyFolder = wordpressTopologyOutput,
@@ -78,7 +78,7 @@ class DeployerSpec extends AbstractSpec {
 
       val tomcatApacheOutput = assemblyDockerTopologyAndAssertCompilationResult("csars/topologyApacheLoadBalancerDocker/")
       FileUtil.delete(assemblyPath.resolve("topologyApacheLoadBalancerDocker/providers/docker/src/main/java/com/toscaruntime/docker/DockerProviderHook.java"))
-      FileUtil.copy(Paths.get("providers/mock/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyApacheLoadBalancerDocker/providers/docker/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), StandardCopyOption.REPLACE_EXISTING)
+      ScalaFileUtil.copyRecursive(Paths.get("providers/mock/src/main/java/com/toscaruntime/mock/MockProviderHook.java"), assemblyPath.resolve("topologyApacheLoadBalancerDocker/providers/docker/src/main/java/com/toscaruntime/mock/MockProviderHook.java"))
       val deployment = Deployer.createDeployment(
         deploymentName = "tomcat-apache",
         deploymentAssemblyFolder = tomcatApacheOutput,

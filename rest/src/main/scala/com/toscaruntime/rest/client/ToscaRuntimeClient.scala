@@ -228,20 +228,36 @@ class ToscaRuntimeClient(config: DockerDaemonConfig) extends LazyLogging {
     }
   }
 
-  def createDeploymentImage(deploymentId: String, recipePath: Path, providerConfigPaths: List[Path], pluginConfigPaths: List[Path], bootstrap: Option[Boolean]) = {
+  def createDeploymentImage(deploymentId: String, fromImage: String, recipePath: Path, providerConfigPaths: List[Path], pluginConfigPaths: List[Path], bootstrap: Option[Boolean]) = {
     // TODO asynchronous
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
     // By default if the proxy url is empty then we are not in a bootstrap context, then it means we are bootstrapping
-    daemonClient.createAgentImage(deploymentId, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, providerConfigPaths, pluginConfigPaths, bootstrapContext)
+    daemonClient.createAgentImage(deploymentId, fromImage, bootstrap.getOrElse(proxyURLOpt.isEmpty), recipePath, providerConfigPaths, pluginConfigPaths, bootstrapContext)
   }
 
-  def createBootstrapImage(provider: String, recipePath: Path, providerConfigPath: List[Path], pluginConfigPath: List[Path], target: String) = {
+  def createBootstrapImage(provider: String, fromImage: String, recipePath: Path, providerConfigPath: List[Path], pluginConfigPath: List[Path], target: String) = {
     val bootstrapContext = Await.result(getBootstrapContext, 365 days)
-    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), bootstrap = true, recipePath, providerConfigPath, pluginConfigPath, bootstrapContext)
+    daemonClient.createAgentImage(generateDeploymentIdForBootstrap(provider, target), fromImage, bootstrap = true, recipePath, providerConfigPath, pluginConfigPath, bootstrapContext)
+  }
+
+  def createDeployerImage(deployerPackagePath: Path, fromBaseImage: String, tag: String) = {
+    daemonClient.createDeployerImage(deployerPackagePath, fromBaseImage, tag)
+  }
+
+  def createProxyImage(proxyPackagePath: Path, fromBaseImage: String, tag: String) = {
+    daemonClient.createProxyImage(proxyPackagePath, fromBaseImage, tag)
   }
 
   def listDeploymentImages() = {
     daemonClient.listDeploymentImages()
+  }
+
+  def listDeployerImages() = {
+    daemonClient.listDeployerImages()
+  }
+
+  def listProxyImages() = {
+    daemonClient.listProxyImages()
   }
 
   def cleanDanglingImages() = {
@@ -250,6 +266,14 @@ class ToscaRuntimeClient(config: DockerDaemonConfig) extends LazyLogging {
 
   def deleteDeploymentImage(deploymentId: String) = {
     daemonClient.deleteDeploymentImage(deploymentId)
+  }
+
+  def deleteDeployerImage(deploymentId: String) = {
+    daemonClient.deleteDeployerImage(deploymentId)
+  }
+
+  def deleteProxyImage(deploymentId: String) = {
+    daemonClient.deleteProxyImage(deploymentId)
   }
 
   def deleteBootstrapImage(provider: String, target: String) = {

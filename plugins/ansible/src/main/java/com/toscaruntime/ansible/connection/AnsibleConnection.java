@@ -67,6 +67,7 @@ public abstract class AnsibleConnection implements Connection {
         String portRaw = PropertyUtil.getPropertyAsString(properties, Connection.PORT);
         this.port = StringUtils.isNotBlank(portRaw) ? Integer.parseInt(portRaw) : null;
         String dataDir = PropertyUtil.getPropertyAsString(properties, DATA_DIR, Paths.get(getHomeDirOnControlMachine()).resolve(".toscaruntime").toString());
+        log.info("For " + user + "@" + target + " using data dir " + dataDir);
         this.userDataDir = Paths.get(dataDir).resolve(this.target.replaceAll("\\W", "_"));
         // Create folder for keys
         String pemPath = PropertyUtil.getPropertyAsString(properties, Connection.KEY_PATH);
@@ -98,10 +99,11 @@ public abstract class AnsibleConnection implements Connection {
 
     private String getHomeDirOnControlMachine() {
         try {
-            return CommandUtil.evaluate(controlMachineConnection, "echo $HOME");
+            String homeDir = CommandUtil.evaluate(controlMachineConnection, "echo $HOME");
+            return StringUtils.isBlank(homeDir) ? "/tmp" : homeDir;
         } catch (Exception r) {
-            log.warn("Unable to retrieve home directory on control machine", r.getMessage());
-            return "";
+            log.warn("Unable to retrieve home directory on control machine", r);
+            return "/tmp";
         }
     }
 
@@ -124,9 +126,9 @@ public abstract class AnsibleConnection implements Connection {
     }
 
     @Override
-    public void upload(String localPath, String remotePath) {
+    public void upload(String localPath, String remoteDirectory) {
         // Upload to control machine and not the target
-        controlMachineConnection.upload(localPath, this.userDataDir.resolve(remotePath).toString());
+        controlMachineConnection.upload(localPath, this.userDataDir.resolve(remoteDirectory).toString());
     }
 
     private String getTargetWithPort() {

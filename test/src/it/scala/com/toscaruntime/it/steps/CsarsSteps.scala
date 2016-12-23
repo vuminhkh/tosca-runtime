@@ -3,7 +3,7 @@ package com.toscaruntime.it.steps
 import java.net.URL
 import java.nio.file.{Files, Path, Paths}
 
-import com.toscaruntime.cli.command.CsarsCommand
+import com.toscaruntime.cli.command.CsarCommand
 import com.toscaruntime.compiler.Compiler
 import com.toscaruntime.compiler.tosca.CompilationResult
 import com.toscaruntime.it.TestConstant._
@@ -48,7 +48,7 @@ object CsarsSteps extends MustMatchers with LazyLogging {
   }
 
   def listCsarWithName(csarName: String) = {
-    CsarsCommand.listCsars(repositoryPath, Some(csarName))
+    CsarCommand.listCsars(repositoryPath, Some(csarName))
   }
 
   def assertCsarFound(csarsFound: Seq[(Path, Path)], csarName: String, csarVersion: String) = {
@@ -68,6 +68,6 @@ object CsarsSteps extends MustMatchers with LazyLogging {
   }
 
   def deleteCsar(csarName: String, csarVersion: String) = {
-    CsarsCommand.deleteCsar(repositoryPath, csarName, csarVersion)
+    CsarCommand.deleteCsar(repositoryPath, csarName, csarVersion)
   }
 }

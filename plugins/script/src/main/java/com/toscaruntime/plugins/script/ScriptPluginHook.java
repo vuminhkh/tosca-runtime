@@ -10,9 +10,9 @@ import com.toscaruntime.plugins.script.shell.ShellExecutor;
 import com.toscaruntime.plugins.script.util.ScriptUtil;
 import com.toscaruntime.sdk.AbstractPluginHook;
 import com.toscaruntime.sdk.Deployment;
-import com.toscaruntime.util.DockerConnection;
+import com.toscaruntime.connection.DockerConnection;
 import com.toscaruntime.util.PropertyUtil;
-import com.toscaruntime.util.SSHConnection;
+import com.toscaruntime.connection.SSHConnection;
 import tosca.nodes.Compute;
 import tosca.nodes.Root;
 

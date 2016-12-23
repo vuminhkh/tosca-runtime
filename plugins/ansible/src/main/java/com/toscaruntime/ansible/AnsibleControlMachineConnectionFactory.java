@@ -2,10 +2,11 @@ package com.toscaruntime.ansible;
 
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.configuration.ConnectionFactory;
+import com.toscaruntime.connection.DockerConnection;
+import com.toscaruntime.connection.LocalConnection;
+import com.toscaruntime.connection.SSHConnection;
 import com.toscaruntime.exception.deployment.plugins.PluginConfigurationException;
-import com.toscaruntime.util.DockerConnection;
 import com.toscaruntime.util.PropertyUtil;
-import com.toscaruntime.util.SSHConnection;
 
 import java.util.Map;
 
@@ -15,6 +16,10 @@ public class AnsibleControlMachineConnectionFactory implements ConnectionFactory
     public Connection newConnection(Map<String, Object> properties, Map<String, Object> bootstrapContext, boolean multipleTargets) {
         String connectionType = PropertyUtil.getMandatoryPropertyAsString(properties, Connection.CONNECTION_TYPE);
         switch (connectionType) {
+            case "local":
+                LocalConnection localConnection = new LocalConnection();
+                localConnection.initialize(properties);
+                return localConnection;
             case "ssh":
                 SSHConnection sshConnection = new SSHConnection();
                 sshConnection.initialize(properties);

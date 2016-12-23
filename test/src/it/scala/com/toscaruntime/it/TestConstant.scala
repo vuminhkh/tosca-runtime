@@ -24,6 +24,8 @@ object TestConstant {
 
   val bootstrapPath = testDataPath.resolve("bootstrap")
 
+  val cliConfigPath = testDataPath.resolve("conf").resolve("toscaruntime.conf")
+
   val testConfigPath = Paths.get("test-config")
 
   val testProvidersConfigPath = testConfigPath.resolve("conf").resolve("providers")

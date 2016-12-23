@@ -17,6 +17,8 @@ public interface Connection extends Closeable {
 
     String CONNECTION_TYPE = "connection_type";
 
+    String SHELL = "shell";
+
     /**
      * Called at the beginning to initialize the connection
      *
@@ -25,12 +27,15 @@ public interface Connection extends Closeable {
     void initialize(Map<String, Object> properties);
 
     /**
-     * Upload file / folder from localPath to remotePath
+     * Upload file / folder from localPath to remoteDirectory.
+     * If localPath is a file then the file will be copied under the remote directory with the same name.
+     * If localPath is a directory then all of its content will be copied under the remote directory.
+     * The remote directory will be created if not existing, and will be overwritten if already exists.
      *
-     * @param localPath  the local file path
-     * @param remotePath the remote target path
+     * @param localPath       the local file path
+     * @param remoteDirectory the remote directory where the file will be copied to
      */
-    void upload(String localPath, String remotePath);
+    void upload(String localPath, String remoteDirectory);
 
     /**
      * Execute a script on the connected host

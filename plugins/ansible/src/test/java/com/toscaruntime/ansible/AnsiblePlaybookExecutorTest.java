@@ -14,9 +14,9 @@ import org.junit.runners.JUnit4;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.toscaruntime.util.DockerTestUtilities.testWithAnsibleControlMachine;
-import static com.toscaruntime.util.DockerTestUtilities.testWithBasicContainer;
-import static com.toscaruntime.util.DockerTestUtilities.testWithSSHEnabledContainer;
+import static com.toscaruntime.connection.DockerTestUtilities.testWithAnsibleControlMachine;
+import static com.toscaruntime.connection.DockerTestUtilities.testWithBasicContainer;
+import static com.toscaruntime.connection.DockerTestUtilities.testWithSSHEnabledContainer;
 
 @RunWith(JUnit4.class)
 public class AnsiblePlaybookExecutorTest {

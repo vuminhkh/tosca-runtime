@@ -38,6 +38,7 @@ object BootStrapCommand extends LazyLogging {
   )
 
   def createBootstrapAgent(providerName: String,
+                           fromImage: String,
                            target: String,
                            client: ToscaRuntimeClient,
                            workDir: Path,
@@ -68,6 +69,7 @@ object BootStrapCommand extends LazyLogging {
         }
         val image = client.createBootstrapImage(
           providerName,
+          fromImage,
           deploymentWorkDir,
           List(providerConfigPath),
           pluginConfigPaths,
@@ -88,6 +90,7 @@ object BootStrapCommand extends LazyLogging {
     var fail = false
     val client = state.attributes.get(Attributes.clientAttribute).get
     val basedir = state.attributes.get(Attributes.basedirAttribute).get
+    val config = state.attributes.get(Attributes.config).get
 
     val providerName = argsMap.getOrElse(Args.providerOpt, ProviderConstant.OPENSTACK)
     val target = argsMap.getOrElse(Args.targetOpt, ProviderConstant.DEFAULT_TARGET)
@@ -102,7 +105,8 @@ object BootStrapCommand extends LazyLogging {
       val bootstrapTopology = basedir.resolve("bootstrap").resolve(providerName).resolve(target).resolve("archive")
       val workDir = basedir.resolve("work")
       val repositoryPath = basedir.resolve("repository")
-      val agentContainerId = createBootstrapAgent(providerName, target, client, workDir, bootstrapTopology, providerConfigPath, pluginConfBase, repositoryPath, if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None)
+      val fromImage = config.getString("deployer.image")
+      val agentContainerId = createBootstrapAgent(providerName, fromImage, target, client, workDir, bootstrapTopology, providerConfigPath, pluginConfBase, repositoryPath, if (Files.exists(bootstrapInputPath)) Some(bootstrapInputPath) else None)
       val logCallback = client.tailContainerLog(agentContainerId, System.out)
       try {
         AgentUtil.waitForBootstrapAgent(client, providerName, target)
@@ -113,7 +117,7 @@ object BootStrapCommand extends LazyLogging {
       }
     } catch {
       case e: Throwable =>
-        println(s"Error ${e.getMessage}")
+        println(s"Error ${e.getMessage}, see log for stack trace")
         logger.error("Command finished with error", e)
         fail = true
     }

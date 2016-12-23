@@ -19,7 +19,8 @@ public class CommandUtil {
     public static String evaluate(Connection connection, String command) {
         String marker = UUID.randomUUID().toString();
         final AtomicReference<StringBuilder> valueHolder = new AtomicReference<>(new StringBuilder());
-        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler() {
+        try (AbstractOutputHandler outputHandler = new AbstractOutputHandler() {
+
             private AtomicBoolean beginCapture = new AtomicBoolean(false);
 
             @Override

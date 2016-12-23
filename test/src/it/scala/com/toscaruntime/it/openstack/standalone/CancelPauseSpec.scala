@@ -2,7 +2,7 @@ package com.toscaruntime.it.openstack.standalone
 
 import java.lang.Thread._
 
-import com.toscaruntime.cli.command.AgentsCommand
+import com.toscaruntime.cli.command.AgentCommand
 import com.toscaruntime.exception.client.WorkflowExecutionFailureException
 import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.AgentsSteps._
@@ -31,7 +31,7 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
       createDeploymentImage("sleep", openstackProvider)
 
       When("I deploy it asynchronously")
-      val finishFuture = AgentsCommand.deploy(Context.client, "sleep")._2
+      val finishFuture = AgentCommand.deploy(Context.client, "sleep")._2
 
       And("I wait some seconds for the deployment to begin to freeze")
       sleep(180000)
@@ -78,7 +78,7 @@ class CancelPauseSpec extends AbstractSpec with MustMatchers {
       createDeploymentImage("sleep", openstackProvider)
 
       When("I deploy it asynchronously")
-      AgentsCommand.deploy(Context.client, "sleep")._2
+      AgentCommand.deploy(Context.client, "sleep")._2
 
       And("I wait some seconds for the deployment to begin to freeze")
       sleep(180000)

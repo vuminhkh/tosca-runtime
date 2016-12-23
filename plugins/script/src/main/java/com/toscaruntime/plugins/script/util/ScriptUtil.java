@@ -3,9 +3,9 @@ package com.toscaruntime.plugins.script.util;
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.common.nodes.DockerContainer;
 import com.toscaruntime.common.nodes.LinuxCompute;
+import com.toscaruntime.connection.DockerConnection;
 import com.toscaruntime.exception.deployment.plugins.PluginConfigurationException;
-import com.toscaruntime.util.DockerConnection;
-import com.toscaruntime.util.SSHConnection;
+import com.toscaruntime.connection.SSHConnection;
 import tosca.nodes.Root;
 
 public class ScriptUtil {

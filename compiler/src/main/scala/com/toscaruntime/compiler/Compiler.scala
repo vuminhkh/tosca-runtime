@@ -10,7 +10,7 @@ import com.toscaruntime.compiler.util.CompilerUtil
 import com.toscaruntime.constant.CompilerConstant
 import com.toscaruntime.exception.compilation.{DependencyNotFoundException, EmptyArchiveException, InvalidTopologyException}
 import com.toscaruntime.tosca.ToscaVersion
-import com.toscaruntime.util.FileUtil
+import com.toscaruntime.util.{FileUtil, ScalaFileUtil}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.JavaConverters._
@@ -276,11 +276,11 @@ object Compiler extends LazyLogging {
             val isProvider = CompilerUtil.isProviderTypes(csar.csarName)
             val isPlugin = CompilerUtil.isPluginTypes(csar.csarName)
             if (isProvider) {
-              FileUtil.copy(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
+              ScalaFileUtil.copyRecursive(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PROVIDER_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)))
             } else if (isPlugin) {
-              FileUtil.copy(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
+              ScalaFileUtil.copyRecursive(assemblyDependency, outputPath.resolve(CompilerConstant.ASSEMBLY_PLUGIN_FOLDER).resolve(CompilerUtil.pluginNameFromCsarName(csar.csarName)))
             } else {
-              FileUtil.copy(assemblyDependency, recipePath, StandardCopyOption.REPLACE_EXISTING)
+              ScalaFileUtil.copyRecursive(assemblyDependency, recipePath)
             }
         }
         if (inputs.isDefined) Files.copy(inputs.get, outputPath.resolve("inputs.yaml"), StandardCopyOption.REPLACE_EXISTING)

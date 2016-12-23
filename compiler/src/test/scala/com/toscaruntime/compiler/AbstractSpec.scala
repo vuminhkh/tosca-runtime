@@ -4,7 +4,7 @@ import java.nio.file.{Files, Path, Paths}
 
 import com.toscaruntime.compiler.tosca.CompilationResult
 import com.toscaruntime.constant.CompilerConstant
-import com.toscaruntime.util.{ClassLoaderUtil, FileUtil}
+import com.toscaruntime.util.{ClassLoaderUtil, FileUtil, ScalaFileUtil}
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{BeforeAndAfter, MustMatchers, WordSpec}
 
@@ -46,9 +46,9 @@ class AbstractSpec extends WordSpec with MustMatchers with LazyLogging with Befo
   def installProvider(providerName: String) = {
     val commonProviderPath = csarsPath.resolve("toscaruntime-common-provider-types").resolve("${version}").resolve("src").resolve("main").resolve("resources")
     if (!Files.isDirectory(commonProviderPath)) {
-      FileUtil.copy(Paths.get("providers").resolve("common").resolve("src").resolve("main").resolve("resources"), commonProviderPath)
+      ScalaFileUtil.copyRecursive(Paths.get("providers").resolve("common").resolve("src").resolve("main").resolve("resources"), commonProviderPath)
     }
-    FileUtil.copy(Paths.get("providers").resolve(providerName), csarsPath.resolve("toscaruntime-" + providerName + "-provider-types").resolve("${version}"))
+    ScalaFileUtil.copyRecursive(Paths.get("providers").resolve(providerName), csarsPath.resolve("toscaruntime-" + providerName + "-provider-types").resolve("${version}"))
   }
 
   def assemblyDockerTopologyAndAssertCompilationResult(dockerTopology: String) = {

@@ -20,6 +20,11 @@ public interface OutputHandler extends Closeable {
     void handleStdErr(InputStream stdErr);
 
     /**
+     * Wait until the stdout and stderr are totally consumed
+     */
+    void waitForOutputToBeConsumed() throws ExecutionException, InterruptedException;
+
+    /**
      * Retrieve the outputs in a blocking manner
      *
      * @return the captured outputs
@@ -33,5 +38,8 @@ public interface OutputHandler extends Closeable {
      */
     OperationOutput tryGetOperationOutput();
 
+    /**
+     * Release all resources created by this output handler
+     */
     void close();
 }

@@ -1,13 +1,15 @@
 package com.toscaruntime.plugins.script.shell;
 
+import org.slf4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.concurrent.Callable;
 
-import org.slf4j.Logger;
-
 public class ShellStdOutLogger extends ArtifactOutputProcessor implements Callable<Void> {
+
+    private String node;
 
     private String operationName;
 
@@ -17,8 +19,9 @@ public class ShellStdOutLogger extends ArtifactOutputProcessor implements Callab
 
     private InputStream scriptOutput;
 
-    public ShellStdOutLogger(String operationName, String scriptName, Logger logger, String statusToken, String environmentVariablesToken, InputStream scriptOutput) {
+    public ShellStdOutLogger(String node, String operationName, String scriptName, Logger logger, String statusToken, String environmentVariablesToken, InputStream scriptOutput) {
         super(statusToken, environmentVariablesToken);
+        this.node = node;
         this.operationName = operationName;
         this.scriptName = scriptName;
         this.logger = logger;
@@ -33,7 +36,7 @@ public class ShellStdOutLogger extends ArtifactOutputProcessor implements Callab
                 try {
                     String processedLine = processNewLine(line);
                     if (processedLine != null) {
-                        logger.info("[{}][{}][stdout] {}", operationName, scriptName, processedLine);
+                        logger.info("[{}[{}][{}][stdout] {}", node, operationName, scriptName, processedLine);
                     }
                 } catch (Exception e) {
                     logger.warn("Could not process correctly new output line", e);

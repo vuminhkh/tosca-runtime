@@ -228,7 +228,7 @@ object CodeGenerator extends LazyLogging {
     PathUtil.openAsDirectory(outputPath, recipeOutputPath => {
       val compilationPath = csarPath :+ csar
       // Copy original archive to the compiled output
-      FileUtil.copy(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(csar.csarName)), StandardCopyOption.REPLACE_EXISTING)
+      ScalaFileUtil.copyRecursive(originalArchivePath, recipeOutputPath.resolve(CompilerConstant.ARCHIVE_FOLDER).resolve(CompilerUtil.normalizeCSARName(csar.csarName)))
       // Generate Java classes for types
       val generatedClasses = generateTypesForCsar(csar, recipeOutputPath.resolve(CompilerConstant.SOURCE_FOLDER), csar.csarName, csarPath)
       // Compile generated Java sources and put classes in target folder

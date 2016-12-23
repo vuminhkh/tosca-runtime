@@ -2,7 +2,7 @@ package com.toscaruntime.it.steps
 
 import java.nio.file.Path
 
-import com.toscaruntime.cli.command.{BootStrapCommand, DeploymentsCommand, TeardownCommand}
+import com.toscaruntime.cli.command.{BootStrapCommand, DeploymentCommand, TeardownCommand}
 import com.toscaruntime.cli.util.AgentUtil
 import com.toscaruntime.it.Context
 import com.toscaruntime.it.TestConstant._
@@ -18,12 +18,13 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
   def createDeploymentImage(name: String, provider: String = dockerProvider, config: String = standalone, input: Option[Path] = None, deploymentId: Option[String] = None) = {
     val topologyPath = getTopologyPath(name, provider, config)
     val inputOpt = input.orElse(Context.getInput(provider))
-    DeploymentsCommand.createDeploymentImage(
+    DeploymentCommand.createDeploymentImage(
       topologyPath,
       inputOpt,
       repositoryPath,
       assemblyPath,
       deploymentId.getOrElse(name),
+      Context.config.getString("deployer.image"),
       Context.client,
       testProvidersConfigPath,
       testPluginsConfigPath,
@@ -33,6 +34,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
 
   def bootstrap(provider: String = openstackProvider, target: String = swarmTarget) = {
     BootStrapCommand.createBootstrapAgent(provider,
+      Context.config.getString("deployer.image"),
       target,
       Context.client,
       assemblyPath,
@@ -51,7 +53,7 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
   }
 
   def listDeploymentImages() = {
-    DeploymentsCommand.listDeploymentImages(Context.client)
+    DeploymentCommand.listDeploymentImages(Context.client)
   }
 
   def assertDeploymentImageListContain(list: List[List[String]], deploymentName: String) = {
@@ -68,6 +70,6 @@ object DeploymentsSteps extends MustMatchers with LazyLogging {
   }
 
   def deleteDeploymentImage(deploymentName: String) = {
-    DeploymentsCommand.deleteDeploymentImage(Context.client, deploymentName)
+    DeploymentCommand.deleteDeploymentImage(Context.client, deploymentName)
   }
 }

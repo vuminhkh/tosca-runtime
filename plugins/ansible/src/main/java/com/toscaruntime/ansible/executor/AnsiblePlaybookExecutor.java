@@ -4,7 +4,7 @@ import com.toscaruntime.ansible.connection.AnsibleConnection;
 import com.toscaruntime.ansible.util.AnsibleExecutorUtil;
 import com.toscaruntime.artifact.Connection;
 import com.toscaruntime.artifact.Executor;
-import com.toscaruntime.artifact.SimpleOutputHandler;
+import com.toscaruntime.artifact.SimpleArtifactOutputHandler;
 import com.toscaruntime.exception.deployment.artifact.ArtifactExecutionException;
 import com.toscaruntime.exception.deployment.artifact.ArtifactIOException;
 import com.toscaruntime.exception.deployment.artifact.BadExecutorConfigurationException;
@@ -61,7 +61,7 @@ public class AnsiblePlaybookExecutor implements Executor {
         connection.upload(artifactWrapper.toString(), tempLocation);
         Map<String, Object> artifactInputs = ArtifactExecutionUtil.processDeploymentArtifacts(deploymentArtifacts, connection.getUserDataDir().resolve(remoteLocation).toString(), "/");
         artifactInputs.putAll(inputs);
-        try (SimpleOutputHandler outputHandler = new SimpleOutputHandler()) {
+        try (SimpleArtifactOutputHandler outputHandler = new SimpleArtifactOutputHandler(nodeId, operation, operationArtifactPath, log)) {
             Integer statusCode = connection.executeRemoteArtifact(Paths.get(tempLocation).resolve(artifactWrapper.getFileName()).toString(), artifactInputs, outputHandler);
             if (statusCode != 0) {
                 throw new ArtifactExecutionException(String.format("[%s][%s][%s]", nodeId, operation, operationArtifactPath) + " : Playbook execution failed with exit status " + statusCode);

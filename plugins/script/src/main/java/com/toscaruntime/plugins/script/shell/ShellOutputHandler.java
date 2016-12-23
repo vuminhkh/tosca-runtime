@@ -30,6 +30,8 @@ public class ShellOutputHandler implements OutputHandler {
 
     private Future<?> stdErrFuture;
 
+    private String node;
+
     private String operation;
 
     private String scriptName;
@@ -42,21 +44,22 @@ public class ShellOutputHandler implements OutputHandler {
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
             t.setDaemon(true);
-            t.setName("Bash_Executor_Thread_" + count.incrementAndGet());
+            t.setName("ShellOutputConsumer" + count.incrementAndGet());
             return t;
         }
     });
 
-    public ShellOutputHandler(String statusCodeToken, String environmentVariablesToken, String operation, String scriptName) {
+    public ShellOutputHandler(String statusCodeToken, String environmentVariablesToken, String node, String operation, String scriptName) {
         this.statusCodeToken = statusCodeToken;
         this.environmentVariablesToken = environmentVariablesToken;
+        this.node = node;
         this.operation = operation;
         this.scriptName = scriptName;
     }
 
     @Override
     public void handleStdOut(InputStream stdOut) {
-        sshStdOutLogger = new ShellStdOutLogger(operation, scriptName, log, statusCodeToken, environmentVariablesToken, stdOut);
+        sshStdOutLogger = new ShellStdOutLogger(node, operation, scriptName, log, statusCodeToken, environmentVariablesToken, stdOut);
         stdOutFuture = executorService.submit(sshStdOutLogger);
     }
 
@@ -68,8 +71,7 @@ public class ShellOutputHandler implements OutputHandler {
 
     @Override
     public OperationOutput getOperationOutput() throws ExecutionException, InterruptedException {
-        stdErrFuture.get();
-        stdOutFuture.get();
+        waitForOutputToBeConsumed();
         return new OperationOutput(sshStdOutLogger.getStatusCode(), sshStdOutLogger.getCapturedEnvVars());
     }
 
@@ -80,6 +82,12 @@ public class ShellOutputHandler implements OutputHandler {
         } else {
             return null;
         }
+    }
+
+    @Override
+    public void waitForOutputToBeConsumed() throws ExecutionException, InterruptedException {
+        stdErrFuture.get();
+        stdOutFuture.get();
     }
 
     @Override

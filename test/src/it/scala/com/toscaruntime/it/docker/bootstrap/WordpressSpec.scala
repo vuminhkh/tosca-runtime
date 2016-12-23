@@ -1,6 +1,6 @@
 package com.toscaruntime.it.docker.bootstrap
 
-import com.toscaruntime.cli.command.UseCommand
+import com.toscaruntime.cli.command.DaemonCommand
 import com.toscaruntime.it.TestConstant._
 import com.toscaruntime.it.steps.AgentsSteps._
 import com.toscaruntime.it.steps.CsarsSteps._
@@ -31,7 +31,7 @@ class WordpressSpec extends AbstractSpec with MustMatchers {
       val daemonURL = DeploymentsSteps.bootstrap()
 
       And("I use this new daemon url to manage deployments")
-      UseCommand.switchConnection(Context.client, new DockerDaemonConfig(daemonURL, null, null), testConfigPath)
+      DaemonCommand.switchConnection(Context.client, new DockerDaemonConfig(daemonURL, null, null), testConfigPath)
 
       And("A deployment image has been created for the wordpress docker topology")
       createDeploymentImage("wordpress") must be(true)
@@ -49,7 +49,7 @@ class WordpressSpec extends AbstractSpec with MustMatchers {
       launchUndeployment("wordpress")
 
       And("I should be able to switch to the local connection")
-      UseCommand.switchConnection(Context.client, Context.dockerConfig, testConfigPath)
+      DaemonCommand.switchConnection(Context.client, Context.dockerConfig, testConfigPath)
 
       And("I should be able to teardown the bootstrap")
       teardown()

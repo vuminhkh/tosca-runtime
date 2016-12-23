@@ -1,13 +1,13 @@
 package com.toscaruntime.util;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class JSONUtilTest {

@@ -9,7 +9,7 @@ lazy val commonSettings: Seq[Setting[_]] = Seq(
   organization := "com.toscaruntime",
   version := "1.0.0-SNAPSHOT",
   crossPaths := false,
-  scalaVersion := "2.11.7",
+  scalaVersion := "2.11.8",
   javacOptions ++= Seq(
     "-source", "1.8",
     "-target", "1.8"
@@ -45,7 +45,7 @@ lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-parent"
-  ).aggregate(deployer, proxy, rest, runtime, compiler, providers, plugins, sdk, common, cli, itTest).enablePlugins(UniversalPlugin)
+  ).aggregate(deployer, proxy, rest, runtime, compiler, providers, plugins, sdk, common, connections, cli, itTest).enablePlugins(UniversalPlugin)
 
 val testDependencies: Seq[ModuleID] = Seq(
   "junit" % "junit" % "4.12" % Test,
@@ -56,20 +56,20 @@ val testDependencies: Seq[ModuleID] = Seq(
 )
 
 val scalaTestDependencies: Seq[ModuleID] = Seq(
-  "org.scalatest" % "scalatest_2.11" % "2.2.5" % "test"
+  "org.scalatest" % "scalatest_2.11" % "2.2.5" % Test
 )
 
 val commonDependencies: Seq[ModuleID] = Seq(
-  "commons-lang" % "commons-lang" % "2.6",
-  "org.slf4j" % "slf4j-api" % "1.7.12",
-  "ch.qos.logback" % "logback-classic" % "1.1.3"
+  "commons-lang" % "commons-lang" % "2.6" % Provided,
+  "org.slf4j" % "slf4j-api" % "1.7.12" % Provided,
+  "ch.qos.logback" % "logback-classic" % "1.1.3" % Provided
 )
 
 lazy val common = project.in(file("common"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-common"
-  ).aggregate(sshUtil, dockerUtil, fileUtil, miscUtil, gitUtil, compilationUtil, sharedContracts, restModel, testCommon).enablePlugins(UniversalPlugin)
+  ).aggregate(dockerUtil, fileUtil, miscUtil, gitUtil, compilationUtil, sharedContracts, restModel, testCommon).enablePlugins(UniversalPlugin)
 
 lazy val sharedContracts = project.in(file("common/shared-contracts"))
   .settings(commonSettings: _*)
@@ -95,15 +95,7 @@ lazy val miscUtil = project.in(file("common/misc-util"))
     libraryDependencies ++= testDependencies,
     libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.4"
-  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
-
-lazy val sshUtil = project.in(file("common/ssh-util"))
-  .settings(commonSettings: _*)
-  .settings(
-    name := "toscaruntime-ssh-util",
-    libraryDependencies ++= commonDependencies,
-    libraryDependencies += "com.hierynomus" % "sshj" % "0.15.0" exclude("org.bouncycastle", "bcpkix-jdk15on") exclude("org.bouncycastle", "bcprov-jdk15on")
-  ).dependsOn(sharedContracts % "provided", miscUtil % "provided").enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts % Provided).enablePlugins(UniversalPlugin)
 
 lazy val dockerUtil = project.in(file("common/docker-util"))
   .settings(commonSettings: _*)
@@ -111,19 +103,21 @@ lazy val dockerUtil = project.in(file("common/docker-util"))
     name := "toscaruntime-docker-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies ++= testDependencies,
-    libraryDependencies += "com.github.docker-java" % "docker-java" % "3.0.0-SNAPSHOT" exclude("org.glassfish.hk2", "hk2-api") exclude("org.glassfish.hk2.external", "javax.inject") exclude("org.glassfish.hk2", "hk2-locator") exclude("org.bouncycastle", "bcpkix-jdk15on") exclude("org.bouncycastle", "bcprov-jdk15on"),
+    libraryDependencies += "com.github.docker-java" % "docker-java" % "3.0.0-SNAPSHOT" exclude("org.glassfish.hk2", "hk2-api") exclude("org.glassfish.hk2.external", "javax.inject") exclude("org.glassfish.hk2", "hk2-locator") exclude("org.bouncycastle", "bcpkix-jdk15on") exclude("org.bouncycastle", "bcprov-jdk15on") exclude("org.slf4j", "slf4j-api") exclude("org.slf4j", "jcl-over-slf4j"),
     libraryDependencies += "org.glassfish.hk2" % "hk2-api" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2.external" % "javax.inject" % "2.4.0-b32",
     libraryDependencies += "org.glassfish.hk2" % "hk2-locator" % "2.4.0-b32"
-  ).dependsOn(sharedContracts % "provided", miscUtil % "provided").enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts % Provided, miscUtil % Provided).enablePlugins(UniversalPlugin)
 
 lazy val fileUtil = project.in(file("common/file-util"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-file-util",
     libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= testDependencies,
+    libraryDependencies ++= scalaTestDependencies,
     libraryDependencies += "org.apache.commons" % "commons-compress" % "1.9"
-  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts % Provided).enablePlugins(UniversalPlugin)
 
 lazy val compilationUtil = project.in(file("common/compilation-util"))
   .settings(commonSettings: _*)
@@ -131,7 +125,7 @@ lazy val compilationUtil = project.in(file("common/compilation-util"))
     name := "toscaruntime-compilation-util",
     libraryDependencies ++= commonDependencies,
     sources in doc in Compile := List()
-  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts % Provided).enablePlugins(UniversalPlugin)
 
 lazy val gitUtil = project.in(file("common/git-util"))
   .settings(commonSettings: _*)
@@ -139,7 +133,37 @@ lazy val gitUtil = project.in(file("common/git-util"))
     name := "toscaruntime-git-util",
     libraryDependencies ++= commonDependencies,
     libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit" % "4.1.1.201511131810-r"
-  ).dependsOn(sharedContracts).enablePlugins(UniversalPlugin)
+  ).dependsOn(sharedContracts % Provided).enablePlugins(UniversalPlugin)
+
+lazy val connections = project.in(file("connections"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "toscaruntime-connections"
+  ).aggregate(sshConnection, dockerConnection, localConnection).enablePlugins(UniversalPlugin)
+
+lazy val sshConnection = project.in(file("connections/ssh"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "toscaruntime-ssh-connection",
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies += "com.hierynomus" % "sshj" % "0.15.0" exclude("org.bouncycastle", "bcpkix-jdk15on") exclude("org.bouncycastle", "bcprov-jdk15on") exclude("org.slf4j", "slf4j-api")
+  ).dependsOn(sharedContracts % Provided, miscUtil % Provided).enablePlugins(UniversalPlugin)
+
+lazy val dockerConnection = project.in(file("connections/docker"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "toscaruntime-docker-connection",
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= testDependencies
+  ).dependsOn(sharedContracts % Provided, miscUtil % Provided, dockerUtil).enablePlugins(UniversalPlugin)
+
+lazy val localConnection = project.in(file("connections/local"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "toscaruntime-local-connection",
+    libraryDependencies ++= commonDependencies,
+    libraryDependencies ++= testDependencies
+  ).dependsOn(sharedContracts % Provided, miscUtil % Provided, fileUtil).enablePlugins(UniversalPlugin)
 
 lazy val restModel = project.in(file("common/rest-model"))
   .settings(commonSettings: _*)
@@ -161,7 +185,7 @@ lazy val rest = project.in(file("rest"))
     libraryDependencies += "com.typesafe.play" %% "play-ws" % "2.4.6",
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil, sharedContracts).enablePlugins(UniversalPlugin)
+  ).dependsOn(restModel, dockerUtil, fileUtil, miscUtil % Provided, sharedContracts % Provided).enablePlugins(UniversalPlugin)
 
 lazy val compiler = project.in(file("compiler"))
   .settings(commonSettings: _*)
@@ -172,7 +196,7 @@ lazy val compiler = project.in(file("compiler"))
     libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.4",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     libraryDependencies += "com.typesafe" % "config" % "1.3.0"
-  ).dependsOn(sdk, commonProvider, compilationUtil, fileUtil, dockerUtil, miscUtil, gitUtil % "test", mock % "test").enablePlugins(SbtTwirl, UniversalPlugin)
+  ).dependsOn(sdk, commonProvider, compilationUtil, fileUtil, dockerUtil, miscUtil % Provided, gitUtil % Test, mock % Test).enablePlugins(SbtTwirl, UniversalPlugin)
 
 lazy val runtime = project.in(file("runtime"))
   .settings(commonSettings: _*)
@@ -183,7 +207,7 @@ lazy val runtime = project.in(file("runtime"))
     libraryDependencies += "org.yaml" % "snakeyaml" % "1.16",
     libraryDependencies += "com.typesafe.scala-logging" %% "scala-logging" % "3.1.0",
     sources in doc in Compile := List()
-  ).dependsOn(sdk, commonProvider, fileUtil, compiler % "test->test;test->compile", docker % "test").enablePlugins(UniversalPlugin)
+  ).dependsOn(sdk, commonProvider, fileUtil, compiler % "test->test;test->compile", docker % Test).enablePlugins(UniversalPlugin)
 
 lazy val deployer = project.in(file("deployer"))
   .settings(commonSettings: _*)
@@ -194,11 +218,13 @@ lazy val deployer = project.in(file("deployer"))
     libraryDependencies += "com.h2database" % "h2" % "1.4.191",
     libraryDependencies += "com.typesafe.play" %% "play-slick" % "1.1.1",
     libraryDependencies += "com.typesafe.play" %% "play-slick-evolutions" % "1.1.1",
-    libraryDependencies += "org.scalatestplus" %% "play" % "1.4.0" % "test",
+    libraryDependencies += "org.scalatestplus" %% "play" % "1.4.0" % Test,
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.51",
     libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.51",
     packageName in Docker := "toscaruntime/deployer",
-    dockerExposedPorts in Docker := Seq(9000, 9443),
+    dockerBaseImage := "toscaruntime/deployer-base:" + version.value,
+    dockerExposedPorts := Seq(9000, 9443),
+    daemonUser in Docker := "toscaruntime",
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(runtime, restModel, mock, sdk).enablePlugins(PlayScala, DockerPlugin)
 
@@ -206,13 +232,15 @@ lazy val proxy = project.in(file("proxy"))
   .settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-proxy",
-    packageName in Docker := "toscaruntime/proxy",
     libraryDependencies += ws,
     routesGenerator := InjectedRoutesGenerator,
     libraryDependencies += cache,
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.51",
     libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.51",
-    dockerExposedPorts in Docker := Seq(9000, 9443),
+    packageName in Docker := "toscaruntime/proxy",
+    dockerBaseImage := "toscaruntime/proxy-base:" + version.value,
+    dockerExposedPorts := Seq(9000, 9443),
+    daemonUser in Docker := "toscaruntime",
     stage <<= stage dependsOn(publishLocal, publishLocal in Docker)
   ).dependsOn(dockerUtil, rest).enablePlugins(PlayScala, DockerPlugin)
 
@@ -253,7 +281,7 @@ lazy val commonProvider = project.in(file("providers/common"))
     filterDirectoryName := "src/main/resources/toscaruntime-common-provider-types",
     includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % Provided).enablePlugins(JavaAppPackaging)
 
 lazy val docker = project.in(file("providers/docker"))
   .settings(providerSettings: _*)
@@ -264,7 +292,7 @@ lazy val docker = project.in(file("providers/docker"))
     filterDirectoryName := "src/main/resources/toscaruntime-docker-provider-types",
     includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided", commonProvider % "provided", dockerUtil)
+  ).dependsOn(sdk % Provided, commonProvider % Provided, dockerUtil)
   .enablePlugins(JavaAppPackaging)
 
 lazy val mock = project.in(file("providers/mock"))
@@ -272,7 +300,7 @@ lazy val mock = project.in(file("providers/mock"))
   .settings(
     name := "toscaruntime-mock",
     libraryDependencies ++= testDependencies
-  ).dependsOn(sdk % "provided").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % Provided).enablePlugins(JavaAppPackaging)
 
 lazy val openstack = project.in(file("providers/openstack"))
   .settings(providerSettings: _*)
@@ -288,7 +316,7 @@ lazy val openstack = project.in(file("providers/openstack"))
     libraryDependencies += "org.apache.jclouds.labs" % "openstack-neutron" % "1.9.1",
     libraryDependencies ++= testDependencies,
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", testCommon % "test").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % Provided, commonProvider % Provided, sharedContracts % Provided, miscUtil % Provided, testCommon % Test).enablePlugins(JavaAppPackaging)
 
 lazy val aws = project.in(file("providers/aws"))
   .settings(providerSettings: _*)
@@ -302,12 +330,12 @@ lazy val aws = project.in(file("providers/aws"))
     libraryDependencies += "org.apache.jclouds.provider" % "aws-s3" % "1.9.3-SNAPSHOT",
     libraryDependencies ++= testDependencies,
     (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", testCommon % "test").enablePlugins(JavaAppPackaging)
+  ).dependsOn(sdk % Provided, commonProvider % Provided, sharedContracts % Provided, miscUtil % Provided, testCommon % Test).enablePlugins(JavaAppPackaging)
 
 lazy val plugins = project.in(file("plugins")).settings(commonSettings: _*)
   .settings(
     name := "toscaruntime-plugins"
-  ).aggregate(scriptPlugin, consulPlugin, ansiblePlugin).enablePlugins(UniversalPlugin)
+  ).aggregate(scriptPlugin, ansiblePlugin).enablePlugins(UniversalPlugin)
 
 lazy val scriptPlugin = project.in(file("plugins/script"))
   .settings(pluginSettings: _*)
@@ -316,19 +344,10 @@ lazy val scriptPlugin = project.in(file("plugins/script"))
     name := "toscaruntime-script",
     libraryDependencies ++= testDependencies,
     filterDirectoryName := "src/main/resources/toscaruntime-script-plugin-types",
-    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" }
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", sshUtil, dockerUtil % "test->test;compile->compile")
-  .enablePlugins(JavaAppPackaging)
-
-lazy val consulPlugin = project.in(file("plugins/consul"))
-  .settings(pluginSettings: _*)
-  .settings(filterSettings: _*)
-  .settings(
-    name := "toscaruntime-consul",
-    filterDirectoryName := "src/main/resources/toscaruntime-consul-plugin-types",
     includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
-    libraryDependencies += "com.orbitz.consul" % "consul-client" % "0.12.3"
-  ).dependsOn(sdk % "provided", sharedContracts % "provided", miscUtil % "provided").enablePlugins(JavaAppPackaging)
+    (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
+  ).dependsOn(sdk % Provided, commonProvider % Provided, sharedContracts % Provided, miscUtil % Provided, sshConnection, dockerConnection % "test->test;compile->compile", localConnection)
+  .enablePlugins(JavaAppPackaging)
 
 lazy val ansiblePlugin = project.in(file("plugins/ansible"))
   .settings(pluginSettings: _*)
@@ -337,8 +356,9 @@ lazy val ansiblePlugin = project.in(file("plugins/ansible"))
     name := "toscaruntime-ansible",
     libraryDependencies ++= testDependencies,
     filterDirectoryName := "src/main/resources/toscaruntime-ansible-plugin-types",
-    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" }
-  ).dependsOn(sdk % "provided", commonProvider % "provided", sharedContracts % "provided", miscUtil % "provided", sshUtil, dockerUtil % "test->test;compile->compile")
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
+    (packageBin in Compile) <<= (packageBin in Compile) dependsOn (filterResources in Compile)
+  ).dependsOn(sdk % Provided, commonProvider % Provided, sharedContracts % Provided, miscUtil % Provided, sshConnection, dockerConnection % "test->test;compile->compile", localConnection)
   .enablePlugins(JavaAppPackaging)
 
 lazy val sdk = project.in(file("sdk"))
@@ -347,7 +367,8 @@ lazy val sdk = project.in(file("sdk"))
     name := "toscaruntime-sdk",
     libraryDependencies ++= testDependencies,
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.12",
-    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3"
+    libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.1.3",
+    libraryDependencies += "commons-lang" % "commons-lang" % "2.6"
   ).dependsOn(miscUtil, sharedContracts).enablePlugins(JavaAppPackaging)
 
 lazy val downloadSbtLauncher = taskKey[Unit]("Downloads sbt launcher.")
@@ -357,93 +378,88 @@ lazy val cli = project.in(file("cli"))
   .settings(filterSettings: _*)
   .settings(
     name := "toscaruntime-cli",
-    libraryDependencies += "org.scala-sbt" % "command" % "0.13.8",
+    libraryDependencies += "org.scala-sbt" % "command" % "0.13.12",
     libraryDependencies += "org.bouncycastle" % "bcpkix-jdk15on" % "1.51",
     libraryDependencies += "org.bouncycastle" % "bcprov-jdk15on" % "1.51",
     filterDirectoryName := "src/main/resources/",
-    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" },
+    includeFilter in(Compile, filterResources) ~= { f => f || "*.yaml" || "*.conf" || "launchConfig"},
     downloadSbtLauncher := {
+      def copyDirectory(from: File, to: File) = {
+        from.mkdirs()
+        IO.copyDirectory(from, to)
+      }
+      def copyFile(from: File, to: File) = {
+        from.getParentFile.mkdirs()
+        IO.copyDirectory(from, to)
+      }
+      def download(url: URL, to: File) = {
+        to.getParentFile.mkdirs()
+        IO.download(url, to)
+      }
       val logFile = target.value / "prepare-stage" / "log" / "cli.log"
       logFile.getParentFile.mkdirs()
       IO.touch(logFile)
+
       val sbtLaunchTarget = target.value / "prepare-stage" / "bin" / "sbt-launch.jar"
-      sbtLaunchTarget.getParentFile.mkdirs()
-      IO.download(url("https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.8/sbt-launch.jar"), sbtLaunchTarget)
+      download(url("https://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.12/sbt-launch.jar"), sbtLaunchTarget)
+
       val toscaRuntimeBashScriptTarget = target.value / "prepare-stage" / "bin" / "tosca-runtime.sh"
-      toscaRuntimeBashScriptTarget.getParentFile.mkdirs()
-      IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeBashScriptTarget)
+      copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.sh", toscaRuntimeBashScriptTarget)
       toscaRuntimeBashScriptTarget.setExecutable(true)
-      IO.copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.bat", target.value / "prepare-stage" / "bin" / "tosca-runtime.bat")
+      copyFile((resourceDirectory in Compile).value / "bin" / "tosca-runtime.bat", target.value / "prepare-stage" / "bin" / "tosca-runtime.bat")
 
-      // Launch config
-      val launchConfigTarget = target.value / "prepare-stage" / "conf" / "launchConfig"
-      launchConfigTarget.getParentFile.mkdirs()
-      val launchConfigSource = (resourceDirectory in Compile).value / "conf" / "launchConfig.template"
-      var launchConfigTemplateText = IO.read(launchConfigSource)
-      launchConfigTemplateText = launchConfigTemplateText.replace("${organization}", organization.value)
-      launchConfigTemplateText = launchConfigTemplateText.replace("${name}", name.value)
-      launchConfigTemplateText = launchConfigTemplateText.replace("${version}", version.value)
-      IO.write(launchConfigTarget, launchConfigTemplateText)
-
-      // Copy common provider types, as classes are imported and used by toscaruntime then copy only yaml  definitions
+      // Copy common provider types, as classes are imported and used by toscaruntime then copy only yaml definitions
       val commonProviderTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-common-provider-types" / version.value / "src" / "main" / "resources"
-      commonProviderTarget.mkdirs()
-      IO.copyDirectory((stage in commonProvider).value / "src" / "main" / "resources", commonProviderTarget)
+      copyDirectory((stage in commonProvider).value / "src" / "main" / "resources", commonProviderTarget)
 
       // Copy docker provider
       val dockerProviderTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-docker-provider-types" / version.value
-      dockerProviderTarget.mkdirs()
-      IO.copyDirectory((stage in docker).value, dockerProviderTarget)
+      copyDirectory((stage in docker).value, dockerProviderTarget)
 
       // Copy openstack provider
       val openstackProviderTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-openstack-provider-types" / version.value
-      openstackProviderTarget.mkdirs()
-      IO.copyDirectory((stage in openstack).value, openstackProviderTarget)
+      copyDirectory((stage in openstack).value, openstackProviderTarget)
 
       // Copy aws provider
       val awsProviderTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-aws-provider-types" / version.value
-      awsProviderTarget.mkdirs()
-      IO.copyDirectory((stage in aws).value, awsProviderTarget)
-
-      // Handle plugins
-      // Copy consul plugin
-      val consulPluginTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-consul-plugin-types" / version.value
-      consulPluginTarget.mkdirs()
-      IO.copyDirectory((stage in consulPlugin).value, consulPluginTarget)
+      copyDirectory((stage in aws).value, awsProviderTarget)
 
       // Copy script plugin
       val scriptPluginTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-script-plugin-types" / version.value
-      scriptPluginTarget.mkdirs()
-      IO.copyDirectory((stage in scriptPlugin).value, scriptPluginTarget)
+      copyDirectory((stage in scriptPlugin).value, scriptPluginTarget)
 
       // Copy ansible plugin
       val ansiblePluginTarget = target.value / "prepare-stage" / "repository" / "toscaruntime-ansible-plugin-types" / version.value
-      ansiblePluginTarget.mkdirs()
-      IO.copyDirectory((stage in ansiblePlugin).value, ansiblePluginTarget)
+      copyDirectory((stage in ansiblePlugin).value, ansiblePluginTarget)
 
-      // Copy providers configurations
-      val providerConf = target.value / "prepare-stage" / "conf" / "providers"
-      providerConf.mkdirs()
-      IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "providers", providerConf)
+      // Copy docker files
+      val imagesTarget = target.value / "prepare-stage" / "images"
+      copyDirectory(target.value / "classes" / "images", imagesTarget)
 
-      // Copy plugins configurations
-      val pluginConf = target.value / "prepare-stage" / "conf" / "plugins"
-      pluginConf.mkdirs()
-      IO.copyDirectory((resourceDirectory in Compile).value / "conf" / "plugins", pluginConf)
+      // Copy deployer
+      val deployerTarget = target.value / "prepare-stage" / "images" / "deployer"
+      copyDirectory((stage in deployer).value, deployerTarget)
+      (deployerTarget / "bin" / "toscaruntime-deployer").setExecutable(true)
+
+      val proxyTarget = target.value / "prepare-stage" / "images" / "proxy"
+      copyDirectory((stage in proxy).value, proxyTarget)
+      (proxyTarget / "bin" / "toscaruntime-proxy").setExecutable(true)
+
+      // Copy configurations
+      val confTarget = target.value / "prepare-stage" / "conf"
+      copyDirectory(target.value / "classes" / "conf", confTarget)
 
       // Copy bootstrap csars
-      val bootstrapConf = target.value / "prepare-stage" / "bootstrap"
-      bootstrapConf.mkdirs()
-      val bootstrapConfSource = target.value / "classes" / "bootstrap"
-      IO.copyDirectory(bootstrapConfSource, bootstrapConf)
+      val bootstrapTarget = target.value / "prepare-stage" / "bootstrap"
+      copyDirectory(target.value / "classes" / "bootstrap", bootstrapTarget)
 
       val sdkToscaTarget = target.value / "prepare-stage" / "csars"
       val sdkToscaTempDownloadTarget = sdkToscaTarget / "tosca-normative-types.zip"
-      sdkToscaTempDownloadTarget.getParentFile.mkdirs()
-      IO.download(url("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip"), sdkToscaTempDownloadTarget)
+      download(url("https://github.com/vuminhkh/tosca-normative-types/archive/master.zip"), sdkToscaTempDownloadTarget)
       IO.unzip(sdkToscaTempDownloadTarget, sdkToscaTarget)
       IO.copyDirectory(target.value / "classes" / "csars", sdkToscaTarget)
 
+      val launchConfigTarget = target.value / "prepare-stage" / "conf" / "launchConfig"
       val command = s"java -jar $sbtLaunchTarget @$launchConfigTarget"
       Process(command, Some(sbtLaunchTarget.getParentFile)) ! match {
         case 0 =>

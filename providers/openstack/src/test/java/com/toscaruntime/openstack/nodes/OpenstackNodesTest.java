@@ -2,6 +2,7 @@ package com.toscaruntime.openstack.nodes;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.toscaruntime.constant.RelationshipInstanceState;
 import com.toscaruntime.deployment.DeploymentPersister;
 import com.toscaruntime.openstack.OpenstackProviderHook;
 import com.toscaruntime.sdk.Provider;
@@ -12,7 +13,6 @@ import com.toscaruntime.util.ClassLoaderUtil;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.Mockito;
-import com.toscaruntime.constant.RelationshipInstanceState;
 import tosca.relationships.AttachTo;
 
 import java.util.ArrayList;
